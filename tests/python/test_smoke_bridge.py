@@ -8,9 +8,10 @@ from scripts.smoke_bridge import run_probe
 
 
 class FakeSession:
-    def __init__(self, *, fail_clients=False):
+    def __init__(self, *, fail_clients=False, pair_status_failures=0):
         self.actions = []
         self.fail_clients = fail_clients
+        self.pair_status_failures = pair_status_failures
 
     def request(self, action, params=None):
         self.actions.append((action, params or {}))
@@ -30,6 +31,9 @@ class FakeSession:
         }
         if action == "remote_clients" and self.fail_clients:
             raise RuntimeError("client list failed")
+        if action == "remote_pair_status" and self.pair_status_failures > 0:
+            self.pair_status_failures -= 1
+            raise RuntimeError("proxy is restarting")
         return responses[action]
 
 
@@ -71,3 +75,15 @@ def test_live_smoke_connects_remote_before_capturing_dashboard():
         '"$SCREENSHOT_DIR/dashboard.png"'
     )
     assert "settledRemote" in script
+
+
+def test_run_probe_retries_pair_status_during_proxy_readiness_race():
+    session = FakeSession(pair_status_failures=2)
+
+    result = run_probe(session, output=io.StringIO(), sleeper=lambda _seconds: None)
+
+    pair_status_calls = [
+        action for action, _params in session.actions if action == "remote_pair_status"
+    ]
+    assert len(pair_status_calls) == 3
+    assert result["remoteLeftRunning"] is True

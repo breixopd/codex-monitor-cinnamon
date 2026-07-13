@@ -89,6 +89,17 @@ def _connected_status(session, initial, sleeper):
     raise RuntimeError("Remote Control did not connect during smoke test")
 
 
+def _retry_remote_request(session, action, params, sleeper, *, attempts=10):
+    for attempt in range(attempts):
+        try:
+            return session.request(action, params)
+        except RuntimeError:
+            if attempt + 1 == attempts:
+                raise
+            sleeper(1)
+    raise RuntimeError("Remote Control request did not complete during smoke test")
+
+
 def run_probe(session, *, output=sys.stdout, sleeper=time.sleep):
     """Run the live bridge contract and emit only non-sensitive assertions."""
 
@@ -99,15 +110,22 @@ def run_probe(session, *, output=sys.stdout, sleeper=time.sleep):
     sessions = session.request("sessions", {"limit": 12})
     status = _connected_status(session, initial, sleeper)
     pairing = session.request("remote_pair_start")
-    pairing_status = session.request(
+    pairing_status = _retry_remote_request(
+        session,
         "remote_pair_status",
         {
             "pairingCode": pairing.get("pairingCode"),
             "manualPairingCode": pairing.get("manualPairingCode"),
         },
+        sleeper,
     )
     environment_id = pairing.get("environmentId") or status.get("environmentId")
-    clients = session.request("remote_clients", {"environmentId": environment_id})
+    clients = _retry_remote_request(
+        session,
+        "remote_clients",
+        {"environmentId": environment_id},
+        sleeper,
+    )
     result = {
         "snapshot": isinstance(snapshot, dict) and "capturedAt" in snapshot,
         "sessionCount": len(sessions.get("active") or [])
