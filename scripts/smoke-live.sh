@@ -72,7 +72,7 @@ python3 "$ROOT/scripts/smoke_bridge.py" \
   --helper "$TARGET/helper/bridge.py" \
   --codex "${CODEX_BINARY:-codex}"
 
-eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; x._refreshRemoteState(); "refreshing";' >/dev/null
+eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; x._remoteAction("remote_start",{confirmed:true}); "starting";' >/dev/null
 
 dashboard_js='var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; var modes=["quota","activity","both"]; var ranges=[24,168,720]; for (var i=0;i<modes.length;i++){for(var j=0;j<ranges.length;j++){x.graphMode=modes[i];x.graphRangeHours=ranges[j];x._render();}} x.menu.open(); var labels=x._dashboard._graphActor._xAxis.get_children().map(function(v){return v.get_text();}); JSON.stringify({legendReady:x._dashboard._graphActor._legend.get_children().length>0,axisReady:labels.every(function(v){return Boolean(v)&&v!=="—";}),sessions:Boolean(x._dashboard._activeSessionList&&x._dashboard._recentSessionList),remote:Boolean(x._dashboard._remoteClientList)});'
 dashboard=$(eval_cinnamon "$dashboard_js")
@@ -84,7 +84,7 @@ for assertion in legendReady axisReady sessions remote; do
 done
 
 
-settled_js='var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; JSON.stringify({settledQuota:Boolean(x._snapshot&&x._dashboard._snapshot===x._snapshot&&x._dashboard._fiveHourCard._percent.get_text()!=="—"),settledSessions:Boolean(x._sessions&&x._dashboard._sessions===x._sessions),settledRemote:Boolean(x._remoteStatus&&x._remoteStatus.status==="connected")});'
+settled_js='var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; var quotaReady=x._dashboard._fiveHourCard._percent.get_text()!=="—"||x._dashboard._weeklyCard._percent.get_text()!=="—"; JSON.stringify({settledQuota:Boolean(x._snapshot&&x._dashboard._snapshot===x._snapshot&&quotaReady),settledSessions:Boolean(x._sessions&&x._dashboard._sessions===x._sessions),settledRemote:Boolean(x._remoteStatus&&x._remoteStatus.status==="connected")});'
 settled=''
 attempt=0
 while [ "$attempt" -lt 20 ]; do

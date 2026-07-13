@@ -65,10 +65,21 @@ def test_remote_status_reads_running_daemon_through_proxy():
 
 def test_remote_status_treats_unavailable_proxy_daemon_as_disabled():
     client = FailingInitializeClient({})
-    remote = RemoteControl("codex", client_factory=lambda: client)
+    remote = RemoteControl(
+        "codex", client_factory=lambda: client, daemon_running=lambda: False
+    )
 
     assert remote.status() == {"status": "disabled"}
     assert client.closed is True
+
+
+def test_remote_status_reports_running_daemon_as_connecting_when_proxy_is_unavailable():
+    client = FailingInitializeClient({})
+    remote = RemoteControl(
+        "codex", client_factory=lambda: client, daemon_running=lambda: True
+    )
+
+    assert remote.status() == {"status": "connecting"}
 
 
 def test_remote_status_discards_invalid_or_oversized_metadata():
@@ -217,6 +228,16 @@ def test_remote_pair_status_reports_unsupported_method_without_breaking_pairing(
     }
 
 
+def test_remote_pair_status_reports_temporarily_unavailable_proxy_as_unsupported():
+    client = FailingInitializeClient({})
+    remote = RemoteControl("codex", client_factory=lambda: client)
+
+    assert remote.pair_status("opaque-code") == {
+        "claimed": False,
+        "supported": False,
+    }
+
+
 def test_remote_clients_are_allowlisted_bounded_and_sorted_by_last_seen():
     client = FakeStatusClient(
         {
@@ -299,6 +320,16 @@ def test_remote_clients_reports_unsupported_method_without_breaking_remote_statu
     }
 
 
+def test_remote_clients_reports_temporarily_unavailable_proxy_as_unsupported():
+    client = FailingInitializeClient({})
+    remote = RemoteControl("codex", client_factory=lambda: client)
+
+    assert remote.clients("environment-1") == {
+        "clients": [],
+        "supported": False,
+    }
+
+
 def test_remote_revoke_uses_fixed_proxy_method_and_returns_normalized_result():
     client = FakeStatusClient({})
     remote = RemoteControl("codex", client_factory=lambda: client)
@@ -351,6 +382,38 @@ def test_remote_start_and_stop_use_fixed_argument_lists():
         ["codex", "remote-control", "start", "--json"],
         ["codex", "remote-control", "stop", "--json"],
     ]
+
+
+def test_remote_start_caches_connected_status_when_proxy_is_temporarily_unavailable():
+    client = FailingInitializeClient({})
+
+    def runner(command, **kwargs):
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=json.dumps(
+                {
+                    "status": "connected",
+                    "serverName": "mint-workstation",
+                    "environmentId": "environment-1",
+                }
+            ),
+            stderr="",
+        )
+
+    remote = RemoteControl(
+        "codex",
+        runner=runner,
+        client_factory=lambda: client,
+        daemon_running=lambda: True,
+    )
+
+    assert remote.start()["status"] == "connected"
+    assert remote.status() == {
+        "status": "connected",
+        "serverName": "mint-workstation",
+        "environmentId": "environment-1",
+    }
 
 
 def test_remote_command_errors_do_not_expose_stderr():

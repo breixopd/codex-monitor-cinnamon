@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import stat
 import subprocess
 
 from .rpc import RpcError
@@ -14,12 +16,20 @@ class _ProxyUnavailable(RuntimeError):
 
 class RemoteControl:
     def __init__(
-        self, executable, *, runner=None, client_factory=None, environment=None
+        self,
+        executable,
+        *,
+        runner=None,
+        client_factory=None,
+        environment=None,
+        daemon_running=None,
     ):
         self.executable = executable
         self.runner = runner or subprocess.run
         self.client_factory = client_factory
         self.environment = environment
+        self.daemon_running = daemon_running or self._control_socket_running
+        self._last_status = None
 
     def status(self):
         if self.client_factory is None:
@@ -27,15 +37,23 @@ class RemoteControl:
         try:
             value = self._proxy_request("remoteControl/status/read")
         except _ProxyUnavailable:
-            return {"status": "disabled"}
-        return self._normalize_status(value)
+            if self._last_status is not None:
+                return dict(self._last_status)
+            return {
+                "status": "connecting" if self._daemon_is_running() else "disabled"
+            }
+        self._last_status = self._normalize_status(value)
+        return dict(self._last_status)
 
     def start(self):
-        return self._run_json("start")
+        status = self._compact_status(self._normalize_status(self._run_json("start")))
+        self._last_status = status
+        return dict(status)
 
     def stop(self):
         self._run_json("stop")
-        return {"status": "disabled"}
+        self._last_status = {"status": "disabled"}
+        return dict(self._last_status)
 
     def pair_start(self):
         try:
@@ -98,6 +116,8 @@ class RemoteControl:
         )
         try:
             value = self._proxy_request("remoteControl/pairing/status", params)
+        except _ProxyUnavailable:
+            return {"claimed": False, "supported": False}
         except RpcError as error:
             if error.code != -32601:
                 raise
@@ -113,6 +133,8 @@ class RemoteControl:
                 "remoteControl/client/list",
                 {"environmentId": environment_id, "limit": 50, "order": "desc"},
             )
+        except _ProxyUnavailable:
+            return {"clients": [], "supported": False}
         except RpcError as error:
             if error.code != -32601:
                 raise
@@ -171,6 +193,27 @@ class RemoteControl:
         if not isinstance(value, dict):
             raise RuntimeError("Codex remote-control response was invalid")
         return value
+
+    def _daemon_is_running(self):
+        try:
+            return bool(self.daemon_running())
+        except (OSError, RuntimeError):
+            return False
+
+    def _control_socket_running(self):
+        environment = self.environment or os.environ
+        codex_home = environment.get("CODEX_HOME")
+        if not codex_home:
+            home = environment.get("HOME") or os.path.expanduser("~")
+            codex_home = os.path.join(home, ".codex")
+        socket_path = os.path.join(
+            codex_home, "app-server-control", "app-server-control.sock"
+        )
+        return stat.S_ISSOCK(os.lstat(socket_path).st_mode)
+
+    @staticmethod
+    def _compact_status(value):
+        return {key: item for key, item in value.items() if item is not None}
 
     @classmethod
     def _normalize_status(cls, value):

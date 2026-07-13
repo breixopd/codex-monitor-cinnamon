@@ -71,6 +71,7 @@ def test_live_smoke_connects_remote_before_capturing_dashboard():
     script = Path("scripts/smoke-live.sh").read_text(encoding="utf-8")
 
     assert "remote_stop" not in script
+    assert 'x._remoteAction("remote_start",{confirmed:true})' in script
     assert script.index('python3 "$ROOT/scripts/smoke_bridge.py"') < script.index(
         '"$SCREENSHOT_DIR/dashboard.png"'
     )

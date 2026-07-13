@@ -89,7 +89,7 @@ def _connected_status(session, initial, sleeper):
     raise RuntimeError("Remote Control did not connect during smoke test")
 
 
-def _retry_remote_request(session, action, params, sleeper, *, attempts=10):
+def _retry_remote_request(session, action, params, sleeper, *, attempts=3):
     for attempt in range(attempts):
         try:
             return session.request(action, params)
