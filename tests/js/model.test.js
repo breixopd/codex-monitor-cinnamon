@@ -84,6 +84,14 @@ test('duration formatting remains compact and never goes negative', () => {
   assert.equal(model.formatDuration(172800), '2d');
 });
 
+test('transient Remote read failures retain only usable live states', () => {
+  assert.equal(model.isUsableRemoteStatus({ status: 'connected' }), true);
+  assert.equal(model.isUsableRemoteStatus({ status: 'connecting' }), true);
+  assert.equal(model.isUsableRemoteStatus({ status: 'disabled' }), false);
+  assert.equal(model.isUsableRemoteStatus({ status: 'errored' }), false);
+  assert.equal(model.isUsableRemoteStatus(null), false);
+});
+
 test('quota series filters by selected range and preserves reset markers', () => {
   const history = [
     { capturedAt: 100, fiveHourUsedPercent: 10, fiveHourResetsAt: 500 },

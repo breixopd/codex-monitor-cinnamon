@@ -230,6 +230,12 @@ class CodexMonitorApplet extends Applet.Applet {
   _readRemoteStatus(loadClients = true) {
     this._bridge.request('remote_status', {}, (error, status) => {
       if (error) {
+        if (Model.isUsableRemoteStatus(this._remoteStatus)) {
+          this._dashboard.setRemoteStatus(this._remoteStatus);
+          this._setRemotePolling(true);
+          this._render();
+          return;
+        }
         this._remoteStatus = { status: 'errored' };
         this._dashboard.showRemoteError(this._('Remote Control status unavailable'));
         this._setRemotePolling(false);

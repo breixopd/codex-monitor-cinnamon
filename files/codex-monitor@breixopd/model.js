@@ -228,6 +228,11 @@ function nearestGraphValues(series, timestamp) {
     });
 }
 
+function isUsableRemoteStatus(remoteStatus) {
+  const status = remoteStatus && remoteStatus.status;
+  return status === 'connecting' || status === 'connected';
+}
+
 const CodexModel = {
   formatDuration,
   formatPercent,
@@ -239,6 +244,7 @@ const CodexModel = {
   graphSummary,
   graphAxis,
   nearestGraphValues,
+  isUsableRemoteStatus,
 };
 
 if (typeof module !== 'undefined' && module.exports)
