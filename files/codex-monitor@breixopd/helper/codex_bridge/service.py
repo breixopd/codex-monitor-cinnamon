@@ -8,9 +8,10 @@ from .models import normalize_snapshot
 
 
 class CodexService:
-    def __init__(self, client, history, *, clock=time.time):
+    def __init__(self, client, history, *, remote=None, clock=time.time):
         self.client = client
         self.history = history
+        self.remote = remote
         self.clock = clock
 
     def snapshot(self):
@@ -48,6 +49,23 @@ class CodexService:
             "account/rateLimitResetCredit/consume",
             {"creditId": credit_id, "idempotencyKey": idempotency_key},
         )
+
+    def remote_status(self):
+        return self._require_remote().status()
+
+    def remote_start(self):
+        return self._require_remote().start()
+
+    def remote_stop(self):
+        return self._require_remote().stop()
+
+    def remote_pair(self):
+        return self._require_remote().pair()
+
+    def _require_remote(self):
+        if self.remote is None:
+            raise RuntimeError("Codex remote control is unavailable")
+        return self.remote
 
     @staticmethod
     def _normalize_account(account):

@@ -107,3 +107,30 @@ def test_consume_reset_sends_credit_and_idempotency_key():
             },
         )
     ]
+
+
+def test_remote_operations_are_delegated_to_remote_controller():
+    class FakeRemote:
+        def status(self):
+            return {"status": "connected"}
+
+        def start(self):
+            return {"status": "connected"}
+
+        def stop(self):
+            return {"status": "disabled"}
+
+        def pair(self):
+            return {"manualPairingCode": "ABCD-EFGH", "expiresAt": 1_800_000_000}
+
+    service = CodexService(
+        client=None,
+        history=None,
+        remote=FakeRemote(),
+        clock=lambda: 1_799_100_000,
+    )
+
+    assert service.remote_status() == {"status": "connected"}
+    assert service.remote_start() == {"status": "connected"}
+    assert service.remote_stop() == {"status": "disabled"}
+    assert service.remote_pair()["manualPairingCode"] == "ABCD-EFGH"

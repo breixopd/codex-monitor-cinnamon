@@ -39,7 +39,27 @@ class CommandRouter:
                     return _error(
                         request_id, "INVALID_PARAMS", "Invalid reset-credit parameters"
                     )
+                if params.get("confirmed") is not True:
+                    return _error(
+                        request_id,
+                        "CONFIRMATION_REQUIRED",
+                        "Explicit confirmation is required",
+                    )
                 data = self.service.consume_reset(credit_id, idempotency_key)
+            elif action == "remote_status":
+                data = self.service.remote_status()
+            elif action == "remote_start":
+                if params.get("confirmed") is not True:
+                    return _error(
+                        request_id,
+                        "CONFIRMATION_REQUIRED",
+                        "Explicit confirmation is required",
+                    )
+                data = self.service.remote_start()
+            elif action == "remote_stop":
+                data = self.service.remote_stop()
+            elif action == "remote_pair":
+                data = self.service.remote_pair()
             else:
                 return _error(
                     request_id,
