@@ -73,6 +73,8 @@ var Dashboard = class Dashboard {
     this._snapshot = null;
     this._remoteStatus = null;
     this._pairing = null;
+    this._remoteClients = [];
+    this._remoteError = '';
     this._sessions = { active: [], recent: [] };
     this._sessionsError = false;
     this._settings = {};
@@ -216,13 +218,37 @@ var Dashboard = class Dashboard {
     });
     heading.add_child(this._remoteLabel);
     this._remoteButtons = new St.BoxLayout({ style_class: 'codex-monitor-action-row' });
-    this._pairingLabel = new St.Label({
+    this._remoteIdentity = new St.Label({
+      text: '',
+      style_class: 'codex-monitor-secondary',
+    });
+    this._remoteSection.add_child(heading);
+    this._remoteSection.add_child(this._remoteIdentity);
+    this._remoteSection.add_child(this._remoteButtons);
+    this._pairingManualLabel = new St.Label({
       text: '',
       style_class: 'codex-monitor-pairing-code',
     });
-    this._remoteSection.add_child(heading);
-    this._remoteSection.add_child(this._pairingLabel);
-    this._remoteSection.add_child(this._remoteButtons);
+    this._pairingAutomaticLabel = new St.Label({
+      text: '',
+      style_class: 'codex-monitor-secondary codex-monitor-pairing-automatic',
+    });
+    this._pairingAutomaticLabel.clutter_text.set_ellipsize(Pango.EllipsizeMode.END);
+    this._pairingAutomaticLabel.clutter_text.set_single_line_mode(true);
+    this._pairingState = new St.Label({
+      text: '',
+      style_class: 'codex-monitor-secondary',
+    });
+    this._remoteSection.add_child(this._pairingManualLabel);
+    this._remoteSection.add_child(this._pairingAutomaticLabel);
+    this._remoteSection.add_child(this._pairingState);
+    this._remoteClientsHeading = new St.Label({
+      text: this._('Paired devices'),
+      style_class: 'codex-monitor-session-group-title',
+    });
+    this._remoteClientList = new St.BoxLayout({ vertical: true });
+    this._remoteSection.add_child(this._remoteClientsHeading);
+    this._remoteSection.add_child(this._remoteClientList);
     this.actor.add_child(this._remoteSection);
   }
 
@@ -241,7 +267,6 @@ var Dashboard = class Dashboard {
 
   setSettings(settings) {
     this._settings = settings;
-    this._remoteSection.visible = Boolean(settings.enableRemote);
     for (const [mode, button] of Object.entries(this._modeButtons))
       this._setChecked(button, mode === settings.graphMode);
     for (const [hours, button] of Object.entries(this._rangeButtons))
@@ -277,11 +302,29 @@ var Dashboard = class Dashboard {
 
   setRemoteStatus(status) {
     this._remoteStatus = status;
+    this._remoteError = '';
     this._renderRemote();
   }
 
   setPairing(pairing) {
     this._pairing = pairing;
+    this._renderRemote();
+  }
+
+  setPairingStatus(status) {
+    if (this._pairing)
+      this._pairing.claimed = Boolean(status && status.claimed);
+    this._renderRemote();
+  }
+
+  setRemoteClients(value) {
+    this._remoteClients = value && value.clients || [];
+    this._remoteError = '';
+    this._renderRemote();
+  }
+
+  showRemoteError(message) {
+    this._remoteError = message || this._('Remote Control is unavailable');
     this._renderRemote();
   }
 
@@ -488,8 +531,6 @@ var Dashboard = class Dashboard {
   }
 
   _renderRemote() {
-    if (!this._settings.enableRemote)
-      return;
     const status = this._remoteStatus && this._remoteStatus.status || 'disabled';
     const labels = {
       disabled: this._('Disabled'),
@@ -498,24 +539,100 @@ var Dashboard = class Dashboard {
       errored: this._('Error'),
     };
     this._remoteLabel.set_text(labels[status] || this._('Unknown'));
+    const identity = this._remoteStatus || {};
+    const identityParts = [];
+    if (identity.serverName)
+      identityParts.push(identity.serverName);
+    if (identity.environmentId)
+      identityParts.push(`${this._('environment')} ${identity.environmentId}`);
+    this._remoteIdentity.set_text(this._remoteError || identityParts.join(' · '));
+    this._remoteIdentity.visible = Boolean(this._remoteIdentity.get_text());
     _clear(this._remoteButtons);
     if (status === 'connected') {
       this._remoteButtons.add_child(_button(this._('Stop'), this._callbacks.onRemoteStop));
-      this._remoteButtons.add_child(_button(this._('Pair mobile'), this._callbacks.onRemotePair));
+      this._remoteButtons.add_child(_button(this._('Pair device'), this._callbacks.onRemotePair));
+      this._remoteButtons.add_child(_button(
+        this._('Refresh devices'), this._callbacks.onRemoteRefresh
+      ));
+    } else if (status === 'connecting') {
+      this._remoteButtons.add_child(_button(this._('Stop'), this._callbacks.onRemoteStop));
+      this._remoteButtons.add_child(_button(
+        this._('Refresh'), this._callbacks.onRemoteRefresh
+      ));
     } else {
       this._remoteButtons.add_child(_button(this._('Start'), this._callbacks.onRemoteStart));
+      this._remoteButtons.add_child(_button(
+        this._('Refresh'), this._callbacks.onRemoteRefresh
+      ));
     }
     const now = Math.floor(Date.now() / 1000);
-    if (this._pairing && this._pairing.expiresAt > now) {
-      const code = this._pairing.manualPairingCode || this._pairing.pairingCode;
-      this._pairingLabel.set_text(
-        `${this._('Pairing code')}: ${code} · ${this._('expires in')} ` +
+    if (this._pairing && this._pairing.claimed) {
+      this._pairingManualLabel.set_text('');
+      this._pairingAutomaticLabel.set_text('');
+      this._pairingState.set_text(this._('Pairing complete'));
+    } else if (this._pairing && this._pairing.expiresAt > now) {
+      this._pairingManualLabel.set_text(this._pairing.manualPairingCode
+        ? `${this._('Manual code')}: ${this._pairing.manualPairingCode}`
+        : '');
+      this._pairingAutomaticLabel.set_text(this._pairing.pairingCode
+        ? `${this._('Automatic code')}: ${this._pairing.pairingCode}`
+        : '');
+      this._pairingState.set_text(
+        `${this._('Waiting for device')} · ${this._('expires in')} ` +
         this._model.formatDuration(this._pairing.expiresAt - now)
       );
-      this._pairingLabel.show();
     } else {
-      this._pairingLabel.set_text('');
-      this._pairingLabel.hide();
+      this._pairingManualLabel.set_text('');
+      this._pairingAutomaticLabel.set_text('');
+      this._pairingState.set_text('');
     }
+    this._pairingManualLabel.visible = Boolean(this._pairingManualLabel.get_text());
+    this._pairingAutomaticLabel.visible = Boolean(this._pairingAutomaticLabel.get_text());
+    this._pairingState.visible = Boolean(this._pairingState.get_text());
+
+    _clear(this._remoteClientList);
+    this._remoteClientsHeading.set_text(
+      `${this._('Paired devices')} (${this._remoteClients.length})`
+    );
+    if (status !== 'connected') {
+      this._remoteClientList.add_child(new St.Label({
+        text: this._('Start Remote Control to manage paired devices'),
+        style_class: 'codex-monitor-secondary',
+      }));
+    } else if (this._remoteClients.length === 0) {
+      this._remoteClientList.add_child(new St.Label({
+        text: this._('No paired devices'),
+        style_class: 'codex-monitor-secondary',
+      }));
+    } else {
+      for (const client of this._remoteClients.slice(0, 50))
+        this._remoteClientList.add_child(this._remoteClientRow(client));
+    }
+  }
+
+  _remoteClientRow(client) {
+    const row = new St.BoxLayout({ style_class: 'codex-monitor-remote-client-row' });
+    const details = new St.BoxLayout({ vertical: true, x_expand: true });
+    const name = client.displayName || client.deviceModel || this._('Paired device');
+    details.add_child(new St.Label({ text: name, style_class: 'codex-monitor-row-title' }));
+    const parts = [client.deviceType, client.platform, client.osVersion]
+      .filter(Boolean);
+    if (client.appVersion)
+      parts.push(`${this._('app')} ${client.appVersion}`);
+    if (client.lastSeenAt) {
+      parts.push(`${this._('seen')} ${this._model.formatDuration(
+        Math.floor(Date.now() / 1000) - Number(client.lastSeenAt)
+      )} ${this._('ago')}`);
+    }
+    details.add_child(new St.Label({
+      text: parts.join(' · ') || this._('Device details unavailable'),
+      style_class: 'codex-monitor-secondary',
+    }));
+    row.add_child(details);
+    row.add_child(_button(
+      this._('Revoke…'),
+      () => this._callbacks.onRemoteRevoke(client)
+    ));
+    return row;
   }
 };

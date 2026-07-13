@@ -1,7 +1,7 @@
 {
   "layout": {
     "type": "layout",
-    "pages": ["appearance", "data", "remote"],
+    "pages": ["appearance", "data"],
     "appearance": {
       "type": "page",
       "title": "Appearance",
@@ -11,11 +11,6 @@
       "type": "page",
       "title": "Data",
       "sections": ["refresh-section", "codex-section"]
-    },
-    "remote": {
-      "type": "page",
-      "title": "Remote Control",
-      "sections": ["remote-section"]
     },
     "panel-section": {
       "type": "section",
@@ -41,11 +36,6 @@
       "type": "section",
       "title": "Codex installation",
       "keys": ["codex-binary", "codex-home"]
-    },
-    "remote-section": {
-      "type": "section",
-      "title": "Experimental mobile access",
-      "keys": ["remote-warning", "enable-remote"]
     }
   },
   "show-reset-badge": {
@@ -132,14 +122,5 @@
     "type": "entry",
     "default": "",
     "description": "Custom CODEX_HOME (leave empty for the default)"
-  },
-  "remote-warning": {
-    "type": "label",
-    "description": "Remote Control is an experimental Codex feature. Starting it allows explicitly paired mobile clients to control this computer. Pairing codes are kept only in memory."
-  },
-  "enable-remote": {
-    "type": "switch",
-    "default": false,
-    "description": "Show Remote Control management in the dashboard"
   }
 }

@@ -67,6 +67,20 @@ def validate_sources():
             raise ValueError(f"session dashboard is missing {text}")
     if "request('sessions'" not in applet_source:
         raise ValueError("applet must refresh Codex sessions")
+    settings_source = (APPLET / "settings-schema.json").read_text(encoding="utf-8")
+    if '"enable-remote"' in settings_source or '"remote-warning"' in settings_source:
+        raise ValueError("Remote Control must not be hidden behind an experimental gate")
+    for text in ("Pair device", "Paired devices", "Refresh devices"):
+        if text not in ui_source:
+            raise ValueError(f"Remote Control dashboard is missing {text}")
+    for action in (
+        "remote_pair_start",
+        "remote_pair_status",
+        "remote_clients",
+        "remote_revoke",
+    ):
+        if action not in applet_source:
+            raise ValueError(f"applet is missing Remote Control action {action}")
 
     for path in APPLET.rglob("*.py"):
         compile(path.read_text(encoding="utf-8"), str(path), "exec")

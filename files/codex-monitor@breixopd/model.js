@@ -54,12 +54,24 @@ function panelState(snapshot, settings, now, remoteStatus) {
   const stale = now - Number(snapshot.capturedAt || 0) >
     Number(settings.staleSeconds || 300);
   const resetCount = Number(resetCredits.availableCount) || 0;
+  const indicatorParts = [];
+  if (settings.showResetBadge !== false && resetCount > 0) {
+    indicatorParts.push(resetExpiring
+      ? `Reset expires in ${formatDuration(nearestExpiry - now)}`
+      : `${resetCount} banked reset${resetCount === 1 ? '' : 's'}`);
+  }
+  if (settings.showRemoteBadge !== false && remoteStatus &&
+      remoteStatus.status !== 'disabled')
+    indicatorParts.push(`Remote ${remoteStatus.status || 'unknown'}`);
+  if (stale)
+    indicatorParts.push('Data stale');
 
   return {
     label: `5h ${formatPercent(fiveHour)}  W ${formatPercent(weekly)}`,
     level,
     stale,
     staleBadge: stale ? '!' : '',
+    indicatorText: indicatorParts.join(' · '),
     resetBadge: settings.showResetBadge !== false && resetCount > 0
       ? `${resetExpiring ? '⚠' : '↻'}${resetCount}`
       : '',

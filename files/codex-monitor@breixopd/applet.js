@@ -30,9 +30,11 @@ class CodexMonitorApplet extends Applet.Applet {
     this._sessions = { active: [], recent: [] };
     this._refreshing = false;
     this._refreshTimer = 0;
+    this._remoteTimer = 0;
     this._restartTimer = 0;
     this._restartAttempt = 0;
     this._bridge = null;
+    this._pairing = null;
 
     Gettext.bindtextdomain(UUID, GLib.build_filenamev([metadata.path, 'locale']));
     this._ = text => Gettext.dgettext(UUID, text);
@@ -59,7 +61,6 @@ class CodexMonitorApplet extends Applet.Applet {
     this.settings.bind('reset-expiry-warning-hours', 'resetExpiryWarningHours', render);
     this.settings.bind('show-reset-badge', 'showResetBadge', render);
     this.settings.bind('show-remote-badge', 'showRemoteBadge', render);
-    this.settings.bind('enable-remote', 'enableRemote', restart);
     this.settings.bind('graph-mode', 'graphMode', render);
     this.settings.bind('graph-range-hours', 'graphRangeHours', render);
   }
@@ -146,7 +147,9 @@ class CodexMonitorApplet extends Applet.Applet {
         onOpenSession: this._openSession.bind(this),
         onRemoteStart: this._confirmRemoteStart.bind(this),
         onRemoteStop: () => this._remoteAction('remote_stop'),
-        onRemotePair: () => this._remoteAction('remote_pair'),
+        onRemotePair: () => this._remoteAction('remote_pair_start'),
+        onRemoteRefresh: this._refreshRemoteState.bind(this),
+        onRemoteRevoke: this._confirmRemoteRevoke.bind(this),
       },
     });
     this._menuItem = new PopupMenu.PopupBaseMenuItem({
@@ -172,7 +175,6 @@ class CodexMonitorApplet extends Applet.Applet {
       resetExpiryWarningHours: this.resetExpiryWarningHours,
       showResetBadge: this.showResetBadge,
       showRemoteBadge: this.showRemoteBadge,
-      enableRemote: this.enableRemote,
       graphMode: this.graphMode,
       graphRangeHours: this.graphRangeHours,
     };
@@ -210,8 +212,7 @@ class CodexMonitorApplet extends Applet.Applet {
       this._snapshot = snapshot;
       this._render();
       this._refreshSessions();
-      if (this.enableRemote)
-        this._readRemoteStatus();
+      this._readRemoteStatus();
     });
   }
 
@@ -226,10 +227,80 @@ class CodexMonitorApplet extends Applet.Applet {
     });
   }
 
-  _readRemoteStatus() {
+  _readRemoteStatus(loadClients = true) {
     this._bridge.request('remote_status', {}, (error, status) => {
-      this._remoteStatus = error ? { status: 'errored' } : status;
+      if (error) {
+        this._remoteStatus = { status: 'errored' };
+        this._dashboard.showRemoteError(this._('Remote Control status unavailable'));
+        this._setRemotePolling(false);
+        this._render();
+        return;
+      }
+      this._remoteStatus = status;
+      this._dashboard.setRemoteStatus(status);
+      if (loadClients && status.status === 'connected' && status.environmentId)
+        this._loadRemoteClients(status.environmentId);
+      this._setRemotePolling(this._shouldPollRemote());
       this._render();
+    });
+  }
+
+  _shouldPollRemote() {
+    const status = this._remoteStatus && this._remoteStatus.status;
+    const pairingActive = this._pairing && !this._pairing.claimed &&
+      Number(this._pairing.expiresAt) > Math.floor(Date.now() / 1000);
+    return status === 'connecting' || status === 'connected' || Boolean(pairingActive);
+  }
+
+  _setRemotePolling(active) {
+    if (!active && this._remoteTimer) {
+      Mainloop.source_remove(this._remoteTimer);
+      this._remoteTimer = 0;
+      return;
+    }
+    if (!active || this._remoteTimer)
+      return;
+    this._remoteTimer = Mainloop.timeout_add_seconds(5, () => {
+      this._refreshRemoteState(false);
+      return GLib.SOURCE_CONTINUE;
+    });
+  }
+
+  _refreshRemoteState(loadClients = true) {
+    this._readRemoteStatus(loadClients);
+    this._pollPairing();
+  }
+
+  _pollPairing() {
+    if (!this._pairing || this._pairing.claimed)
+      return;
+    const now = Math.floor(Date.now() / 1000);
+    if (Number(this._pairing.expiresAt) <= now) {
+      this._pairing = null;
+      this._dashboard.setPairing(null);
+      return;
+    }
+    this._bridge.request('remote_pair_status', {
+      pairingCode: this._pairing.pairingCode || null,
+      manualPairingCode: this._pairing.manualPairingCode || null,
+    }, (error, status) => {
+      if (error)
+        return;
+      this._pairing.claimed = Boolean(status.claimed);
+      this._dashboard.setPairingStatus(status);
+      if (status.claimed && this._pairing.environmentId)
+        this._loadRemoteClients(this._pairing.environmentId);
+      this._setRemotePolling(this._shouldPollRemote());
+    });
+  }
+
+  _loadRemoteClients(environmentId) {
+    this._bridge.request('remote_clients', { environmentId }, (error, clients) => {
+      if (error) {
+        this._dashboard.showRemoteError(this._('Paired devices unavailable'));
+        return;
+      }
+      this._dashboard.setRemoteClients(clients);
     });
   }
 
@@ -258,7 +329,10 @@ class CodexMonitorApplet extends Applet.Applet {
     }
     const now = Math.floor(Date.now() / 1000);
     const state = Model.panelState(this._snapshot, settings, now, this._remoteStatus);
-    this.actor.set_accessible_name(`${this._('Codex usage monitor')} · ${state.label}`);
+    this.actor.set_accessible_name(
+      `${this._('Codex usage monitor')} · ${state.label}` +
+      (state.indicatorText ? ` · ${state.indicatorText}` : '')
+    );
     this._resetBadge.set_text(state.resetBadge);
     this._resetBadge.visible = Boolean(state.resetBadge);
     if (state.resetExpiring)
@@ -266,7 +340,7 @@ class CodexMonitorApplet extends Applet.Applet {
     else
       this._resetBadge.remove_style_class_name('codex-monitor-expiring');
     this._remoteBadge.set_text(state.remoteBadge);
-    this._remoteBadge.visible = Boolean(state.remoteBadge) && this.enableRemote;
+    this._remoteBadge.visible = Boolean(state.remoteBadge);
     this._staleBadge.set_text(state.staleBadge);
     this._staleBadge.visible = Boolean(state.staleBadge);
     Graph.updatePanelBar(this._fiveHourBar, this._snapshot.windows.fiveHour);
@@ -332,18 +406,44 @@ class CodexMonitorApplet extends Applet.Applet {
     }).open();
   }
 
+  _confirmRemoteRevoke(client) {
+    const name = client.displayName || client.deviceModel || this._('this device');
+    const message = `${this._('Revoke Remote Control access for')} ${name}?`;
+    new ModalDialog.ConfirmDialog(message, () => {
+      const environmentId = this._remoteStatus && this._remoteStatus.environmentId ||
+        this._pairing && this._pairing.environmentId;
+      this._remoteAction('remote_revoke', {
+        environmentId,
+        clientId: client.clientId,
+        confirmed: true,
+      });
+    }).open();
+  }
+
   _remoteAction(action, params = {}) {
     this._dashboard.showActionMessage(this._('Updating Remote Control…'));
     this._bridge.request(action, params, (error, result) => {
       if (error) {
         this._dashboard.showActionMessage(this._('Remote Control action failed'));
         this._remoteStatus = { status: 'errored' };
-      } else if (action === 'remote_pair') {
-        this._dashboard.setPairing(result);
-        this._remoteStatus = { status: 'connected' };
+        this._dashboard.showRemoteError(this._('Remote Control action failed'));
+      } else if (action === 'remote_pair_start') {
+        this._pairing = { ...result, claimed: false };
+        this._dashboard.setPairing(this._pairing);
+      } else if (action === 'remote_stop') {
+        this._pairing = null;
+        this._dashboard.setPairing(null);
+        this._dashboard.setRemoteClients({ clients: [] });
+        this._remoteStatus = result;
+      } else if (action === 'remote_revoke') {
+        const environmentId = params.environmentId;
+        if (environmentId)
+          this._loadRemoteClients(environmentId);
       } else {
         this._remoteStatus = result;
       }
+      if (!error)
+        this._readRemoteStatus();
       this._render();
     });
   }
@@ -388,7 +488,7 @@ class CodexMonitorApplet extends Applet.Applet {
     this._fiveHourLabel.visible = !vertical;
     this._weeklyLabel.visible = !vertical;
     this._resetBadge.visible = !vertical && Boolean(this._resetBadge.get_text());
-    this._remoteBadge.visible = !vertical && this.enableRemote && Boolean(this._remoteBadge.get_text());
+    this._remoteBadge.visible = !vertical && Boolean(this._remoteBadge.get_text());
     this._staleBadge.visible = !vertical && Boolean(this._staleBadge.get_text());
   }
 
@@ -397,6 +497,8 @@ class CodexMonitorApplet extends Applet.Applet {
       Mainloop.source_remove(this._refreshTimer);
     if (this._restartTimer)
       Mainloop.source_remove(this._restartTimer);
+    if (this._remoteTimer)
+      Mainloop.source_remove(this._remoteTimer);
     if (this._bridge)
       this._bridge.stop();
     if (this.menu)

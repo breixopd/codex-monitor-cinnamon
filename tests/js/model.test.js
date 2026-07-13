@@ -41,6 +41,8 @@ test('panel state uses explicit used percentages and conditional badges', () => 
   assert.equal(state.remoteBadge, '●');
   assert.equal(state.staleBadge, '');
   assert.equal(state.stale, false);
+  assert.match(state.indicatorText, /Reset expires in/);
+  assert.match(state.indicatorText, /Remote connected/);
 });
 
 test('panel state keeps ordinary reset badge and hides disabled remote state', () => {
@@ -72,6 +74,7 @@ test('panel state marks stale data and highest quota pressure', () => {
   assert.equal(state.level, 'critical');
   assert.equal(state.stale, true);
   assert.equal(state.staleBadge, '!');
+  assert.match(state.indicatorText, /Data stale/);
 });
 
 test('duration formatting remains compact and never goes negative', () => {
