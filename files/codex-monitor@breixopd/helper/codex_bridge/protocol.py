@@ -84,6 +84,12 @@ class CommandRouter:
                     )
                 data = self.service.remote_start()
             elif action == "remote_stop":
+                if params.get("confirmed") is not True:
+                    return _error(
+                        request_id,
+                        "CONFIRMATION_REQUIRED",
+                        "Explicit confirmation is required",
+                    )
                 data = self.service.remote_stop()
             elif action == "remote_pair":
                 data = self.service.remote_pair()

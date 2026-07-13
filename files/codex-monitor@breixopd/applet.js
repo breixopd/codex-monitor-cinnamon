@@ -40,6 +40,7 @@ class CodexMonitorApplet extends Applet.Applet {
     this._restartAttempt = 0;
     this._bridge = null;
     this._pairing = null;
+    this._destroyed = false;
 
     Gettext.bindtextdomain(UUID, GLib.build_filenamev([metadata.path, 'locale']));
     this._ = text => Gettext.dgettext(UUID, text);
@@ -138,7 +139,7 @@ class CodexMonitorApplet extends Applet.Applet {
         onOpenCodex: this._openCodex.bind(this),
         onOpenSession: this._openSession.bind(this),
         onRemoteStart: this._confirmRemoteStart.bind(this),
-        onRemoteStop: () => this._remoteAction('remote_stop'),
+        onRemoteStop: this._confirmRemoteStop.bind(this),
         onRemotePair: () => this._remoteAction('remote_pair_start'),
         onRemoteRefresh: this._refreshRemoteState.bind(this),
         onRemoteRevoke: this._confirmRemoteRevoke.bind(this),
@@ -175,20 +176,45 @@ class CodexMonitorApplet extends Applet.Applet {
   }
 
   _startBridge() {
-    if (this._bridge)
-      this._bridge.stop();
-    this._bridge = new BridgeClient({
+    if (this._destroyed)
+      return;
+    if (this._restartTimer) {
+      Mainloop.source_remove(this._restartTimer);
+      this._restartTimer = 0;
+    }
+    const previousBridge = this._bridge;
+    this._bridge = null;
+    this._refreshing = false;
+    this._remoteRefreshing = false;
+    this._pairingPolling = false;
+    this._clientsLoading = false;
+    this._updateRefreshing = false;
+    if (previousBridge)
+      previousBridge.stop();
+    const bridge = new BridgeClient({
       appletPath: this._metadata.path,
       codexBinary: this.codexBinary || 'codex',
       codexHome: this.codexHome || '',
       historyDays: this.historyDays || 30,
     });
+    this._bridge = bridge;
     try {
-      this._bridge.start();
+      bridge.start();
       this._refresh();
     } catch (error) {
       this._handleRefreshError();
     }
+  }
+
+  _request(action, params, callback) {
+    const bridge = this._bridge;
+    if (!bridge || this._destroyed)
+      return;
+    bridge.request(action, params, (error, value) => {
+      if (this._destroyed || bridge !== this._bridge)
+        return;
+      callback(error, value);
+    });
   }
 
   _refresh() {
@@ -196,7 +222,7 @@ class CodexMonitorApplet extends Applet.Applet {
       return;
     this._refreshing = true;
     this._dashboard.showActionMessage(this._('Refreshing…'));
-    this._bridge.request('snapshot', {}, (error, snapshot) => {
+    this._request('snapshot', {}, (error, snapshot) => {
       this._refreshing = false;
       if (error) {
         this._handleRefreshError();
@@ -215,7 +241,7 @@ class CodexMonitorApplet extends Applet.Applet {
     if (this._updateRefreshing || !this._bridge)
       return;
     this._updateRefreshing = true;
-    this._bridge.request('update_status', {}, (error, value) => {
+    this._request('update_status', {}, (error, value) => {
       this._updateRefreshing = false;
       if (error)
         return;
@@ -235,7 +261,7 @@ class CodexMonitorApplet extends Applet.Applet {
     if (this._updateRefreshing || !this._bridge)
       return;
     this._updateRefreshing = true;
-    this._bridge.request('update_check', { force: Boolean(force) }, (error, value) => {
+    this._request('update_check', { force: Boolean(force) }, (error, value) => {
       this._updateRefreshing = false;
       if (error)
         return;
@@ -263,7 +289,7 @@ class CodexMonitorApplet extends Applet.Applet {
   }
 
   _refreshSessions() {
-    this._bridge.request('sessions', { limit: 12 }, (error, sessions) => {
+    this._request('sessions', { limit: 12 }, (error, sessions) => {
       if (error) {
         this._dashboard.showSessionsError();
         return;
@@ -277,7 +303,7 @@ class CodexMonitorApplet extends Applet.Applet {
     if (this._remoteRefreshing)
       return;
     this._remoteRefreshing = true;
-    this._bridge.request('remote_status', {}, (error, status) => {
+    this._request('remote_status', {}, (error, status) => {
       this._remoteRefreshing = false;
       if (error) {
         if (Model.isUsableRemoteStatus(this._remoteStatus)) {
@@ -338,7 +364,7 @@ class CodexMonitorApplet extends Applet.Applet {
       return;
     }
     this._pairingPolling = true;
-    this._bridge.request('remote_pair_status', {
+    this._request('remote_pair_status', {
       pairingCode: this._pairing.pairingCode || null,
       manualPairingCode: this._pairing.manualPairingCode || null,
     }, (error, status) => {
@@ -364,7 +390,7 @@ class CodexMonitorApplet extends Applet.Applet {
     if (this._clientsLoading)
       return;
     this._clientsLoading = true;
-    this._bridge.request('remote_clients', { environmentId }, (error, clients) => {
+    this._request('remote_clients', { environmentId }, (error, clients) => {
       this._clientsLoading = false;
       if (error) {
         this._dashboard.showRemoteError(this._('Paired devices unavailable'));
@@ -375,6 +401,8 @@ class CodexMonitorApplet extends Applet.Applet {
   }
 
   _handleRefreshError() {
+    if (this._destroyed)
+      return;
     this._dashboard.showError(this._('Unable to refresh Codex; showing last data'));
     this._render();
     this._restartAttempt += 1;
@@ -438,7 +466,7 @@ class CodexMonitorApplet extends Applet.Applet {
     const message = `${this._('Apply this banked reset?')}\n\n` +
       `${credit.title || this._('Codex limit reset')} · ${expiry}`;
     new ModalDialog.ConfirmDialog(message, () => {
-      this._bridge.request('consume_reset', {
+      this._request('consume_reset', {
         creditId: credit.id,
         idempotencyKey: GLib.uuid_string_random(),
         confirmed: true,
@@ -452,7 +480,7 @@ class CodexMonitorApplet extends Applet.Applet {
   }
 
   _openCodex() {
-    this._bridge.request('open_codex', {}, error => {
+    this._request('open_codex', {}, error => {
       if (error) {
         this._dashboard.showActionMessage(this._('Could not open the default terminal'));
         return;
@@ -462,7 +490,7 @@ class CodexMonitorApplet extends Applet.Applet {
   }
 
   _openSession(session) {
-    this._bridge.request('open_session', {
+    this._request('open_session', {
       threadId: session.id,
       cwd: session.cwd || null,
     }, error => {
@@ -480,6 +508,15 @@ class CodexMonitorApplet extends Applet.Applet {
     );
     new ModalDialog.ConfirmDialog(message, () => {
       this._remoteAction('remote_start', { confirmed: true });
+    }).open();
+  }
+
+  _confirmRemoteStop() {
+    const message = this._(
+      'Stop Codex Remote Control? This disconnects paired devices and may end active Remote sessions.'
+    );
+    new ModalDialog.ConfirmDialog(message, () => {
+      this._remoteAction('remote_stop', { confirmed: true });
     }).open();
   }
 
@@ -514,7 +551,7 @@ class CodexMonitorApplet extends Applet.Applet {
     if (this._updateRefreshing || !this._bridge)
       return;
     this._updateRefreshing = true;
-    this._bridge.request('update_start', { confirmed: true }, (error, value) => {
+    this._request('update_start', { confirmed: true }, (error, value) => {
       this._updateRefreshing = false;
       if (error) {
         this._dashboard.showUpdateError();
@@ -528,7 +565,7 @@ class CodexMonitorApplet extends Applet.Applet {
 
   _remoteAction(action, params = {}) {
     this._dashboard.showActionMessage(this._('Updating Remote Control…'));
-    this._bridge.request(action, params, (error, result) => {
+    this._request(action, params, (error, result) => {
       if (error) {
         this._dashboard.showActionMessage(this._('Remote Control action failed'));
         this._remoteStatus = { status: 'errored' };
@@ -603,6 +640,7 @@ class CodexMonitorApplet extends Applet.Applet {
   }
 
   on_applet_removed_from_panel() {
+    this._destroyed = true;
     if (this._refreshTimer)
       Mainloop.source_remove(this._refreshTimer);
     if (this._restartTimer)
@@ -613,8 +651,10 @@ class CodexMonitorApplet extends Applet.Applet {
       Mainloop.source_remove(this._updateTimer);
     if (this._updatePollTimer)
       Mainloop.source_remove(this._updatePollTimer);
-    if (this._bridge)
-      this._bridge.stop();
+    const bridge = this._bridge;
+    this._bridge = null;
+    if (bridge)
+      bridge.stop();
     if (this.menu)
       this.menu.destroy();
     if (this.settings)

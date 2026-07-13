@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import threading
 import time
 from typing import Any
@@ -71,7 +72,11 @@ class AppServerClient:
     def close(self):
         if self.process.poll() is None:
             self.process.terminate()
-            self.process.wait(timeout=2)
+            try:
+                self.process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+                self.process.wait(timeout=2)
 
     def wait_for_notification(self, method, *, timeout_seconds):
         deadline = time.monotonic() + max(0.0, float(timeout_seconds))

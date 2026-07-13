@@ -65,6 +65,27 @@ def test_scroll_viewport_owns_padding_and_clips_the_moving_dashboard():
     assert "set_clip_to_allocation(true)" in applet
 
 
+def test_retired_bridge_callbacks_cannot_restart_or_mutate_a_removed_applet():
+    source = APPLET_SOURCE.read_text(encoding="utf-8")
+
+    assert "this._destroyed = false;" in source
+    assert "_request(action, params, callback)" in source
+    assert "this._destroyed || bridge !== this._bridge" in source
+    assert source.count("this._bridge.request(") == 0
+
+    removal = source[source.index("on_applet_removed_from_panel()") :]
+    assert removal.index("this._destroyed = true;") < removal.index("bridge.stop();")
+    assert removal.index("this._bridge = null;") < removal.index("bridge.stop();")
+
+
+def test_remote_stop_is_confirmed_before_the_destructive_bridge_action():
+    source = APPLET_SOURCE.read_text(encoding="utf-8")
+
+    assert "onRemoteStop: this._confirmRemoteStop.bind(this)" in source
+    assert "_confirmRemoteStop()" in source
+    assert "this._remoteAction('remote_stop', { confirmed: true });" in source
+
+
 def test_graph_renderer_has_separate_step_bar_and_reset_paths():
     source = GRAPH_SOURCE.read_text(encoding="utf-8")
 
