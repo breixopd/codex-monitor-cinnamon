@@ -67,6 +67,20 @@ def test_remote_status_discards_invalid_or_oversized_metadata():
     assert "secret" not in repr(result)
 
 
+def test_remote_display_metadata_is_collapsed_to_single_line_text():
+    client = FakeStatusClient(
+        {
+            "status": "connected",
+            "serverName": "  Mint\n workstation\t ",
+            "installationId": "install-1",
+            "environmentId": "environment-1",
+        }
+    )
+    remote = RemoteControl("codex", client_factory=lambda: client)
+
+    assert remote.status()["serverName"] == "Mint workstation"
+
+
 def test_remote_pair_start_uses_proxy_and_normalizes_code_without_persisting_it():
     client = FakeStatusClient(
         {
@@ -158,6 +172,26 @@ def test_remote_clients_are_allowlisted_bounded_and_sorted_by_last_seen():
         "remoteControl/client/list",
         {"environmentId": "environment-1", "limit": 50, "order": "desc"},
     )
+
+
+def test_remote_client_display_fields_are_single_line_text():
+    client = FakeStatusClient(
+        {
+            "data": [
+                {
+                    "clientId": "client-1",
+                    "displayName": "  Personal\n phone ",
+                    "platform": " android\t16 ",
+                }
+            ]
+        }
+    )
+    remote = RemoteControl("codex", client_factory=lambda: client)
+
+    result = remote.clients("environment-1")
+
+    assert result["clients"][0]["displayName"] == "Personal phone"
+    assert result["clients"][0]["platform"] == "android 16"
 
 
 def test_remote_revoke_uses_fixed_proxy_method_and_returns_normalized_result():

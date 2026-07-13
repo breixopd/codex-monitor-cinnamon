@@ -66,10 +66,11 @@ def _normalize_row(raw):
     status = raw_status.get("type")
     if status not in _STATUS_LABELS:
         status = "unavailable"
+    raw_flags = raw_status.get("activeFlags")
+    if not isinstance(raw_flags, list):
+        raw_flags = []
     attention = [
-        flag
-        for flag in raw_status.get("activeFlags") or []
-        if flag in _ATTENTION_FLAGS
+        flag for flag in raw_flags if isinstance(flag, str) and flag in _ATTENTION_FLAGS
     ]
     preview = raw.get("preview")
     preview_line = preview.splitlines()[0] if isinstance(preview, str) and preview else None

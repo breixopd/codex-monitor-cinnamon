@@ -107,3 +107,23 @@ def test_normalize_session_list_never_stringifies_non_text_preview_data():
 
     assert result["recent"][0]["title"] == "Untitled session"
     assert "must not render" not in repr(result)
+
+
+def test_normalize_session_list_discards_malformed_active_flags():
+    result = normalize_session_list(
+        {
+            "data": [
+                {
+                    "id": ACTIVE_ID,
+                    "preview": "Active work",
+                    "status": {
+                        "type": "active",
+                        "activeFlags": [{"unexpected": "value"}],
+                    },
+                    "updatedAt": 10,
+                }
+            ]
+        }
+    )
+
+    assert result["active"][0]["attention"] == []

@@ -149,7 +149,7 @@ class RemoteControl:
             raise RuntimeError("Codex remote-control status was invalid")
         return {
             "status": value["status"],
-            "serverName": cls._bounded_string(value.get("serverName"), optional=True),
+            "serverName": cls._display_string(value.get("serverName")),
             "installationId": cls._bounded_string(
                 value.get("installationId"), optional=True
             ),
@@ -170,18 +170,12 @@ class RemoteControl:
             last_seen_at = None
         return {
             "clientId": client_id,
-            "displayName": cls._bounded_string(
-                value.get("displayName"), optional=True
-            ),
-            "deviceModel": cls._bounded_string(
-                value.get("deviceModel"), optional=True
-            ),
-            "deviceType": cls._bounded_string(
-                value.get("deviceType"), optional=True
-            ),
-            "platform": cls._bounded_string(value.get("platform"), optional=True),
-            "osVersion": cls._bounded_string(value.get("osVersion"), optional=True),
-            "appVersion": cls._bounded_string(value.get("appVersion"), optional=True),
+            "displayName": cls._display_string(value.get("displayName")),
+            "deviceModel": cls._display_string(value.get("deviceModel")),
+            "deviceType": cls._display_string(value.get("deviceType")),
+            "platform": cls._display_string(value.get("platform")),
+            "osVersion": cls._display_string(value.get("osVersion")),
+            "appVersion": cls._display_string(value.get("appVersion")),
             "lastSeenAt": last_seen_at,
         }
 
@@ -192,6 +186,15 @@ class RemoteControl:
         if not isinstance(value, str) or not value or len(value) > maximum:
             return None
         return value
+
+    @staticmethod
+    def _display_string(value, *, maximum=160):
+        if not isinstance(value, str):
+            return None
+        normalized = " ".join(value.split())
+        if not normalized or len(normalized) > maximum:
+            return None
+        return normalized
 
     @classmethod
     def _require_identifier(cls, value, name):

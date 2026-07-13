@@ -31,8 +31,17 @@ fi
 
 gdbus call --session --dest org.Cinnamon --object-path /org/Cinnamon \
   --method org.Cinnamon.ReloadXlet "$UUID" applet >/dev/null
-running=$(gdbus call --session --dest org.Cinnamon --object-path /org/Cinnamon \
-  --method org.Cinnamon.GetRunningXletUUIDs applet)
+running=''
+attempt=0
+while [ "$attempt" -lt 20 ]; do
+  running=$(gdbus call --session --dest org.Cinnamon --object-path /org/Cinnamon \
+    --method org.Cinnamon.GetRunningXletUUIDs applet)
+  case "$running" in
+    *"$UUID"*) break ;;
+  esac
+  attempt=$((attempt + 1))
+  sleep 1
+done
 case "$running" in
   *"$UUID"*) ;;
   *)
@@ -42,7 +51,16 @@ case "$running" in
 esac
 
 geometry_js='var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; var a=x._fiveHourBar; var b=x._weeklyBar; var g1=a.x-(x._fiveHourLabel.x+x._fiveHourLabel.width); var g2=b.x-(x._weeklyLabel.x+x._weeklyLabel.width); JSON.stringify({instance:Boolean(x),snapshot:Boolean(x._snapshot),bridge:Boolean(x._bridge),centered:Math.abs((x._panelUsage.y+x._panelUsage.height/2)-x._panelBox.height/2)<=2,equalBars:a.width===b.width,equalGaps:Math.abs(g1-g2)<=1});'
-geometry=$(eval_cinnamon "$geometry_js")
+geometry=''
+attempt=0
+while [ "$attempt" -lt 20 ]; do
+  if geometry=$(eval_cinnamon "$geometry_js" 2>/dev/null) && \
+      printf '%s\n' "$geometry" | grep -E 'snapshot.*true' >/dev/null; then
+    break
+  fi
+  attempt=$((attempt + 1))
+  sleep 1
+done
 for assertion in instance snapshot bridge centered equalBars equalGaps; do
   if ! printf '%s\n' "$geometry" | grep -E "$assertion.*true" >/dev/null; then
     printf '%s\n' "Panel geometry assertion failed: $geometry" >&2
