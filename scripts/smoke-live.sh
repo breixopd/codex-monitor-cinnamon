@@ -74,9 +74,9 @@ python3 "$ROOT/scripts/smoke_bridge.py" \
 
 eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; x._remoteAction("remote_start",{confirmed:true}); "starting";' >/dev/null
 
-dashboard_js='var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; var modes=["quota","activity","both"]; var ranges=[24,168,720]; for (var i=0;i<modes.length;i++){for(var j=0;j<ranges.length;j++){x.graphMode=modes[i];x.graphRangeHours=ranges[j];x._render();}} x.menu.open(); var labels=x._dashboard._graphActor._xAxis.get_children().map(function(v){return v.get_text();}); JSON.stringify({legendReady:x._dashboard._graphActor._legend.get_children().length>0,axisReady:labels.every(function(v){return Boolean(v)&&v!=="—";}),sessions:Boolean(x._dashboard._activeSessionList&&x._dashboard._recentSessionList),remote:Boolean(x._dashboard._remoteClientList)});'
+dashboard_js='var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; var modes=["quota","activity","both"]; var ranges=[24,168,720]; for (var i=0;i<modes.length;i++){for(var j=0;j<ranges.length;j++){x.graphMode=modes[i];x.graphRangeHours=ranges[j];x._render();}} x.menu.open(); var labels=x._dashboard._graphActor._xAxis.get_children().map(function(v){return v.get_text();}); JSON.stringify({legendReady:x._dashboard._graphActor._legend.get_children().length>0,axisReady:labels.every(function(v){return Boolean(v)&&v!=="—";}),sessions:Boolean(x._dashboard._activeSessionList&&x._dashboard._recentSessionList),remote:Boolean(x._dashboard._remoteClientList),requestGuards:Boolean("_remoteRefreshing" in x&&"_pairingPolling" in x&&"_clientsLoading" in x)});'
 dashboard=$(eval_cinnamon "$dashboard_js")
-for assertion in legendReady axisReady sessions remote; do
+for assertion in legendReady axisReady sessions remote requestGuards; do
   if ! printf '%s\n' "$dashboard" | grep -E "$assertion.*true" >/dev/null; then
     printf '%s\n' "Dashboard assertion failed: $dashboard" >&2
     exit 1

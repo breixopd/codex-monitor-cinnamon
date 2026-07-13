@@ -50,7 +50,7 @@ var BridgeClient = class BridgeClient {
     }
     this._sequence += 1;
     const id = `cinnamon-${Date.now()}-${this._sequence}`;
-    const timeoutId = Mainloop.timeout_add_seconds(20, () => {
+    const timeoutId = Mainloop.timeout_add_seconds(30, () => {
       const pending = this._pending.get(id);
       if (pending) {
         this._pending.delete(id);

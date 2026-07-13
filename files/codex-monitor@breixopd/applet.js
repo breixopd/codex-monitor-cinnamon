@@ -31,6 +31,9 @@ class CodexMonitorApplet extends Applet.Applet {
     this._refreshing = false;
     this._refreshTimer = 0;
     this._remoteTimer = 0;
+    this._remoteRefreshing = false;
+    this._pairingPolling = false;
+    this._clientsLoading = false;
     this._restartTimer = 0;
     this._restartAttempt = 0;
     this._bridge = null;
@@ -228,7 +231,11 @@ class CodexMonitorApplet extends Applet.Applet {
   }
 
   _readRemoteStatus(loadClients = true) {
+    if (this._remoteRefreshing)
+      return;
+    this._remoteRefreshing = true;
     this._bridge.request('remote_status', {}, (error, status) => {
+      this._remoteRefreshing = false;
       if (error) {
         if (Model.isUsableRemoteStatus(this._remoteStatus)) {
           this._dashboard.setRemoteStatus(this._remoteStatus);
@@ -278,7 +285,8 @@ class CodexMonitorApplet extends Applet.Applet {
   }
 
   _pollPairing() {
-    if (!this._pairing || this._pairing.claimed || this._pairing.pollingSupported === false)
+    if (this._pairingPolling || !this._pairing || this._pairing.claimed ||
+        this._pairing.pollingSupported === false)
       return;
     const now = Math.floor(Date.now() / 1000);
     if (Number(this._pairing.expiresAt) <= now) {
@@ -286,10 +294,12 @@ class CodexMonitorApplet extends Applet.Applet {
       this._dashboard.setPairing(null);
       return;
     }
+    this._pairingPolling = true;
     this._bridge.request('remote_pair_status', {
       pairingCode: this._pairing.pairingCode || null,
       manualPairingCode: this._pairing.manualPairingCode || null,
     }, (error, status) => {
+      this._pairingPolling = false;
       if (error)
         return;
       if (status && status.supported === false)
@@ -303,7 +313,11 @@ class CodexMonitorApplet extends Applet.Applet {
   }
 
   _loadRemoteClients(environmentId) {
+    if (this._clientsLoading)
+      return;
+    this._clientsLoading = true;
     this._bridge.request('remote_clients', { environmentId }, (error, clients) => {
+      this._clientsLoading = false;
       if (error) {
         this._dashboard.showRemoteError(this._('Paired devices unavailable'));
         return;
