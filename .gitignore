@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+coverage.xml
+node_modules/
+dist/
+build/
+.env
+.env.*
+*.pem
+*.key
+.superpowers/

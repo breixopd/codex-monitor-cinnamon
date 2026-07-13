@@ -1,0 +1,10 @@
+[project]
+name = "codex-monitor-cinnamon"
+version = "0.1.0"
+description = "Cinnamon panel applet for Codex usage, resets, and remote control"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+addopts = "-q"
+pythonpath = ["files/codex-monitor@breixopd/helper"]
+testpaths = ["tests/python"]
