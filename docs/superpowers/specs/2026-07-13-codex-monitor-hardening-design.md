@@ -116,7 +116,7 @@ The newline-delimited JSON bridge adds these validated actions while preserving 
 | `open_codex` | `{}` | `{ launched: true }` |
 | `open_session` | `{ threadId: UUID, cwd?: string }` | `{ launched: true }` |
 | `remote_pair_start` | `{}` | normalized pairing record |
-| `remote_pair_status` | `{ environmentId: string }` | `{ claimed: boolean }` |
+| `remote_pair_status` | `{ pairingCode?: string, manualPairingCode?: string }` | `{ claimed: boolean }` |
 | `remote_clients` | `{ environmentId: string }` | `{ clients: RemoteClient[] }` |
 | `remote_revoke` | `{ environmentId: string, clientId: string, confirmed: true }` | normalized result |
 

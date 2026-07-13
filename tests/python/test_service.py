@@ -211,6 +211,23 @@ def test_remote_operations_are_delegated_to_remote_controller():
         def pair(self):
             return {"manualPairingCode": "ABCD-EFGH", "expiresAt": 1_800_000_000}
 
+        def pair_start(self):
+            return {
+                "pairingCode": "opaque",
+                "manualPairingCode": "ABCD-EFGH",
+                "environmentId": "environment-1",
+                "expiresAt": 1_800_000_000,
+            }
+
+        def pair_status(self, pairing_code, manual_pairing_code):
+            return {"claimed": pairing_code == "opaque"}
+
+        def clients(self, environment_id):
+            return {"clients": [{"clientId": f"client@{environment_id}"}]}
+
+        def revoke(self, environment_id, client_id):
+            return {"revoked": bool(environment_id and client_id)}
+
     service = CodexService(
         client=None,
         history=None,
@@ -222,3 +239,9 @@ def test_remote_operations_are_delegated_to_remote_controller():
     assert service.remote_start() == {"status": "connected"}
     assert service.remote_stop() == {"status": "disabled"}
     assert service.remote_pair()["manualPairingCode"] == "ABCD-EFGH"
+    assert service.remote_pair_start()["environmentId"] == "environment-1"
+    assert service.remote_pair_status("opaque", "ABCD-EFGH") == {"claimed": True}
+    assert service.remote_clients("environment-1")["clients"][0]["clientId"] == (
+        "client@environment-1"
+    )
+    assert service.remote_revoke("environment-1", "client-1") == {"revoked": True}

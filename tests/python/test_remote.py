@@ -15,6 +15,8 @@ class FakeStatusClient:
 
     def request(self, method, params=None):
         self.calls.append((method, params))
+        if isinstance(self.response, dict) and method in self.response:
+            return self.response[method]
         return self.response
 
     def close(self):
@@ -43,28 +45,41 @@ def test_remote_status_reads_running_daemon_through_proxy():
     assert client.closed is True
 
 
-def test_remote_pair_parses_code_without_persisting_it():
-    calls = []
+def test_remote_status_discards_invalid_or_oversized_metadata():
+    client = FakeStatusClient(
+        {
+            "status": "connected",
+            "serverName": {"secret": "do not stringify"},
+            "installationId": "x" * 257,
+            "environmentId": "environment-1",
+        }
+    )
+    remote = RemoteControl("codex", client_factory=lambda: client)
 
-    def runner(command, **kwargs):
-        calls.append((command, kwargs))
-        return subprocess.CompletedProcess(
-            command,
-            0,
-            stdout=json.dumps(
-                {
-                    "pairingCode": "opaque-code",
-                    "manualPairingCode": "ABCD-EFGH",
-                    "environmentId": "environment-1",
-                    "expiresAt": 1_800_000_000,
-                }
-            ),
-            stderr="",
-        )
+    result = remote.status()
 
-    remote = RemoteControl("/usr/bin/codex", runner=runner)
+    assert result == {
+        "status": "connected",
+        "serverName": None,
+        "installationId": None,
+        "environmentId": "environment-1",
+    }
+    assert "secret" not in repr(result)
 
-    result = remote.pair()
+
+def test_remote_pair_start_uses_proxy_and_normalizes_code_without_persisting_it():
+    client = FakeStatusClient(
+        {
+            "pairingCode": "opaque-code",
+            "manualPairingCode": "ABCD-EFGH",
+            "environmentId": "environment-1",
+            "expiresAt": 1_800_000_000,
+            "unexpectedSecret": "discard me",
+        }
+    )
+    remote = RemoteControl("/usr/bin/codex", client_factory=lambda: client)
+
+    result = remote.pair_start()
 
     assert result == {
         "pairingCode": "opaque-code",
@@ -72,8 +87,112 @@ def test_remote_pair_parses_code_without_persisting_it():
         "environmentId": "environment-1",
         "expiresAt": 1_800_000_000,
     }
-    assert calls[0][0] == ["/usr/bin/codex", "remote-control", "pair", "--json"]
-    assert calls[0][1]["shell"] is False
+    assert "unexpectedSecret" not in repr(result)
+    assert client.calls == [
+        ("initialize", None),
+        ("remoteControl/pairing/start", {"manualCode": True}),
+    ]
+    assert client.closed is True
+
+
+def test_remote_pair_status_uses_in_memory_pairing_codes():
+    client = FakeStatusClient({"claimed": True, "extra": "discard"})
+    remote = RemoteControl("codex", client_factory=lambda: client)
+
+    result = remote.pair_status("opaque-code", "ABCD-EFGH")
+
+    assert result == {"claimed": True}
+    assert client.calls[1] == (
+        "remoteControl/pairing/status",
+        {"pairingCode": "opaque-code", "manualPairingCode": "ABCD-EFGH"},
+    )
+
+
+def test_remote_clients_are_allowlisted_bounded_and_sorted_by_last_seen():
+    client = FakeStatusClient(
+        {
+            "data": [
+                {
+                    "clientId": "client-old",
+                    "displayName": "Tablet",
+                    "deviceModel": "Mint Tab",
+                    "deviceType": "tablet",
+                    "platform": "android",
+                    "osVersion": "16",
+                    "appVersion": "1.2.2",
+                    "lastSeenAt": 1_700_000_000,
+                },
+                {
+                    "clientId": "client-new",
+                    "displayName": "Phone",
+                    "deviceType": "phone",
+                    "platform": "android",
+                    "appVersion": "1.2.3",
+                    "lastSeenAt": 1_800_000_000,
+                    "unexpectedSecret": "discard me",
+                },
+                {"clientId": ""},
+            ]
+        }
+    )
+    remote = RemoteControl("codex", client_factory=lambda: client)
+
+    result = remote.clients("environment-1")
+
+    assert [row["clientId"] for row in result["clients"]] == [
+        "client-new",
+        "client-old",
+    ]
+    assert result["clients"][0] == {
+        "clientId": "client-new",
+        "displayName": "Phone",
+        "deviceModel": None,
+        "deviceType": "phone",
+        "platform": "android",
+        "osVersion": None,
+        "appVersion": "1.2.3",
+        "lastSeenAt": 1_800_000_000,
+    }
+    assert "unexpectedSecret" not in repr(result)
+    assert client.calls[1] == (
+        "remoteControl/client/list",
+        {"environmentId": "environment-1", "limit": 50, "order": "desc"},
+    )
+
+
+def test_remote_revoke_uses_fixed_proxy_method_and_returns_normalized_result():
+    client = FakeStatusClient({})
+    remote = RemoteControl("codex", client_factory=lambda: client)
+
+    result = remote.revoke("environment-1", "client-1")
+
+    assert result == {"revoked": True}
+    assert client.calls[1] == (
+        "remoteControl/client/revoke",
+        {"environmentId": "environment-1", "clientId": "client-1"},
+    )
+
+
+def test_remote_proxy_operations_reject_invalid_response_shapes():
+    cases = [
+        ("pair_start", {"pairingCode": "missing required values"}),
+        ("pair_status", {"claimed": "yes"}),
+        ("clients", {"data": "not-a-list"}),
+    ]
+
+    for operation, response in cases:
+        remote = RemoteControl("codex", client_factory=lambda r=response: FakeStatusClient(r))
+        try:
+            if operation == "pair_start":
+                remote.pair_start()
+            elif operation == "pair_status":
+                remote.pair_status("opaque", None)
+            else:
+                remote.clients("environment-1")
+        except RuntimeError as error:
+            assert str(error) == "Codex remote-control response was invalid"
+        else:
+            raise AssertionError(f"expected invalid {operation} response")
 
 
 def test_remote_start_and_stop_use_fixed_argument_lists():

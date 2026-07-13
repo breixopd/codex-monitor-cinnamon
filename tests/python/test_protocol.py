@@ -23,6 +23,27 @@ class FakeService:
     def remote_pair(self):
         return {"manualPairingCode": "ABCD-EFGH", "expiresAt": 1_800_000_000}
 
+    def remote_pair_start(self):
+        self.calls.append(("remote_pair_start", None))
+        return {
+            "pairingCode": "opaque-code",
+            "manualPairingCode": "ABCD-EFGH",
+            "environmentId": "environment-1",
+            "expiresAt": 1_800_000_000,
+        }
+
+    def remote_pair_status(self, pairing_code, manual_pairing_code):
+        self.calls.append(("remote_pair_status", pairing_code, manual_pairing_code))
+        return {"claimed": False}
+
+    def remote_clients(self, environment_id):
+        self.calls.append(("remote_clients", environment_id))
+        return {"clients": []}
+
+    def remote_revoke(self, environment_id, client_id):
+        self.calls.append(("remote_revoke", environment_id, client_id))
+        return {"revoked": True}
+
     def sessions(self, limit):
         self.calls.append(("sessions", limit))
         return {"active": [], "recent": []}
@@ -182,3 +203,87 @@ def test_router_rejects_invalid_session_limits_ids_and_paths():
     for request in requests:
         response = router.handle(request)
         assert response["error"]["code"] == "INVALID_PARAMS"
+
+
+def test_router_exposes_remote_pairing_status_clients_and_confirmed_revoke():
+    service = FakeService()
+    router = CommandRouter(service)
+
+    started = router.handle(
+        {"id": "remote-1", "action": "remote_pair_start", "params": {}}
+    )
+    claimed = router.handle(
+        {
+            "id": "remote-2",
+            "action": "remote_pair_status",
+            "params": {
+                "pairingCode": "opaque-code",
+                "manualPairingCode": "ABCD-EFGH",
+            },
+        }
+    )
+    clients = router.handle(
+        {
+            "id": "remote-3",
+            "action": "remote_clients",
+            "params": {"environmentId": "environment-1"},
+        }
+    )
+    revoked = router.handle(
+        {
+            "id": "remote-4",
+            "action": "remote_revoke",
+            "params": {
+                "environmentId": "environment-1",
+                "clientId": "client-1",
+                "confirmed": True,
+            },
+        }
+    )
+
+    assert started["data"]["pairingCode"] == "opaque-code"
+    assert claimed["data"] == {"claimed": False}
+    assert clients["data"] == {"clients": []}
+    assert revoked["data"] == {"revoked": True}
+    assert service.calls == [
+        ("remote_pair_start", None),
+        ("remote_pair_status", "opaque-code", "ABCD-EFGH"),
+        ("remote_clients", "environment-1"),
+        ("remote_revoke", "environment-1", "client-1"),
+    ]
+
+
+def test_router_validates_remote_identifiers_codes_and_revoke_confirmation():
+    router = CommandRouter(FakeService())
+    invalid_requests = [
+        {
+            "id": "pair-empty",
+            "action": "remote_pair_status",
+            "params": {},
+        },
+        {
+            "id": "environment-empty",
+            "action": "remote_clients",
+            "params": {"environmentId": ""},
+        },
+        {
+            "id": "client-long",
+            "action": "remote_revoke",
+            "params": {
+                "environmentId": "environment-1",
+                "clientId": "x" * 257,
+                "confirmed": True,
+            },
+        },
+    ]
+    for request in invalid_requests:
+        assert router.handle(request)["error"]["code"] == "INVALID_PARAMS"
+
+    unconfirmed = router.handle(
+        {
+            "id": "revoke-unconfirmed",
+            "action": "remote_revoke",
+            "params": {"environmentId": "environment-1", "clientId": "client-1"},
+        }
+    )
+    assert unconfirmed["error"]["code"] == "CONFIRMATION_REQUIRED"

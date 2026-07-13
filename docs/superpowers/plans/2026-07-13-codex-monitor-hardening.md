@@ -301,7 +301,7 @@ git commit -m "feat: add resumable session dashboard"
 - Modify: `files/codex-monitor@breixopd/helper/codex_bridge/protocol.py`
 
 **Interfaces:**
-- Produces: `RemoteControl.pair_start()`, `pair_status(environment_id)`, `clients(environment_id)`, and `revoke(environment_id, client_id)`.
+- Produces: `RemoteControl.pair_start()`, `pair_status(pairing_code, manual_pairing_code)`, `clients(environment_id)`, and `revoke(environment_id, client_id)`.
 - Produces: matching service methods and protocol actions `remote_pair_start`, `remote_pair_status`, `remote_clients`, and `remote_revoke`.
 
 - [ ] **Step 1: Write failing Remote Control lifecycle tests**
@@ -451,7 +451,7 @@ done
 
 - [ ] **Step 4: Build the live smoke harness**
 
-The shell script runs the installer, verifies one applet directory, reloads Cinnamon through `org.Cinnamon.Eval`, checks extension state/errors, opens the dashboard, cycles graph mode/range properties, and captures actor geometry. `scripts/smoke_bridge.py` starts the installed bridge, requests snapshot and sessions, records initial Remote status, starts only when initially disabled, requests pairing without printing its response, checks pairing status and client listing using the in-memory environment ID, then restores disabled state in `finally`. It emits only boolean/count assertions. Terminal smoke relies on Task 3's injected-process argv test rather than opening an interactive Codex window.
+The shell script runs the installer, verifies one applet directory, reloads Cinnamon through `org.Cinnamon.Eval`, checks extension state/errors, opens the dashboard, cycles graph mode/range properties, and captures actor geometry. `scripts/smoke_bridge.py` starts the installed bridge, requests snapshot and sessions, records initial Remote status, starts only when initially disabled, requests pairing without printing its response, checks pairing status with the in-memory pairing codes and client listing with the in-memory environment ID, then restores disabled state in `finally`. It emits only boolean/count assertions. Terminal smoke relies on Task 3's injected-process argv test rather than opening an interactive Codex window.
 
 ```sh
 python3 "$ROOT/scripts/smoke_bridge.py" \

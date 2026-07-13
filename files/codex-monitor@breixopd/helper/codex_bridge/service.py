@@ -80,6 +80,18 @@ class CodexService:
     def remote_pair(self):
         return self._require_remote().pair()
 
+    def remote_pair_start(self):
+        return self._require_remote().pair_start()
+
+    def remote_pair_status(self, pairing_code, manual_pairing_code=None):
+        return self._require_remote().pair_status(pairing_code, manual_pairing_code)
+
+    def remote_clients(self, environment_id):
+        return self._require_remote().clients(environment_id)
+
+    def remote_revoke(self, environment_id, client_id):
+        return self._require_remote().revoke(environment_id, client_id)
+
     def _require_remote(self):
         if self.remote is None:
             raise RuntimeError("Codex remote control is unavailable")

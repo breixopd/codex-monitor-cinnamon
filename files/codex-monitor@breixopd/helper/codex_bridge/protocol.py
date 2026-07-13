@@ -87,6 +87,52 @@ class CommandRouter:
                 data = self.service.remote_stop()
             elif action == "remote_pair":
                 data = self.service.remote_pair()
+            elif action == "remote_pair_start":
+                if params:
+                    return _error(
+                        request_id, "INVALID_PARAMS", "Invalid pairing parameters"
+                    )
+                data = self.service.remote_pair_start()
+            elif action == "remote_pair_status":
+                pairing_code = params.get("pairingCode")
+                manual_code = params.get("manualPairingCode")
+                if (
+                    not self._valid_optional_string(pairing_code, 4096)
+                    or not self._valid_optional_string(manual_code, 256)
+                    or pairing_code is None
+                    and manual_code is None
+                ):
+                    return _error(
+                        request_id, "INVALID_PARAMS", "Invalid pairing parameters"
+                    )
+                data = self.service.remote_pair_status(pairing_code, manual_code)
+            elif action == "remote_clients":
+                environment_id = params.get("environmentId")
+                if not self._valid_bounded_string(environment_id, 256):
+                    return _error(
+                        request_id,
+                        "INVALID_PARAMS",
+                        "Invalid Remote Control environment",
+                    )
+                data = self.service.remote_clients(environment_id)
+            elif action == "remote_revoke":
+                environment_id = params.get("environmentId")
+                client_id = params.get("clientId")
+                if not self._valid_bounded_string(
+                    environment_id, 256
+                ) or not self._valid_bounded_string(client_id, 256):
+                    return _error(
+                        request_id,
+                        "INVALID_PARAMS",
+                        "Invalid Remote Control client",
+                    )
+                if params.get("confirmed") is not True:
+                    return _error(
+                        request_id,
+                        "CONFIRMATION_REQUIRED",
+                        "Explicit confirmation is required",
+                    )
+                data = self.service.remote_revoke(environment_id, client_id)
             else:
                 return _error(
                     request_id,
@@ -119,3 +165,11 @@ class CommandRouter:
     @staticmethod
     def _valid_optional_path(value):
         return value is None or isinstance(value, str) and len(value) <= 4096
+
+    @staticmethod
+    def _valid_bounded_string(value, maximum):
+        return isinstance(value, str) and 0 < len(value) <= maximum
+
+    @classmethod
+    def _valid_optional_string(cls, value, maximum):
+        return value is None or cls._valid_bounded_string(value, maximum)
