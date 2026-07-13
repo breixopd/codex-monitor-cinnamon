@@ -96,7 +96,7 @@ The Remote Control section is always present and supports:
 - read connection status (`disabled`, `connecting`, `connected`, `errored`);
 - start after explicit confirmation;
 - stop;
-- begin pairing and show the manual and automatic pairing code, environment, and expiry countdown;
+- begin pairing and show an in-memory QR, the manual fallback code, environment, and expiry countdown;
 - poll pairing claim status until claimed or expired when the installed app-server exposes that method;
 - list paired clients for the active environment with device name/type, platform, app version, and last-seen time when the installed app-server exposes that method;
 - revoke a selected client after explicit confirmation;
@@ -124,13 +124,7 @@ Identifiers and bounds are validated at the protocol boundary. Runtime and Codex
 
 ## Installation And Cleanup
 
-`scripts/install.sh` stages the applet atomically as today, but stores the previous installation under:
-
-```text
-${XDG_DATA_HOME:-$HOME/.local/share}/codex-monitor@breixopd/install-backups/
-```
-
-Backups must never live in `cinnamon/applets`, because Cinnamon treats every directory there as an applet candidate. During installation, stale directories matching `codex-monitor@breixopd.backup-*` are removed from the Cinnamon applets directory after their exact UUID/prefix is checked. The installer leaves one discoverable applet directory.
+`scripts/install.sh` stages the applet before replacement and moves the current copy to a temporary rollback path only during the final swap. The temporary copy is restored on failure and deleted immediately after success. Legacy retained backups and stale directories matching `codex-monitor@breixopd.backup-*` are removed after exact path checks. The installer leaves one discoverable applet directory and no retained install copies.
 
 ## Testing And Live Verification
 

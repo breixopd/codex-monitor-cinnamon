@@ -7,13 +7,14 @@
 - Detailed graph axes, legend statistics, reset markers, hover values, and empty states
 - Active/recent Codex sessions with safe default-terminal resume and Open Codex actions
 - Remote Control pairing status, paired-device inventory, refresh, and confirmed revocation
+- In-memory pairing QR with the manual code retained as a fallback
 - Repeatable installed Cinnamon and live bridge smoke tests
 
 ### Changed
 
 - Centered the compact two-row panel meter and made reset, stale, and Remote states dynamic
 - Promoted Remote Control from an experimental dashboard gate to an always-available management section
-- Moved installer backups outside Cinnamon's applet directory and cleaned stale sibling copies
+- Replaced retained installer backups with temporary rollback-only replacement and cleanup
 
 ## [0.1.0] - 2026-07-13
 

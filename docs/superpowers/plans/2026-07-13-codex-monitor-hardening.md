@@ -29,7 +29,7 @@
 - `files/codex-monitor@breixopd/helper/codex_bridge/remote.py`: Remote Control CLI/proxy lifecycle and response normalization.
 - `files/codex-monitor@breixopd/helper/codex_bridge/service.py`: high-level operations consumed by the command router.
 - `files/codex-monitor@breixopd/helper/codex_bridge/protocol.py`: validation and stable JSONL action contract.
-- `scripts/install.sh`: atomic install, external backup storage, and stale-copy cleanup.
+- `scripts/install.sh`: staged replacement, temporary rollback, and stale-copy cleanup without retained backups.
 - `scripts/smoke-live.sh`: installed Cinnamon and live Codex smoke checks.
 - `scripts/smoke_bridge.py`: JSONL bridge lifecycle probe that redacts sensitive response fields and leaves the live Remote daemon running.
 
@@ -416,16 +416,16 @@ git commit -m "feat: finish Remote Control dashboard"
 - Modify: `CHANGELOG.md`
 
 **Interfaces:**
-- Produces: installer backup root `${XDG_DATA_HOME:-$HOME/.local/share}/codex-monitor@breixopd/install-backups/`.
+- Produces: one installed applet copy, with a temporary rollback path removed immediately after success.
 - Produces: `npm run smoke:live` entry point that cannot stop the live Remote daemon; stop behavior remains isolated in unit tests.
 
 - [ ] **Step 1: Write failing isolated installer tests**
 
-Run `scripts/install.sh` with a temporary HOME/XDG data directory containing an installed applet plus two stale `codex-monitor@breixopd.backup-*` directories. Assert exactly one directory with that UUID prefix remains under `cinnamon/applets`, the old active install exists under `codex-monitor@breixopd/install-backups`, and unrelated applets remain untouched.
+Run `scripts/install.sh` with a temporary HOME/XDG data directory containing an installed applet, retained legacy backups, and two stale `codex-monitor@breixopd.backup-*` directories. Assert exactly one directory with that UUID prefix remains under `cinnamon/applets`, no backup/rollback directory remains, and unrelated applets remain untouched.
 
 ```python
 assert [path.name for path in applets.iterdir() if path.name.startswith(UUID)] == [UUID]
-assert any(backup_root.iterdir())
+assert not backup_root.exists()
 assert (applets / "unrelated@example").is_dir()
 ```
 
@@ -435,18 +435,20 @@ Run: `pytest tests/python/test_install_script.py -q`
 
 Expected: the old installer leaves sibling backup directories.
 
-- [ ] **Step 3: Move backups out of discovery and add exact cleanup**
+- [ ] **Step 3: Use temporary rollback and add exact cleanup**
 
-Create the external backup root with mode 700, move the prior target there, and remove only direct children whose basename matches `codex-monitor@breixopd.backup-[0-9]*`. Keep staging atomic and quote every path.
+Move the prior target to a uniquely named temporary rollback path for the final swap, restore it from the cleanup trap if replacement fails, and remove it after success. Remove retained legacy backups and only direct stale children whose basename matches `codex-monitor@breixopd.backup-[0-9]*`. Keep staging bounded and quote every path.
 
 ```sh
-BACKUP_ROOT="$DATA_HOME/$UUID/install-backups"
-mkdir -p "$TARGET_ROOT" "$BACKUP_ROOT"
-chmod 700 "$BACKUP_ROOT"
+PREVIOUS=$(mktemp -d "$TARGET_ROOT/.codex-monitor.previous.XXXXXX")
+rmdir "$PREVIOUS"
+mv "$TARGET" "$PREVIOUS"
 for stale in "$TARGET_ROOT/$UUID".backup-[0-9]*; do
   [ -e "$stale" ] || continue
   rm -rf -- "$stale"
 done
+mv "$STAGING" "$TARGET"
+rm -rf -- "$PREVIOUS"
 ```
 
 - [ ] **Step 4: Build the live smoke harness**

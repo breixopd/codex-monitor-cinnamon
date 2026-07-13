@@ -11,7 +11,7 @@ Codex Monitor is a Linux Mint Cinnamon panel applet for checking Codex quota usa
 - Visual warning, critical, expiring-credit, stale, and Remote Control states
 - Active and recent Codex sessions that resume in Linux Mint's default terminal
 - Open Codex action using `x-terminal-emulator`
-- Confirmed Remote Control start, stop, pairing, device listing, and revocation
+- Confirmed Remote Control start, stop, QR/manual pairing, device listing, and revocation
 - Theme-integrated Cinnamon popup, keyboard-focusable controls, and vertical-panel fallback
 - Local-only quota history with configurable 7–90 day retention
 
@@ -22,8 +22,9 @@ Codex does not always provide every window or activity method. Missing values ap
 - Linux Mint Cinnamon with Cinnamon 6.0, 6.2, 6.4, or 6.6
 - Python 3.10 or newer
 - Codex CLI available as `codex` (0.144.3 is the tested full-feature baseline)
+- Optional `python3-qrcode` package for scannable pairing QR codes; manual pairing remains available without it
 
-No Python or JavaScript runtime dependencies are installed by the applet.
+The installer does not install or modify system packages.
 
 ## Install from this checkout
 
@@ -33,7 +34,7 @@ sh scripts/install.sh
 
 Then open **System Settings → Applets**, find **Codex Monitor**, and add it to a panel. If Cinnamon has cached an older copy, restart Cinnamon with <kbd>Alt</kbd>+<kbd>F2</kbd>, `r`, <kbd>Enter</kbd> on X11, or log out and back in on Wayland.
 
-The installer preserves an existing installation under `${XDG_DATA_HOME:-$HOME/.local/share}/codex-monitor@breixopd/install-backups/`. Backups stay outside Cinnamon's applet-discovery directory, and stale sibling backups from older development installs are removed. The installer does not add, remove, or rearrange panel applets automatically.
+The installer stages the new copy and keeps the previous copy only long enough to roll back an interrupted replacement. It removes that temporary copy plus legacy retained backups after success, leaving one applet directory. It does not add, remove, or rearrange panel applets automatically.
 
 ## Install from the archive
 
@@ -55,7 +56,7 @@ To uninstall, remove that applet from the panel in System Settings, then delete 
 
 Right-click the applet and choose **Configure**. Available options cover refresh interval, history retention, graph mode/range, warning thresholds, panel indicators, the Codex executable, and a custom `CODEX_HOME`.
 
-Remote Control is managed directly in the dashboard. Starting it and revoking a paired device require confirmation because paired clients can control Codex on this computer. Pairing codes are shown only in the popup and are not persisted by Codex Monitor. Codex CLI 0.144.3 still labels its underlying `remote-control` command experimental; the applet therefore reports unsupported methods without disrupting quota monitoring.
+Remote Control is managed directly in the dashboard. Starting it and revoking a paired device require confirmation because paired clients can control Codex on this computer. Pairing shows a scannable QR with the short manual code directly below as fallback. Pairing data exists only in memory and is not persisted by Codex Monitor. Codex CLI 0.144.3 still labels its underlying `remote-control` command experimental; the applet therefore reports unsupported methods without disrupting quota monitoring.
 
 ## Privacy and security
 
