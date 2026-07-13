@@ -202,8 +202,45 @@ test('quota series filters by selected range and preserves reset markers', () =>
   ];
 
   assert.deepEqual(model.quotaSeries(history, 'fiveHour', 400, 1200), [
-    { timestamp: 1000, usedPercent: 20, resetsAt: 1500 },
+    {
+      timestamp: 1000,
+      usedPercent: 20,
+      resetsAt: 1500,
+      resetTransition: false,
+    },
   ]);
+});
+
+test('quota series marks reset transitions without inventing diagonal data', () => {
+  const history = [
+    { capturedAt: 100, weeklyUsedPercent: 80, weeklyResetsAt: 500 },
+    { capturedAt: 200, weeklyUsedPercent: 5, weeklyResetsAt: 900 },
+    { capturedAt: 300, weeklyUsedPercent: 10, weeklyResetsAt: 900 },
+  ];
+
+  const points = model.quotaSeries(history, 'weekly', 0, 400);
+
+  assert.deepEqual(points.map(point => point.resetTransition), [false, true, false]);
+  assert.deepEqual(points.map(point => point.usedPercent), [80, 5, 10]);
+});
+
+test('quota segments break range-specific gaps but retain reset transitions', () => {
+  const points = [
+    { timestamp: 0, usedPercent: 10, resetTransition: false },
+    { timestamp: 7201, usedPercent: 20, resetTransition: true },
+    { timestamp: 7202, usedPercent: 30, resetTransition: false },
+  ];
+
+  assert.deepEqual(model.quotaSegments(points, 24).map(segment => segment.length), [1, 2]);
+  assert.deepEqual(model.quotaSegments([
+    { timestamp: 0, usedPercent: 10 },
+    { timestamp: 43201, usedPercent: 20 },
+  ], 168).map(segment => segment.length), [1, 1]);
+  assert.deepEqual(model.quotaSegments([
+    { timestamp: 0, usedPercent: 10 },
+    { timestamp: 129601, usedPercent: 20 },
+  ], 720).map(segment => segment.length), [1, 1]);
+  assert.deepEqual(model.quotaSegments([], 24), []);
 });
 
 test('quota series bounds long histories while preserving endpoints', () => {
@@ -215,9 +252,29 @@ test('quota series bounds long histories while preserving endpoints', () => {
 
   const points = model.quotaSeries(history, 'weekly', 0, 2400);
 
-  assert.equal(points.length, 1200);
+  assert.ok(points.length <= 1200);
   assert.equal(points[0].timestamp, 0);
   assert.equal(points.at(-1).timestamp, 2400);
+});
+
+test('quota downsampling preserves extrema reset transitions and endpoints', () => {
+  const points = Array.from({ length: 5000 }, (_unused, index) => ({
+    timestamp: index,
+    usedPercent: index % 100,
+    resetsAt: index < 2500 ? 6000 : 12000,
+    resetTransition: index === 2500,
+  }));
+  points[1200].usedPercent = 0;
+  points[1300].usedPercent = 100;
+
+  const sampled = model.downsampleQuota(points, 1200);
+
+  assert.ok(sampled.length <= 1200);
+  assert.equal(sampled[0], points[0]);
+  assert.equal(sampled.at(-1), points.at(-1));
+  assert.ok(sampled.includes(points[2500]));
+  assert.ok(sampled.includes(points[1200]));
+  assert.ok(sampled.includes(points[1300]));
 });
 
 test('tooltip summarizes limits, reset bank, remote state, and freshness', () => {
@@ -282,6 +339,29 @@ test('graph axis exposes start midpoint and end labels for the visible range', (
   assert.deepEqual(axis.map(item => item.timestamp), [100, 200, 300]);
   assert.equal(axis.length, 3);
   assert.ok(axis.every(item => typeof item.label === 'string' && item.label.length > 0));
+});
+
+test('graph axes distinguish quota activity and combined scales', () => {
+  const activity = [{
+    kind: 'activity',
+    points: [
+      { timestamp: 100, tokens: 500 },
+      { timestamp: 200, tokens: 12_500 },
+    ],
+  }];
+
+  const activityAxes = model.graphAxes(activity, 100, 300, 24, 'activity');
+  assert.equal(activityAxes.left.kind, 'tokens');
+  assert.equal(activityAxes.left.maximum, 15_000);
+  assert.equal(activityAxes.right, null);
+  assert.match(activityAxes.left.ticks[0].label, /15K/);
+
+  const combined = model.graphAxes(activity, 100, 300, 24, 'both');
+  assert.equal(combined.left.kind, 'percent');
+  assert.equal(combined.left.maximum, 100);
+  assert.equal(combined.right.kind, 'tokens');
+  assert.equal(combined.right.maximum, 15_000);
+  assert.deepEqual(combined.x.map(item => item.timestamp), [100, 200, 300]);
 });
 
 test('nearest graph values select one point from every available series', () => {

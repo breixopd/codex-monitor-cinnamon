@@ -127,16 +127,89 @@ function quotaSeries(history, windowName, cutoff, now) {
   const points = (history || [])
     .filter(row => Number(row.capturedAt) >= cutoff && Number(row.capturedAt) <= now)
     .filter(row => row[usedKey] != null)
+    .slice()
+    .sort((left, right) => Number(left.capturedAt) - Number(right.capturedAt))
     .map(row => ({
       timestamp: Number(row.capturedAt),
       usedPercent: Number(row[usedKey]),
       resetsAt: row[resetKey] != null ? Number(row[resetKey]) : null,
+    }))
+    .map((point, index, visiblePoints) => ({
+      ...point,
+      resetTransition: index > 0 && visiblePoints[index - 1].resetsAt != null &&
+        point.resetsAt != null && point.resetsAt !== visiblePoints[index - 1].resetsAt,
     }));
-  const maximumPoints = 1200;
-  if (points.length <= maximumPoints)
-    return points;
-  return Array.from({ length: maximumPoints }, (_unused, index) =>
-    points[Math.round(index * (points.length - 1) / (maximumPoints - 1))]);
+  return downsampleQuota(points, 1200);
+}
+
+function _evenlySample(items, maximum) {
+  if (items.length <= maximum)
+    return items;
+  if (maximum <= 1)
+    return items.slice(0, maximum);
+  return Array.from({ length: maximum }, (_unused, index) =>
+    items[Math.round(index * (items.length - 1) / (maximum - 1))]);
+}
+
+function downsampleQuota(points, maximumPoints = 1200) {
+  const values = Array.isArray(points) ? points : [];
+  const limit = Math.max(2, Math.floor(Number(maximumPoints) || 1200));
+  if (values.length <= limit)
+    return values;
+
+  const mandatory = new Set([0, values.length - 1]);
+  values.forEach((point, index) => {
+    if (point.resetTransition)
+      mandatory.add(index);
+  });
+  if (mandatory.size >= limit) {
+    const indices = _evenlySample(Array.from(mandatory).sort((a, b) => a - b), limit);
+    indices[0] = 0;
+    indices[indices.length - 1] = values.length - 1;
+    return Array.from(new Set(indices)).sort((a, b) => a - b).map(index => values[index]);
+  }
+
+  const selected = new Set(mandatory);
+  const capacity = limit - selected.size;
+  const bucketCount = Math.max(1, Math.floor(capacity / 2));
+  for (let bucket = 0; bucket < bucketCount && selected.size < limit; bucket += 1) {
+    const start = Math.floor(bucket * values.length / bucketCount);
+    const end = Math.max(start + 1, Math.floor((bucket + 1) * values.length / bucketCount));
+    let minimumIndex = start;
+    let maximumIndex = start;
+    for (let index = start + 1; index < end; index += 1) {
+      if (Number(values[index].usedPercent) < Number(values[minimumIndex].usedPercent))
+        minimumIndex = index;
+      if (Number(values[index].usedPercent) > Number(values[maximumIndex].usedPercent))
+        maximumIndex = index;
+    }
+    selected.add(minimumIndex);
+    if (selected.size < limit)
+      selected.add(maximumIndex);
+  }
+  return Array.from(selected)
+    .sort((left, right) => left - right)
+    .slice(0, limit)
+    .map(index => values[index]);
+}
+
+function quotaSegments(points, rangeHours) {
+  const thresholds = Number(rangeHours) <= 24
+    ? 2 * 3600
+    : Number(rangeHours) <= 168 ? 12 * 3600 : 36 * 3600;
+  const ordered = (points || [])
+    .slice()
+    .sort((left, right) => Number(left.timestamp) - Number(right.timestamp));
+  const segments = [];
+  for (const point of ordered) {
+    const current = segments[segments.length - 1];
+    const previous = current && current[current.length - 1];
+    if (!current || Number(point.timestamp) - Number(previous.timestamp) > thresholds)
+      segments.push([point]);
+    else
+      current.push(point);
+  }
+  return segments;
 }
 
 function formatPercent(window) {
@@ -254,6 +327,47 @@ function graphAxis(cutoff, now, rangeHours) {
   }));
 }
 
+function _tokenMaximum(series) {
+  const peak = (series || [])
+    .filter(item => item.kind === 'activity')
+    .flatMap(item => item.points || [])
+    .reduce((maximum, point) => Math.max(maximum, Number(point.tokens) || 0), 0);
+  if (peak <= 0)
+    return 1;
+  const roughStep = peak / 4;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(roughStep)));
+  const normalized = roughStep / magnitude;
+  const stepFactor = [1, 2, 2.5, 5, 10].find(value => value >= normalized) || 10;
+  const step = stepFactor * magnitude;
+  return Math.ceil(peak / step) * step;
+}
+
+function _axisTicks(maximum, formatter) {
+  return Array.from({ length: 5 }, (_unused, index) => {
+    const value = maximum * (4 - index) / 4;
+    return { value, label: formatter(value) };
+  });
+}
+
+function graphAxes(series, cutoff, now, rangeHours, mode) {
+  const percentAxis = {
+    kind: 'percent',
+    maximum: 100,
+    ticks: _axisTicks(100, value => `${Math.round(value)}%`),
+  };
+  const tokenMaximum = _tokenMaximum(series);
+  const tokenAxis = {
+    kind: 'tokens',
+    maximum: tokenMaximum,
+    ticks: _axisTicks(tokenMaximum, formatTokenCount),
+  };
+  return {
+    x: graphAxis(cutoff, now, rangeHours),
+    left: mode === 'activity' ? tokenAxis : percentAxis,
+    right: mode === 'both' ? tokenAxis : null,
+  };
+}
+
 function nearestGraphValues(series, timestamp, maximumDistance = null) {
   const target = Number(timestamp);
   return (series || [])
@@ -278,11 +392,14 @@ const CodexModel = {
   formatPercent,
   panelState,
   quotaSeries,
+  quotaSegments,
+  downsampleQuota,
   tooltipText,
   activitySeries,
   formatTokenCount,
   graphSummary,
   graphAxis,
+  graphAxes,
   nearestGraphValues,
   isUsableRemoteStatus,
 };
