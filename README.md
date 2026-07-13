@@ -1,85 +1,102 @@
 # Codex Monitor for Cinnamon
 
-[![CI](https://github.com/breixopd/codex-monitor-cinnamon/actions/workflows/ci.yml/badge.svg)](https://github.com/breixopd/codex-monitor-cinnamon/actions/workflows/ci.yml)
-
-Codex Monitor is a Linux Mint Cinnamon panel applet for checking Codex quota usage without opening a terminal. Its compact panel view shows centered 5-hour and weekly meters plus explicit quota, reset, freshness, and Remote Control indicators. The popup adds countdowns, semantic history graphs, recent sessions, banked resets, Remote Control management, and safe Codex update discovery.
+Keep an eye on Codex without keeping a terminal open. Codex Monitor adds a small usage meter to your Cinnamon panel and a detailed dashboard for quota, resets, sessions, Remote Control, and updates.
 
 ![Codex Monitor dashboard](store/screenshot.png)
 
-## Features
+## What you can see
 
-- Dual panel meter and percentages for 5-hour and weekly usage
-- Live compact reset countdowns with unavailable windows shown honestly
-- 24-hour, 7-day, and 30-day graphs with fixed selected ranges, visibly shaded uncollected history, quota trends, token activity, reset markers, and exact pointer hover details
-- Banked reset count, expiry, and confirmed one-click redemption
-- Amber warning and red critical badges with a plain-language **Current indicators** explanation in the dashboard
-- Filterable Codex sessions grouped by project, with focused Active, Attention, and Recent views
-- Open Codex action using `x-terminal-emulator`
-- Confirmed Remote Control start, stop, native SVG/manual pairing, device listing, and revocation
-- Automatic 12-hour Codex update checks with a button shown only when a newer release is available
-- Confirmed background update using the installed CLI's fixed-argument `codex update` command
-- Theme-integrated Cinnamon popup, keyboard-focusable controls, and vertical-panel fallback
-- Local-only quota history with configurable 7–90 day retention, five-minute coalescing, and bounded graph rendering
+- **5-hour and weekly quota** in the panel, with exact percentages and reset countdowns in the dashboard
+- **Clear status alerts** for quota warnings, expiring banked resets, stale data, and Remote Control
+- **24-hour, 7-day, and 30-day history** for quota and token activity, including exact values under the pointer
+- **Codex sessions** grouped by project, with Active, Attention, and Recent filters
+- **Banked resets**, including expiry details and a confirmation before one is used
+- **Remote Control** connection status, pairing, connected devices, and device removal
+- **Codex updates**, checked automatically and offered only when a newer stable version is available
 
-Codex does not always provide every window or activity method. Missing values appear as unavailable instead of being guessed.
+Missing information is shown as unavailable. The applet never guesses a quota, reset time, or connection state.
 
 ## Requirements
 
-- Linux Mint Cinnamon with Cinnamon 6.0, 6.2, 6.4, or 6.6
+- Linux Mint or another Cinnamon desktop with Cinnamon 6.0 or newer
 - Python 3.10 or newer
-- Codex CLI available as `codex` (0.144.3 is the tested baseline)
-- Optional `python3-qrcode` package for scannable pairing QR codes; manual pairing remains available without it
+- Codex CLI available as `codex`
+- Optional: `python3-qrcode` for a scannable Remote Control pairing code; a manual code is always available
 
-The installer does not install or modify system packages.
+The applet does not install or change system packages.
 
-## Install from this checkout
+## Install
 
-```sh
-sh scripts/install.sh
-```
+### From a release
 
-Then open **System Settings → Applets**, find **Codex Monitor**, and add it to a panel. If Cinnamon has cached an older copy, restart Cinnamon with <kbd>Alt</kbd>+<kbd>F2</kbd>, `r`, <kbd>Enter</kbd> on X11, or log out and back in on Wayland.
+1. Download `codex-monitor@breixopd.zip` from the [latest release](https://github.com/breixopd/codex-monitor-cinnamon/releases/latest).
+2. Extract it into `~/.local/share/cinnamon/applets/`.
+3. Open **System Settings → Applets**, find **Codex Monitor**, and add it to a panel.
 
-The installer stages the new copy and keeps the previous copy only long enough to roll back an interrupted replacement. It removes that temporary copy plus legacy retained backups after success, leaving one applet directory. It does not add, remove, or rearrange panel applets automatically.
-
-## Install from the archive
-
-Build the archive with:
-
-```sh
-sh scripts/package.sh
-```
-
-Extract `dist/codex-monitor@breixopd.zip` into `${XDG_DATA_HOME:-$HOME/.local/share}/cinnamon/applets/` so the final path is:
+The final file should be at:
 
 ```text
 ~/.local/share/cinnamon/applets/codex-monitor@breixopd/metadata.json
 ```
 
-To uninstall, remove that applet from the panel in System Settings, then delete its directory. The optional graph history is stored separately at `${XDG_DATA_HOME:-$HOME/.local/share}/codex-monitor@breixopd/history.jsonl`.
-
-## Configuration
-
-Right-click the applet and choose **Configure**. Available options cover refresh interval, history retention, graph mode/range, warning thresholds, panel indicators, the Codex executable, and a custom `CODEX_HOME`.
-
-Remote Control is managed directly in the dashboard. Starting it and revoking a paired device require confirmation because paired clients can control Codex on this computer. The applet confirms an existing Linux Remote process before probing its connection, so it does not silently enable Remote. Pairing uses one bounded SVG implementation with a manual-code fallback.
-
-Update discovery starts only after the first quota snapshot. It reads Codex's fresh local version cache first and otherwise checks the official OpenAI GitHub release endpoint every 12 hours. A current installation shows only its version; **Update Codex…** appears only when a newer stable release is known. Installing always requires confirmation and runs the installed CLI's `codex update` command in the background without restarting Cinnamon, Remote Control, the bridge, or existing Codex sessions. The applet never downloads or executes an installer script; if the installed CLI cannot update itself, it directs the user to the official manual installation instructions.
-
-## Privacy and security
-
-The applet uses the official local `codex app-server`. It does not scrape terminal output, read authentication files, copy API keys, or open a network port. Only bounded quota-history samples and non-sensitive update metadata are stored, in user-only files. Pairing codes, account identity, session previews, device details, and updater output remain ephemeral.
-
-## Development
+### From the latest source
 
 ```sh
-npm test
-npm run check
-npm run package
-npm run smoke:live
+git clone https://github.com/breixopd/codex-monitor-cinnamon.git
+cd codex-monitor-cinnamon
+sh scripts/install.sh
 ```
 
-The live smoke command requires the applet to be enabled on a Cinnamon panel. It restores the user’s graph/filter state and never stops the live Remote daemon.
+Then add **Codex Monitor** from **System Settings → Applets**. The installer safely replaces an older copy and leaves only one version in Cinnamon's applet list.
+
+If Cinnamon still shows an older copy, restart Cinnamon with <kbd>Alt</kbd>+<kbd>F2</kbd>, `r`, <kbd>Enter</kbd> on X11. On Wayland, log out and back in.
+
+## Everyday use
+
+The panel meter always shows the 5-hour and weekly windows. Status symbols appear only when there is something useful to report, such as a quota warning, an available reset, or an active Remote Control connection.
+
+Click the applet to open the dashboard. From there you can:
+
+- switch the graph between **Quota**, **Activity**, and **Both**
+- choose a fixed **24h**, **7d**, or **30d** range
+- open a Codex session in your default terminal
+- start, pair, and manage Remote Control
+- use a banked reset after confirming the action
+- install a Codex update when one is available
+
+Right-click the applet and choose **Configure** to change refresh frequency, history retention, graph defaults, warning thresholds, panel indicators, the Codex executable, or `CODEX_HOME`.
+
+Remote Control is never started silently. Starting it, stopping it, using a banked reset, installing an update, and removing a paired device all require confirmation.
+
+## Privacy
+
+Codex Monitor talks to the official local `codex app-server`. It does not read authentication files, copy API keys, scrape terminal output, or open a network port.
+
+Quota history is stored only on this computer in:
+
+```text
+~/.local/share/codex-monitor@breixopd/history.jsonl
+```
+
+Pairing codes, account identity, session previews, device details, and updater output are kept only in memory while needed.
+
+## Troubleshooting
+
+**The applet is installed but not visible**
+
+Open **System Settings → Applets** and add Codex Monitor to a panel. Installing it does not rearrange the panel automatically.
+
+**Usage says “Not available”**
+
+Make sure `codex` works in a terminal and is signed in. Some accounts or models do not report every quota window; the applet will leave those values unavailable.
+
+**There is no QR code during pairing**
+
+Install your distribution's `python3-qrcode` package, or use the manual pairing code shown in the same section.
+
+**Remove the applet completely**
+
+Remove it from the panel in System Settings, then delete `~/.local/share/cinnamon/applets/codex-monitor@breixopd/`. Delete the history file above as well if you do not want to keep local graph history.
 
 ## License
 

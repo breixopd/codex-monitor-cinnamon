@@ -1,8 +1,8 @@
 # Codex Monitor
 
-Codex Monitor puts Codex quota, reset windows, session activity, and Remote Control status in the Cinnamon panel.
+Codex Monitor puts Codex quota, reset windows, session activity, and Remote Control status in the Cinnamon panel, so you can check Codex without opening a terminal.
 
-The compact panel view shows 5-hour and weekly usage at a glance. Open the dashboard for exact reset countdowns, 24-hour to 30-day history, banked resets, recent and active sessions, Remote Control pairing and device management, and safe Codex update checks.
+The compact panel view shows 5-hour and weekly usage at a glance. Open the dashboard for exact reset countdowns, clear warning text, 24-hour to 30-day history, banked resets, recent and active sessions, Remote Control pairing and device management, and safe Codex update checks.
 
 ## Requirements
 
