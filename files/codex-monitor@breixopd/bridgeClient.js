@@ -70,6 +70,7 @@ var BridgeClient = class BridgeClient {
   }
 
   stop() {
+    const process = this._process;
     for (const pending of this._pending.values()) {
       Mainloop.source_remove(pending.timeoutId);
       pending.callback(new Error('Codex bridge stopped'));
@@ -82,17 +83,47 @@ var BridgeClient = class BridgeClient {
         // The helper may already have closed its pipe.
       }
     }
-    if (this._process && this._running) {
-      try {
-        this._process.force_exit();
-      } catch (error) {
-        // The helper may already have exited.
-      }
-    }
+    if (process)
+      this._waitForExit(process);
     this._running = false;
     this._process = null;
     this._reader = null;
     this._writer = null;
+  }
+
+  _waitForExit(process) {
+    let forceTimer = Mainloop.timeout_add_seconds(5, () => {
+      forceTimer = 0;
+      try {
+        process.force_exit();
+      } catch (error) {
+        // The helper may already have exited.
+      }
+      return GLib.SOURCE_REMOVE;
+    });
+    try {
+      process.wait_async(null, (_source, result) => {
+        try {
+          process.wait_finish(result);
+        } catch (error) {
+          // The helper may have been force-closed after the grace period.
+        }
+        if (forceTimer) {
+          Mainloop.source_remove(forceTimer);
+          forceTimer = 0;
+        }
+      });
+    } catch (error) {
+      if (forceTimer) {
+        Mainloop.source_remove(forceTimer);
+        forceTimer = 0;
+      }
+      try {
+        process.force_exit();
+      } catch (forceError) {
+        // The helper already exited before the wait could be registered.
+      }
+    }
   }
 
   _readNextLine() {

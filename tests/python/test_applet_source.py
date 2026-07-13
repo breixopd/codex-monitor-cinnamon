@@ -11,6 +11,7 @@ APPLET_SOURCE = (
 UI_SOURCE = APPLET_SOURCE.with_name("ui.js")
 STYLESHEET_SOURCE = APPLET_SOURCE.with_name("stylesheet.css")
 GRAPH_SOURCE = APPLET_SOURCE.with_name("graph.js")
+BRIDGE_CLIENT_SOURCE = APPLET_SOURCE.with_name("bridgeClient.js")
 
 
 def _css_rule(source, selector):
@@ -85,6 +86,15 @@ def test_retired_bridge_callbacks_cannot_restart_or_mutate_a_removed_applet():
     removal = source[source.index("on_applet_removed_from_panel()") :]
     assert removal.index("this._destroyed = true;") < removal.index("bridge.stop();")
     assert removal.index("this._bridge = null;") < removal.index("bridge.stop();")
+
+
+def test_bridge_shutdown_waits_for_helper_and_has_a_bounded_force_fallback():
+    source = BRIDGE_CLIENT_SOURCE.read_text(encoding="utf-8")
+
+    assert "if (this._process && this._running)" not in source
+    assert "process.wait_async" in source
+    assert "Mainloop.timeout_add_seconds(5" in source
+    assert "process.force_exit()" in source
 
 
 def test_remote_stop_is_confirmed_before_the_destructive_bridge_action():

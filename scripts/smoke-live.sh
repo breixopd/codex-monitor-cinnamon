@@ -36,7 +36,7 @@ wait_for_screenshot() {
 }
 
 cleanup_smoke() {
-  eval_cinnamon 'var instances=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd"); var x=instances&&instances[0]; if(x&&global._codexMonitorHoverMode!==undefined){x.graphMode=global._codexMonitorHoverMode;x.graphRangeHours=global._codexMonitorHoverRange;x._render();} var old=global._codexMonitorHoverPointer; if(old) imports.gi.Clutter.get_default_backend().get_default_seat().warp_pointer(old[0],old[1]); delete global._codexMonitorSmokeErrorIndex; delete global._codexMonitorOldInstance; delete global._codexMonitorOldBridge; delete global._codexMonitorOldSnapshot; delete global._codexMonitorHoverPointer; delete global._codexMonitorHoverLeft; delete global._codexMonitorHoverDetail; delete global._codexMonitorHoverMode; delete global._codexMonitorHoverRange; "cleared";' >/dev/null 2>&1 || true
+  eval_cinnamon 'var instances=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd"); var x=instances&&instances[0]; if(x&&global._codexMonitorHoverMode!==undefined){x.graphMode=global._codexMonitorHoverMode;x.graphRangeHours=global._codexMonitorHoverRange;x._render();} var old=global._codexMonitorHoverPointer; if(old) imports.gi.Clutter.get_default_backend().get_default_seat().warp_pointer(old[0],old[1]); delete global._codexMonitorSmokeErrorIndex; delete global._codexMonitorOldInstance; delete global._codexMonitorOldBridge; delete global._codexMonitorOldSnapshot; delete global._codexMonitorOldHelperPid; delete global._codexMonitorRestartHelperPid; delete global._codexMonitorHoverPointer; delete global._codexMonitorHoverLeft; delete global._codexMonitorHoverDetail; delete global._codexMonitorHoverMode; delete global._codexMonitorHoverRange; "cleared";' >/dev/null 2>&1 || true
 }
 trap cleanup_smoke EXIT HUP INT TERM
 eval_cinnamon 'global._codexMonitorSmokeErrorIndex=imports.ui.main._errorLogStack.length; "recorded";' >/dev/null
@@ -90,13 +90,13 @@ done
 
 # Reload the newly installed code once more so this run exercises its own
 # removal callback, not only the previously installed version's callback.
-eval_cinnamon 'global._codexMonitorOldInstance=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; "marked";' >/dev/null
+eval_cinnamon 'global._codexMonitorOldInstance=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; var p=global._codexMonitorOldInstance._bridge&&global._codexMonitorOldInstance._bridge._process; global._codexMonitorOldHelperPid=p&&p.get_identifier(); "marked";' >/dev/null
 gdbus call --session --dest org.Cinnamon --object-path /org/Cinnamon \
   --method org.Cinnamon.ReloadXlet "$UUID" APPLET >/dev/null
 lifecycle_removal=''
 attempt=0
 while [ "$attempt" -lt 20 ]; do
-  lifecycle_removal=$(eval_cinnamon 'var old=global._codexMonitorOldInstance; var current=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; JSON.stringify({lifecycleRemovalClean:Boolean(old&&old._destroyed&&old._bridge===null&&current&&current!==old&&current._bridge&&current._snapshot)});')
+  lifecycle_removal=$(eval_cinnamon 'var old=global._codexMonitorOldInstance; var current=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; var pid=global._codexMonitorOldHelperPid; var stopped=!pid||!imports.gi.GLib.file_test("/proc/"+pid,imports.gi.GLib.FileTest.EXISTS); JSON.stringify({lifecycleRemovalClean:Boolean(old&&old._destroyed&&old._bridge===null&&current&&current!==old&&current._bridge&&current._snapshot&&stopped)});')
   if json_true "$lifecycle_removal" lifecycleRemovalClean; then
     break
   fi
@@ -107,15 +107,15 @@ if ! json_true "$lifecycle_removal" lifecycleRemovalClean; then
   printf '%s\n' "Applet removal lifecycle assertion failed: $lifecycle_removal" >&2
   exit 1
 fi
-eval_cinnamon 'delete global._codexMonitorOldInstance; "cleared";' >/dev/null
+eval_cinnamon 'delete global._codexMonitorOldInstance; delete global._codexMonitorOldHelperPid; "cleared";' >/dev/null
 
 # Restart only the helper and require a fresh snapshot. This catches callbacks
 # from the retired helper mutating flags or scheduling a delayed second restart.
-eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; global._codexMonitorOldBridge=x._bridge; global._codexMonitorOldSnapshot=x._snapshot; x._configurationChanged(); "restarting";' >/dev/null
+eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; global._codexMonitorOldBridge=x._bridge; global._codexMonitorOldSnapshot=x._snapshot; var p=x._bridge&&x._bridge._process; global._codexMonitorRestartHelperPid=p&&p.get_identifier(); x._configurationChanged(); "restarting";' >/dev/null
 lifecycle_restart=''
 attempt=0
 while [ "$attempt" -lt 20 ]; do
-  lifecycle_restart=$(eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; JSON.stringify({lifecycleRestartClean:Boolean(x&&x._bridge&&x._bridge!==global._codexMonitorOldBridge&&x._snapshot&&x._snapshot!==global._codexMonitorOldSnapshot&&!x._refreshing&&x._restartTimer===0)});')
+  lifecycle_restart=$(eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; var pid=global._codexMonitorRestartHelperPid; var stopped=!pid||!imports.gi.GLib.file_test("/proc/"+pid,imports.gi.GLib.FileTest.EXISTS); JSON.stringify({lifecycleRestartClean:Boolean(x&&x._bridge&&x._bridge!==global._codexMonitorOldBridge&&x._snapshot&&x._snapshot!==global._codexMonitorOldSnapshot&&!x._refreshing&&x._restartTimer===0&&stopped)});')
   if json_true "$lifecycle_restart" lifecycleRestartClean; then
     break
   fi
@@ -126,7 +126,7 @@ if ! json_true "$lifecycle_restart" lifecycleRestartClean; then
   printf '%s\n' "Bridge restart lifecycle assertion failed: $lifecycle_restart" >&2
   exit 1
 fi
-eval_cinnamon 'delete global._codexMonitorOldBridge; delete global._codexMonitorOldSnapshot; "cleared";' >/dev/null
+eval_cinnamon 'delete global._codexMonitorOldBridge; delete global._codexMonitorOldSnapshot; delete global._codexMonitorRestartHelperPid; "cleared";' >/dev/null
 
 python3 "$ROOT/scripts/smoke_bridge.py" \
   --helper "$TARGET/helper/bridge.py" \
