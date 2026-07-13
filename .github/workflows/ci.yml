@@ -13,12 +13,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.10"
           cache: pip
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: "20"
       - name: Install test runner
@@ -38,7 +38,7 @@ jobs:
       - name: Build distributable
         run: sh scripts/package.sh
       - name: Check out the pinned official Cinnamon validator
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: linuxmint/cinnamon-spices-applets
           ref: 5b4240a93b32b2171e672ae3e86e4649a447d4cf
@@ -54,7 +54,7 @@ jobs:
         run: |
           unzip -Z1 dist/codex-monitor@breixopd.zip > archive-files.txt
           ! grep -E '(__pycache__|\.py[co]$|\.env|\.pem$|\.key$)' archive-files.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: codex-monitor-cinnamon
           path: dist/codex-monitor@breixopd.zip

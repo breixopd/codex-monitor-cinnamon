@@ -83,3 +83,12 @@ def test_ci_runs_the_official_validator_with_its_pillow_environment():
     assert "sudo apt-get install --yes --no-install-recommends gettext" in commands
     assert "python ./validate-spice codex-monitor@breixopd" in commands
     assert "./validate-spice codex-monitor@breixopd" not in commands
+
+
+def test_ci_uses_current_node_24_github_action_majors():
+    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text()
+
+    assert workflow.count("actions/checkout@v7") == 2
+    assert "actions/setup-python@v6" in workflow
+    assert "actions/setup-node@v6" in workflow
+    assert "actions/upload-artifact@v7" in workflow
