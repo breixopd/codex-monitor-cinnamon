@@ -1,6 +1,5 @@
 'use strict';
 
-const BarLevel = imports.ui.barLevel;
 const Clutter = imports.gi.Clutter;
 const Pango = imports.gi.Pango;
 const St = imports.gi.St;
@@ -33,34 +32,29 @@ class QuotaCard {
     });
     this._title = new St.Label({ text: title, style_class: 'codex-monitor-card-kicker' });
     this._percent = new St.Label({ text: '—', style_class: 'codex-monitor-percent' });
-    this._bar = new BarLevel.BarLevel({ style_class: 'codex-monitor-bar' });
     this._reset = new St.Label({
       text: this._('Waiting for Codex…'),
       style_class: 'codex-monitor-secondary',
     });
     this.actor.add_child(this._title);
     this.actor.add_child(this._percent);
-    this.actor.add_child(this._bar);
     this.actor.add_child(this._reset);
   }
 
   update(window, model, now) {
     if (!window) {
-      this._percent.set_text('—');
-      this._bar.value = 0;
-      this._reset.set_text(this._('Not available'));
+      this._percent.set_text(this._('Not available'));
+      this._reset.set_text(this._('No limit reported for the current model'));
       return;
     }
     const percentage = Math.max(0, Math.min(100, Number(window.usedPercent)));
     this._percent.set_text(`${Math.round(percentage)}% ${this._('used')}`);
-    this._bar.value = percentage / 100;
     if (window.resetsAt == null) {
       this._reset.set_text(this._('Reset time unavailable'));
       return;
     }
     const countdown = model.formatDuration(Number(window.resetsAt) - now);
-    const exact = new Date(Number(window.resetsAt) * 1000).toLocaleString();
-    this._reset.set_text(`${this._('Resets in')} ${countdown} · ${exact}`);
+    this._reset.set_text(`${this._('Resets in')} ${countdown}`);
   }
 }
 
@@ -396,12 +390,15 @@ var Dashboard = class Dashboard {
       text: `${summary.label} ${valueText(summary.current)}`,
     } : null).filter(Boolean);
     const hoverFormatter = timestamp => {
-      const values = this._model.nearestGraphValues(series, timestamp);
+      const rangeSeconds = Number(this._settings.graphRangeHours || 168) * 3600;
+      const values = this._model.nearestGraphValues(
+        series, timestamp, Math.max(6 * 3600, rangeSeconds / 40)
+      );
+      const cursorTime = new Date(Number(timestamp) * 1000).toLocaleString();
       if (values.length === 0)
-        return this._('No sample at this time');
-      const sampleTime = Math.min(...values.map(value => Number(value.timestamp)));
+        return `${cursorTime} · ${this._('No sample near this time')}`;
       const details = values.map(value => `${value.label} ${valueText(value)}`).join(' · ');
-      return `${new Date(sampleTime * 1000).toLocaleString()} · ${details}`;
+      return `${cursorTime} · ${details}`;
     };
     this._graph.updateQuotaGraph(this._graphActor, {
       series,

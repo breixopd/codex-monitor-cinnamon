@@ -190,6 +190,10 @@ test('nearest graph values select one point from every available series', () => 
     ['5h', 20],
     ['Weekly', 40],
   ]);
+
+  assert.deepEqual(model.nearestGraphValues([
+    { label: 'Weekly', points: [{ timestamp: 100, value: 20 }] },
+  ], 300, 50), []);
 });
 
 test('graph summary reports empty and insufficient history states', () => {

@@ -113,3 +113,12 @@ def test_dashboard_uses_only_cinnamons_native_context_settings_action():
     assert "onSettings" not in applet
     assert "onSettings" not in dashboard
     assert "cinnamon-settings', 'applets'" not in applet
+
+
+def test_quota_cards_do_not_repeat_panel_bars_in_the_dashboard():
+    dashboard = Path("files/codex-monitor@breixopd/ui.js").read_text(
+        encoding="utf-8"
+    )
+
+    assert "BarLevel" not in dashboard
+    assert "codex-monitor-bar" not in dashboard

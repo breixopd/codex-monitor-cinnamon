@@ -216,7 +216,7 @@ function graphAxis(cutoff, now, rangeHours) {
   }));
 }
 
-function nearestGraphValues(series, timestamp) {
+function nearestGraphValues(series, timestamp, maximumDistance = null) {
   const target = Number(timestamp);
   return (series || [])
     .filter(item => item.points && item.points.length > 0)
@@ -225,7 +225,9 @@ function nearestGraphValues(series, timestamp) {
         Math.abs(Number(candidate.timestamp) - target) <
           Math.abs(Number(best.timestamp) - target) ? candidate : best);
       return { label: item.label, kind: item.kind || 'quota', ...point };
-    });
+    })
+    .filter(point => maximumDistance == null ||
+      Math.abs(Number(point.timestamp) - target) <= Number(maximumDistance));
 }
 
 function isUsableRemoteStatus(remoteStatus) {

@@ -81,6 +81,7 @@ var createQuotaGraph = function(options = {}) {
   view._area._resetMarkers = [];
   view._area._minimum = 0;
   view._area._maximum = 1;
+  view._area._hoverTimestamp = null;
   view._area.connect('repaint', _drawQuotaGraph);
   view._area.connect('motion-event', (_actor, event) => {
     const [stageX, stageY] = event.get_coords();
@@ -91,10 +92,14 @@ var createQuotaGraph = function(options = {}) {
     const ratio = Math.max(0, Math.min(1, transformed[1] / Math.max(1, width)));
     const timestamp = view._area._minimum +
       ratio * (view._area._maximum - view._area._minimum);
+    view._area._hoverTimestamp = timestamp;
+    view._area.queue_repaint();
     view._hover.set_text(view._hoverFormatter(timestamp));
     return Clutter.EVENT_PROPAGATE;
   });
   view._area.connect('leave-event', () => {
+    view._area._hoverTimestamp = null;
+    view._area.queue_repaint();
     view._hover.set_text(view._defaultDetail || '');
     return Clutter.EVENT_PROPAGATE;
   });
@@ -252,5 +257,13 @@ function _drawQuotaGraph(area) {
       context.fill();
     }
   });
+  if (Number.isFinite(area._hoverTimestamp)) {
+    const x = xFor(area._hoverTimestamp);
+    context.setLineWidth(1);
+    context.setSourceRGBA(..._rgba(foreground, 0.5));
+    context.moveTo(x, padding);
+    context.lineTo(x, height - padding);
+    context.stroke();
+  }
   context.$dispose();
 }

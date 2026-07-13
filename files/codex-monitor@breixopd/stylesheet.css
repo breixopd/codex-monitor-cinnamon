@@ -122,15 +122,6 @@
   font-weight: 700;
 }
 
-.codex-monitor-bar {
-  height: 8px;
-  -barlevel-height: 6px;
-  -barlevel-background-color: rgba(255, 255, 255, 0.14);
-  -barlevel-active-background-color: #5aa9e6;
-  -barlevel-amplify-color: #e05a62;
-  -barlevel-amplify-separator-width: 0px;
-}
-
 .codex-monitor-section-title,
 .codex-monitor-row-title {
   font-weight: 600;
