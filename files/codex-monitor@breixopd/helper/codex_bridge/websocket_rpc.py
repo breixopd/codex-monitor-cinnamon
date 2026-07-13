@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import socket
+import stat
 import struct
 from typing import Any
 
@@ -117,6 +118,12 @@ class UnixSocketAppServerClient:
     def _connect(self):
         if self._socket is not None:
             raise RuntimeError("Codex control channel is already connected")
+        try:
+            metadata = os.stat(self.socket_path, follow_symlinks=False)
+        except OSError:
+            raise RuntimeError("Codex control channel is unavailable") from None
+        if not stat.S_ISSOCK(metadata.st_mode) or metadata.st_uid != os.geteuid():
+            raise RuntimeError("Codex control channel is unavailable")
         connection = self.socket_factory(socket.AF_UNIX, socket.SOCK_STREAM)
         connection.settimeout(self.timeout_seconds)
         try:

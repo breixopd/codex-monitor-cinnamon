@@ -227,3 +227,20 @@ def test_unix_socket_client_uses_sanitized_timeout(tmp_path):
         release.set()
         client.close()
     _finish_server(thread, outcome)
+
+
+def test_unix_socket_client_rejects_a_non_socket_endpoint(tmp_path):
+    socket_path = tmp_path / "not-a-socket"
+    socket_path.write_text("untrusted", encoding="utf-8")
+
+    def socket_factory(*_args):
+        raise AssertionError("socket creation must not happen for an invalid endpoint")
+
+    client = UnixSocketAppServerClient(
+        socket_path=socket_path,
+        timeout_seconds=0.05,
+        socket_factory=socket_factory,
+    )
+
+    with pytest.raises(RuntimeError, match="control channel is unavailable"):
+        client.initialize()
