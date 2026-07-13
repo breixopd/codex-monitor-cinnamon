@@ -128,6 +128,16 @@ def test_graph_hover_uses_allocated_actor_width_outside_repaint():
     assert "get_surface_size" not in motion_handler
 
 
+def test_graph_marks_uncollected_history_and_explains_its_boundary():
+    graph = GRAPH_SOURCE.read_text(encoding="utf-8")
+    ui = UI_SOURCE.read_text(encoding="utf-8")
+
+    assert "function _drawUncollectedHistory" in graph
+    assert "area._collectionStart" in graph
+    assert "No local history" in graph
+    assert "History starts" in ui
+
+
 def test_dashboard_sends_semantic_graph_payload():
     source = UI_SOURCE.read_text(encoding="utf-8")
 

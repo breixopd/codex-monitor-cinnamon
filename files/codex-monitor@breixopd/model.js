@@ -369,6 +369,7 @@ function graphDomain(series, cutoff, now) {
       end: selectedEnd,
       selectedSeconds,
       collectedSeconds: 0,
+      collectionStart: null,
     };
   }
   const first = Math.min(...timestamps);
@@ -378,6 +379,7 @@ function graphDomain(series, cutoff, now) {
     end: selectedEnd,
     selectedSeconds,
     collectedSeconds,
+    collectionStart: first,
   };
 }
 

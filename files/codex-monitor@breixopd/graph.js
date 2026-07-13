@@ -82,6 +82,7 @@ var createQuotaGraph = function(options = {}) {
   view._area._axes = null;
   view._area._minimum = 0;
   view._area._maximum = 1;
+  view._area._collectionStart = null;
   view._area._hoverTimestamp = null;
   view._area.connect('repaint', _drawQuotaGraph);
   view._area.connect('motion-event', (_actor, event) => {
@@ -169,6 +170,9 @@ var updateQuotaGraph = function(view, payload) {
   view._area._maximum = axis.length > 0
     ? Math.max(view._area._minimum + 1, Number(axis[axis.length - 1].timestamp))
     : 1;
+  view._area._collectionStart = axes.domain &&
+    Number.isFinite(Number(axes.domain.collectionStart))
+    ? Number(axes.domain.collectionStart) : null;
   view._hoverFormatter = data.hoverFormatter || null;
   view._defaultDetail = data.defaultDetail || '';
   view._hover.set_text(view._defaultDetail);
@@ -312,6 +316,42 @@ function _drawActivityBars(context, series, xFor, yFor, plotWidth, bottom, color
   context.fill();
 }
 
+function _drawUncollectedHistory(context, startX, padding, width, height,
+    foreground, hasHistory) {
+  const boundary = Math.max(padding, Math.min(width - padding, startX));
+  const shadedWidth = boundary - padding;
+  if (shadedWidth <= 0)
+    return;
+  context.setSourceRGBA(..._rgba(foreground, 0.045));
+  context.rectangle(padding, padding, shadedWidth, height - padding * 2);
+  context.fill();
+  context.save();
+  context.rectangle(padding, padding, shadedWidth, height - padding * 2);
+  context.clip();
+  context.setLineWidth(1);
+  context.setSourceRGBA(..._rgba(foreground, 0.08));
+  for (let x = padding - height; x < boundary; x += 12) {
+    context.moveTo(x, height - padding);
+    context.lineTo(x + height, padding);
+  }
+  context.stroke();
+  context.restore();
+  if (hasHistory) {
+    context.setDash([3, 3], 0);
+    context.setSourceRGBA(..._rgba(foreground, 0.38));
+    context.moveTo(boundary, padding);
+    context.lineTo(boundary, height - padding);
+    context.stroke();
+    context.setDash([], 0);
+  }
+  if (shadedWidth >= 90) {
+    context.setSourceRGBA(..._rgba(foreground, 0.48));
+    context.setFontSize(10);
+    context.moveTo(padding + 8, padding + 14);
+    context.showText('No local history');
+  }
+}
+
 function _drawQuotaGraph(area) {
   const context = area.get_context();
   const [width, height] = area.get_surface_size();
@@ -334,14 +374,20 @@ function _drawQuotaGraph(area) {
   }
   context.stroke();
 
+  const minimum = Number(area._minimum);
+  const maximum = Math.max(Number(area._maximum), minimum + 1);
+  const xFor = timestamp => padding + ((timestamp - minimum) / (maximum - minimum)) * plotWidth;
   const timestamps = area._series.flatMap(series => series.points.map(point => point.timestamp));
+  const collectionStart = Number.isFinite(area._collectionStart)
+    ? area._collectionStart : maximum;
+  _drawUncollectedHistory(
+    context, xFor(collectionStart), padding, width, height, foreground,
+    timestamps.length > 0
+  );
   if (timestamps.length === 0) {
     context.$dispose();
     return;
   }
-  const minimum = Number(area._minimum);
-  const maximum = Math.max(Number(area._maximum), minimum + 1);
-  const xFor = timestamp => padding + ((timestamp - minimum) / (maximum - minimum)) * plotWidth;
 
   const axes = area._axes || {};
   const quotaMaximum = Number(axes.left && axes.left.maximum) || 100;

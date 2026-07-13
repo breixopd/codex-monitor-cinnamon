@@ -568,11 +568,16 @@ var Dashboard = class Dashboard {
       return `${cursorTime} · ${details}`;
     };
     const selectedRange = rangeHours === 24 ? '24h' : rangeHours === 168 ? '7d' : '30d';
-    const coverage = axes.domain && axes.domain.collectedSeconds > 0 &&
-      axes.domain.collectedSeconds < axes.domain.selectedSeconds
-      ? `${this._('Showing')} ${this._model.formatDuration(
-        axes.domain.collectedSeconds
-      )} ${this._('collected of')} ${selectedRange}`
+    const partialCoverage = axes.domain && axes.domain.collectionStart != null &&
+      axes.domain.collectedSeconds < axes.domain.selectedSeconds;
+    const historyDate = partialCoverage
+      ? new Date(Number(axes.domain.collectionStart) * 1000).toLocaleDateString(
+        undefined, { year: 'numeric', month: 'short', day: 'numeric' }
+      ) : null;
+    const coverage = partialCoverage
+      ? `${this._('History starts')} ${historyDate} · ` +
+        `${this._model.formatDuration(axes.domain.collectedSeconds)} ` +
+        `${this._('collected of')} ${selectedRange}`
       : null;
     this._graph.updateQuotaGraph(this._graphActor, {
       mode,

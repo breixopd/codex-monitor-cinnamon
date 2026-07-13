@@ -425,9 +425,18 @@ test('graph axes preserve the selected range when collected history is sparse', 
   const axes = model.graphAxes(series, 0, week, 168, 'quota');
 
   assert.equal(axes.domain.collectedSeconds, 4 * 3600);
+  assert.equal(axes.domain.collectionStart, week - 4 * 3600);
   assert.equal(axes.x[0].timestamp, 0);
   assert.equal(axes.x.at(-1).timestamp, week);
   assert.match(axes.x[0].label, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+});
+
+test('empty graph domains expose no collection boundary', () => {
+  const axes = model.graphAxes([], 100, 200, 24, 'quota');
+
+  assert.equal(axes.domain.collectionStart, null);
+  assert.equal(axes.domain.collectedSeconds, 0);
+  assert.deepEqual(axes.x.map(item => item.timestamp), [100, 150, 200]);
 });
 
 test('nearest graph values select one point from every available series', () => {
