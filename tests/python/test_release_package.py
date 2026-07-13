@@ -74,3 +74,11 @@ def test_spices_builder_outputs_only_the_official_submission_layout(tmp_path):
     assert (runtime / "po" / f"{UUID}.pot").is_file()
     assert not any(path.suffix in {".pyc", ".pyo"} for path in runtime.rglob("*"))
     assert not any(path.name == "__pycache__" for path in runtime.rglob("*"))
+
+
+def test_ci_runs_the_official_validator_with_its_pillow_environment():
+    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text()
+    commands = {line.strip() for line in workflow.splitlines()}
+
+    assert "python ./validate-spice codex-monitor@breixopd" in commands
+    assert "./validate-spice codex-monitor@breixopd" not in commands

@@ -45,7 +45,7 @@ jobs:
         run: |
           cp -a dist/spices/codex-monitor@breixopd .official-spices/
           cd .official-spices
-          ./validate-spice codex-monitor@breixopd
+          python ./validate-spice codex-monitor@breixopd
       - name: Verify archive contains no private or generated files
         run: |
           unzip -Z1 dist/codex-monitor@breixopd.zip > archive-files.txt
