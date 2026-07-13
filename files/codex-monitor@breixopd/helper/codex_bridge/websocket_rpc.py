@@ -118,6 +118,16 @@ class UnixSocketAppServerClient:
     def _connect(self):
         if self._socket is not None:
             raise RuntimeError("Codex control channel is already connected")
+        connection = self._open_connection()
+        connection.settimeout(self.timeout_seconds)
+        self._socket = connection
+        try:
+            self._upgrade()
+        except BaseException:
+            self.close()
+            raise
+
+    def _open_connection(self):
         try:
             metadata = os.stat(self.socket_path, follow_symlinks=False)
         except OSError:
@@ -125,18 +135,12 @@ class UnixSocketAppServerClient:
         if not stat.S_ISSOCK(metadata.st_mode) or metadata.st_uid != os.geteuid():
             raise RuntimeError("Codex control channel is unavailable")
         connection = self.socket_factory(socket.AF_UNIX, socket.SOCK_STREAM)
-        connection.settimeout(self.timeout_seconds)
         try:
             connection.connect(self.socket_path)
         except (OSError, socket.timeout):
             connection.close()
             raise RuntimeError("Codex control channel is unavailable") from None
-        self._socket = connection
-        try:
-            self._upgrade()
-        except BaseException:
-            self.close()
-            raise
+        return connection
 
     def _upgrade(self):
         key = base64.b64encode(os.urandom(16)).decode("ascii")

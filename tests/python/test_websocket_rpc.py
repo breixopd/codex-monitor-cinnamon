@@ -4,6 +4,7 @@ import json
 import socket
 import struct
 import threading
+import time
 
 import pytest
 
@@ -11,6 +12,80 @@ from codex_bridge.websocket_rpc import (
     MAX_MESSAGE_BYTES,
     UnixSocketAppServerClient,
 )
+
+
+class _MemorySocket:
+    """Blocking byte stream used where the test sandbox denies local sockets."""
+
+    def __init__(self):
+        self._buffer = bytearray()
+        self._condition = threading.Condition()
+        self._peer = None
+        self._peer_closed = False
+        self._closed = False
+        self._timeout = None
+
+    def connect_peer(self, peer):
+        self._peer = peer
+
+    def settimeout(self, value):
+        self._timeout = value
+
+    def gettimeout(self):
+        return self._timeout
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, _exception_type, _exception, _traceback):
+        self.close()
+
+    def sendall(self, value):
+        if self._closed or self._peer is None:
+            raise BrokenPipeError
+        peer = self._peer
+        with peer._condition:
+            if peer._closed:
+                raise BrokenPipeError
+            peer._buffer.extend(value)
+            peer._condition.notify_all()
+
+    def recv(self, maximum):
+        deadline = (
+            None if self._timeout is None else time.monotonic() + self._timeout
+        )
+        with self._condition:
+            while not self._buffer and not self._peer_closed:
+                remaining = (
+                    None if deadline is None else deadline - time.monotonic()
+                )
+                if remaining is not None and remaining <= 0:
+                    raise socket.timeout
+                self._condition.wait(remaining)
+            if not self._buffer:
+                return b""
+            size = min(maximum, len(self._buffer))
+            value = bytes(self._buffer[:size])
+            del self._buffer[:size]
+            return value
+
+    def close(self):
+        if self._closed:
+            return
+        self._closed = True
+        peer = self._peer
+        if peer is not None:
+            with peer._condition:
+                peer._peer_closed = True
+                peer._condition.notify_all()
+
+
+def _memory_socket_pair():
+    client = _MemorySocket()
+    server = _MemorySocket()
+    client.connect_peer(server)
+    server.connect_peer(client)
+    return client, server
 
 
 def _read_until(connection, marker, maximum=16_384):
@@ -92,29 +167,20 @@ def _send_frame(connection, payload=b"", *, opcode=1, final=True):
     connection.sendall(header + payload)
 
 
-def _start_server(socket_path, handler):
-    ready = threading.Event()
+def _start_server(handler):
+    client_connection, server_connection = _memory_socket_pair()
     outcome = {}
 
     def run():
-        server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         try:
-            server.bind(str(socket_path))
-            server.listen(1)
-            ready.set()
-            connection, _address = server.accept()
-            with connection:
-                handler(connection)
+            with server_connection:
+                handler(server_connection)
         except BaseException as error:
             outcome["error"] = error
-            ready.set()
-        finally:
-            server.close()
 
     thread = threading.Thread(target=run, daemon=True)
     thread.start()
-    assert ready.wait(1)
-    return thread, outcome
+    return client_connection, thread, outcome
 
 
 def _finish_server(thread, outcome):
@@ -162,11 +228,12 @@ def test_unix_socket_client_initializes_and_reads_fragmented_json_rpc(tmp_path):
         assert (final, opcode, payload) == (True, 10, b"still-alive")
         _send_frame(connection, response[split:], opcode=0, final=True)
 
-    thread, outcome = _start_server(socket_path, handler)
+    connection, thread, outcome = _start_server(handler)
     client = UnixSocketAppServerClient(
         socket_path=socket_path,
         timeout_seconds=0.5,
     )
+    client._open_connection = lambda: connection
     try:
         assert client.initialize() == {"platformOs": "linux"}
         assert client.request(
@@ -183,8 +250,12 @@ def test_unix_socket_client_rejects_invalid_upgrade_accept(tmp_path):
     def handler(connection):
         _handshake(connection, valid=False)
 
-    thread, outcome = _start_server(socket_path, handler)
-    client = UnixSocketAppServerClient(socket_path=socket_path, timeout_seconds=0.2)
+    connection, thread, outcome = _start_server(handler)
+    client = UnixSocketAppServerClient(
+        socket_path=socket_path,
+        timeout_seconds=0.2,
+    )
+    client._open_connection = lambda: connection
     with pytest.raises(RuntimeError, match="control channel handshake failed"):
         client.initialize()
     client.close()
@@ -201,8 +272,12 @@ def test_unix_socket_client_rejects_oversized_message_before_reading_payload(tmp
             bytes((0x81, 127)) + struct.pack("!Q", MAX_MESSAGE_BYTES + 1)
         )
 
-    thread, outcome = _start_server(socket_path, handler)
-    client = UnixSocketAppServerClient(socket_path=socket_path, timeout_seconds=0.2)
+    connection, thread, outcome = _start_server(handler)
+    client = UnixSocketAppServerClient(
+        socket_path=socket_path,
+        timeout_seconds=0.2,
+    )
+    client._open_connection = lambda: connection
     with pytest.raises(RuntimeError, match="control channel message was too large"):
         client.initialize()
     client.close()
@@ -218,8 +293,12 @@ def test_unix_socket_client_uses_sanitized_timeout(tmp_path):
         _read_frame(connection)
         release.wait(1)
 
-    thread, outcome = _start_server(socket_path, handler)
-    client = UnixSocketAppServerClient(socket_path=socket_path, timeout_seconds=0.05)
+    connection, thread, outcome = _start_server(handler)
+    client = UnixSocketAppServerClient(
+        socket_path=socket_path,
+        timeout_seconds=0.05,
+    )
+    client._open_connection = lambda: connection
     try:
         with pytest.raises(TimeoutError, match="Codex control channel timed out"):
             client.initialize()
