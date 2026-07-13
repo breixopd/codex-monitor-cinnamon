@@ -60,17 +60,17 @@ var createQuotaGraph = function(options = {}) {
     style_class: 'codex-monitor-graph-view',
   });
   const plotRow = new St.BoxLayout({ style_class: 'codex-monitor-graph-plot-row' });
-  view._yAxis = new St.BoxLayout({
+  view._leftAxis = new St.BoxLayout({
     vertical: true,
     style_class: 'codex-monitor-graph-y-axis',
   });
-  for (const label of ['100%', '75%', '50%', '25%', '0%']) {
-    view._yAxis.add_child(new St.Label({
-      text: label,
-      style_class: 'codex-monitor-graph-axis-label',
-      y_expand: true,
-    }));
-  }
+  view._rightAxis = new St.BoxLayout({
+    vertical: true,
+    style_class: 'codex-monitor-graph-y-axis codex-monitor-graph-y-axis-right',
+  });
+  _updateAxis(view._leftAxis, null);
+  _updateAxis(view._rightAxis, null);
+  view._rightAxis.visible = false;
   view._area = new St.DrawingArea({
     style_class: 'codex-monitor-graph',
     reactive: true,
@@ -79,6 +79,7 @@ var createQuotaGraph = function(options = {}) {
   });
   view._area._series = [];
   view._area._resetMarkers = [];
+  view._area._axes = null;
   view._area._minimum = 0;
   view._area._maximum = 1;
   view._area._hoverTimestamp = null;
@@ -103,8 +104,9 @@ var createQuotaGraph = function(options = {}) {
     view._hover.set_text(view._defaultDetail || '');
     return Clutter.EVENT_PROPAGATE;
   });
-  plotRow.add_child(view._yAxis);
+  plotRow.add_child(view._leftAxis);
   plotRow.add_child(view._area);
+  plotRow.add_child(view._rightAxis);
   view.add_child(plotRow);
 
   view._xAxis = new St.BoxLayout({ style_class: 'codex-monitor-graph-x-axis' });
@@ -138,12 +140,29 @@ var createQuotaGraph = function(options = {}) {
   return view;
 };
 
+function _updateAxis(actor, axis) {
+  for (const child of actor.get_children())
+    child.destroy();
+  const ticks = axis && Array.isArray(axis.ticks) ? axis.ticks : [
+    { label: '—' }, { label: '' }, { label: '' }, { label: '' }, { label: '—' },
+  ];
+  for (const tick of ticks) {
+    actor.add_child(new St.Label({
+      text: tick.label || '',
+      style_class: 'codex-monitor-graph-axis-label',
+      y_expand: true,
+    }));
+  }
+}
+
 var updateQuotaGraph = function(view, payload) {
   const data = payload || {};
   const series = data.series || [];
-  const axis = data.axis || [];
+  const axes = data.axes || { x: data.axis || [], left: null, right: null };
+  const axis = axes.x || [];
   view._area._series = series;
   view._area._resetMarkers = data.resetMarkers || [];
+  view._area._axes = axes;
   view._area._minimum = axis.length > 0 ? Number(axis[0].timestamp) : 0;
   view._area._maximum = axis.length > 0
     ? Math.max(view._area._minimum + 1, Number(axis[axis.length - 1].timestamp))
@@ -154,6 +173,13 @@ var updateQuotaGraph = function(view, payload) {
 
   const xLabels = view._xAxis.get_children();
   xLabels.forEach((label, index) => label.set_text(axis[index] ? axis[index].label : '—'));
+  _updateAxis(view._leftAxis, data.axes && data.axes.left);
+  _updateAxis(view._rightAxis, data.axes && data.axes.right);
+  view._rightAxis.visible = Boolean(data.axes && data.axes.right);
+  if (view._rightAxis.visible)
+    view.add_style_class_name('codex-monitor-graph-dual-axis');
+  else
+    view.remove_style_class_name('codex-monitor-graph-dual-axis');
   for (const child of view._legend.get_children())
     child.destroy();
   for (const item of data.legend || []) {
@@ -179,6 +205,75 @@ var updateQuotaGraph = function(view, payload) {
   view._empty.visible = Boolean(view._empty.get_text());
   view._area.queue_repaint();
 };
+
+function _drawResetMarkers(context, area, markers, xFor, padding, height, foreground,
+    minimum, maximum) {
+  context.setDash([4, 4], 0);
+  context.setSourceRGBA(..._rgba(foreground, 0.28));
+  for (const marker of markers) {
+    if (marker < minimum || marker > maximum)
+      continue;
+    const x = xFor(marker);
+    context.moveTo(x, padding);
+    context.lineTo(x, height - padding);
+    context.stroke();
+    context.setDash([], 0);
+    context.setSourceRGBA(..._rgba(foreground, 0.72));
+    context.setFontSize(9);
+    context.moveTo(Math.min(area.get_surface_size()[0] - 10, x + 2), padding + 9);
+    context.showText('R');
+    context.setDash([4, 4], 0);
+    context.setSourceRGBA(..._rgba(foreground, 0.28));
+  }
+  context.stroke();
+  context.setDash([], 0);
+}
+
+function _drawQuotaSteps(context, series, xFor, yFor, color) {
+  context.setSourceRGBA(..._rgba(color, 0.95));
+  context.setLineCap(Cairo.LineCap.ROUND);
+  context.setLineJoin(Cairo.LineJoin.ROUND);
+  context.setLineWidth(2);
+  const segments = series.segments || [series.points || []];
+  for (const segment of segments) {
+    if (segment.length === 0)
+      continue;
+    const first = segment[0];
+    context.moveTo(xFor(first.timestamp), yFor(first.usedPercent ?? first.value));
+    for (let index = 1; index < segment.length; index += 1) {
+      const previous = segment[index - 1];
+      const point = segment[index];
+      const x = xFor(point.timestamp);
+      const previousY = yFor(previous.usedPercent ?? previous.value);
+      const y = yFor(point.usedPercent ?? point.value);
+      context.lineTo(x, previousY);
+      context.lineTo(x, y);
+    }
+    context.stroke();
+    if (segment.length === 1) {
+      context.arc(
+        xFor(first.timestamp),
+        yFor(first.usedPercent ?? first.value),
+        2.5, 0, Math.PI * 2
+      );
+      context.fill();
+    }
+  }
+}
+
+function _drawActivityBars(context, series, xFor, yFor, plotWidth, bottom, color) {
+  const points = series.points || [];
+  if (points.length === 0)
+    return;
+  const barWidth = Math.max(3, Math.min(18, plotWidth / Math.max(3, points.length) * 0.68));
+  context.setSourceRGBA(..._rgba(color, 0.72));
+  for (const point of points) {
+    const x = xFor(point.timestamp);
+    const y = yFor(point.tokens);
+    context.rectangle(x - barWidth / 2, y, barWidth, Math.max(1, bottom - y));
+  }
+  context.fill();
+}
 
 function _drawQuotaGraph(area) {
   const context = area.get_context();
@@ -211,51 +306,35 @@ function _drawQuotaGraph(area) {
   const maximum = Math.max(Number(area._maximum), minimum + 1);
   const xFor = timestamp => padding + ((timestamp - minimum) / (maximum - minimum)) * plotWidth;
 
-  context.setDash([4, 4], 0);
-  context.setSourceRGBA(..._rgba(foreground, 0.22));
-  for (const marker of area._resetMarkers) {
-    if (marker < minimum || marker > maximum)
-      continue;
-    const x = xFor(marker);
-    context.moveTo(x, padding);
-    context.lineTo(x, height - padding);
-    context.stroke();
-    context.setDash([], 0);
-    context.setSourceRGBA(..._rgba(foreground, 0.65));
-    context.setFontSize(9);
-    context.moveTo(Math.min(width - 10, x + 2), padding + 9);
-    context.showText('R');
-    context.setDash([4, 4], 0);
-  }
-  context.stroke();
-  context.setDash([], 0);
-  context.setLineCap(Cairo.LineCap.ROUND);
-  context.setLineJoin(Cairo.LineJoin.ROUND);
-  context.setLineWidth(2);
+  _drawResetMarkers(
+    context, area, area._resetMarkers, xFor, padding, height, foreground,
+    minimum, maximum
+  );
+  const axes = area._axes || {};
+  const quotaMaximum = Number(axes.left && axes.left.maximum) || 100;
+  const tokenAxis = axes.right || axes.left;
+  const tokenMaximum = Number(tokenAxis && tokenAxis.maximum) || 1;
+  const yForQuota = value => padding + plotHeight *
+    (1 - Math.max(0, Math.min(quotaMaximum, Number(value) || 0)) / quotaMaximum);
+  const yForTokens = value => padding + plotHeight *
+    (1 - Math.max(0, Math.min(tokenMaximum, Number(value) || 0)) / tokenMaximum);
 
   area._series.forEach((series, seriesIndex) => {
-    if (!series.points || series.points.length === 0)
+    if (series.kind !== 'activity')
       return;
     const colorIndex = Number.isInteger(series.colorIndex) ? series.colorIndex : seriesIndex;
-    context.setSourceRGBA(..._rgba(colors[colorIndex % colors.length], 0.95));
-    series.points.forEach((point, pointIndex) => {
-      const x = xFor(point.timestamp);
-      const value = Math.max(0, Math.min(100, Number(point.value)));
-      const y = padding + plotHeight * (1 - value / 100);
-      if (pointIndex === 0)
-        context.moveTo(x, y);
-      else
-        context.lineTo(x, y);
-    });
-    context.stroke();
-    if (series.points.length === 1) {
-      const point = series.points[0];
-      const x = xFor(point.timestamp);
-      const y = padding + plotHeight *
-        (1 - Math.max(0, Math.min(100, Number(point.value))) / 100);
-      context.arc(x, y, 2.5, 0, Math.PI * 2);
-      context.fill();
-    }
+    _drawActivityBars(
+      context, series, xFor, yForTokens, plotWidth, height - padding,
+      colors[colorIndex % colors.length]
+    );
+  });
+  area._series.forEach((series, seriesIndex) => {
+    if (series.kind === 'activity')
+      return;
+    const colorIndex = Number.isInteger(series.colorIndex) ? series.colorIndex : seriesIndex;
+    _drawQuotaSteps(
+      context, series, xFor, yForQuota, colors[colorIndex % colors.length]
+    );
   });
   if (Number.isFinite(area._hoverTimestamp)) {
     const x = xFor(area._hoverTimestamp);

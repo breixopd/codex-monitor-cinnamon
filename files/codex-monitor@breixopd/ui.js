@@ -1,6 +1,9 @@
 'use strict';
 
+const ByteArray = imports.byteArray;
 const Clutter = imports.gi.Clutter;
+const Gio = imports.gi.Gio;
+const GLib = imports.gi.GLib;
 const Pango = imports.gi.Pango;
 const St = imports.gi.St;
 
@@ -20,6 +23,38 @@ function _button(label, callback, styleClass = 'codex-monitor-button') {
   });
   button.connect('clicked', callback);
   return button;
+}
+
+function _validatedQrSvg(value) {
+  if (typeof value !== 'string' || value.length === 0 || value.length > 256 * 1024)
+    return null;
+  const safeSvg = /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" viewBox="0 0 [0-9]+ [0-9]+" shape-rendering="crispEdges"><rect width="[0-9]+" height="[0-9]+" fill="#fff"\/><path d="[M0-9 hvz-]*" fill="#000"\/><\/svg>$/;
+  return safeSvg.test(value) ? value : null;
+}
+
+function _updateQrSvg(container, value) {
+  const child = container.get_child();
+  if (child)
+    child.destroy();
+  const svg = _validatedQrSvg(value);
+  if (!svg) {
+    container.visible = false;
+    return false;
+  }
+  try {
+    const bytes = GLib.Bytes.new(ByteArray.fromString(svg));
+    const icon = new St.Icon({
+      gicon: Gio.BytesIcon.new(bytes),
+      icon_size: 196,
+      style_class: 'codex-monitor-qr-icon',
+    });
+    container.set_child(icon);
+    container.visible = true;
+    return true;
+  } catch (error) {
+    container.visible = false;
+    return false;
+  }
 }
 
 class QuotaCard {
@@ -63,7 +98,6 @@ var Dashboard = class Dashboard {
     this._ = options.translate;
     this._model = options.model;
     this._graph = options.graph;
-    this._qr = options.qr;
     this._callbacks = options.callbacks;
     this._snapshot = null;
     this._remoteStatus = null;
@@ -74,6 +108,7 @@ var Dashboard = class Dashboard {
     this._remoteError = '';
     this._sessions = { active: [], recent: [] };
     this._sessionsError = false;
+    this._updateState = null;
     this._settings = {};
 
     this.actor = new St.BoxLayout({
@@ -103,6 +138,43 @@ var Dashboard = class Dashboard {
     header.add_child(title);
     header.add_child(this._status);
     this.actor.add_child(header);
+    this._indicatorSection = new St.BoxLayout({
+      vertical: true,
+      style_class: 'codex-monitor-indicator-section',
+    });
+    this._indicatorSection.add_child(new St.Label({
+      text: this._('Current indicators'),
+      style_class: 'codex-monitor-card-kicker',
+    }));
+    this._indicatorList = new St.BoxLayout({
+      style_class: 'codex-monitor-indicator-list',
+    });
+    this._indicatorSection.add_child(this._indicatorList);
+    this.actor.add_child(this._indicatorSection);
+    this.setIndicators([]);
+  }
+
+  setIndicators(indicators) {
+    if (!this._indicatorList)
+      return;
+    _clear(this._indicatorList);
+    const visibleIndicators = Array.isArray(indicators) ? indicators : [];
+    if (visibleIndicators.length === 0) {
+      this._indicatorList.add_child(new St.Label({
+        text: this._('Usage data current'),
+        style_class: 'codex-monitor-indicator-chip codex-indicator-info',
+      }));
+      return;
+    }
+    for (const indicator of visibleIndicators) {
+      this._indicatorList.add_child(new St.Label({
+        text: `${indicator.symbol} ${this._(indicator.text)}`,
+        style_class: 'codex-monitor-indicator-chip ' +
+          `codex-indicator-${indicator.kind} ` +
+          `codex-indicator-${indicator.severity}`,
+        accessible_name: indicator.text,
+      }));
+    }
   }
 
   _buildQuotaCards() {
@@ -222,7 +294,11 @@ var Dashboard = class Dashboard {
     this._remoteSection.add_child(heading);
     this._remoteSection.add_child(this._remoteIdentity);
     this._remoteSection.add_child(this._remoteButtons);
-    this._pairingQr = this._qr.createQrCode();
+    this._pairingQr = new St.Bin({
+      style_class: 'codex-monitor-qr',
+      x_align: Clutter.ActorAlign.CENTER,
+      x_expand: false,
+    });
     this._pairingQr.visible = false;
     this._pairingManualLabel = new St.Label({
       text: '',
@@ -251,6 +327,21 @@ var Dashboard = class Dashboard {
   }
 
   _buildFooter() {
+    this._versionRow = new St.BoxLayout({
+      style_class: 'codex-monitor-version-row',
+    });
+    this._versionLabel = new St.Label({
+      text: '',
+      style_class: 'codex-monitor-secondary',
+      x_expand: true,
+    });
+    this._updateButton = _button(this._('Update Codex…'), this._callbacks.onUpdate);
+    this._updateButton.visible = false;
+    this._versionRow.add_child(this._versionLabel);
+    this._versionRow.add_child(this._updateButton);
+    this._versionRow.visible = false;
+    this.actor.add_child(this._versionRow);
+
     const footer = new St.BoxLayout({ style_class: 'codex-monitor-footer' });
     this._updated = new St.Label({
       text: this._('No data yet'),
@@ -260,6 +351,53 @@ var Dashboard = class Dashboard {
     footer.add_child(this._updated);
     footer.add_child(_button(this._('Refresh'), this._callbacks.onRefresh));
     this.actor.add_child(footer);
+  }
+
+  setUpdateState(value) {
+    const state = this._model.normalizeUpdateState(value);
+    this._updateState = state;
+    this._versionRow.visible = Boolean(state.installedVersion || state.message);
+    this._updateButton.visible = state.updateAvailable;
+    this._updateButton.set_label(this._('Update Codex…'));
+    if (state.status === 'checking') {
+      this._versionLabel.set_text(state.installedVersion
+        ? `${this._('Codex')} ${state.installedVersion} · ${this._('Checking for updates…')}`
+        : this._('Checking for Codex updates…'));
+      this._updateButton.visible = false;
+    } else if (state.status === 'updating') {
+      this._versionLabel.set_text(this._('Updating Codex…'));
+      this._updateButton.visible = false;
+    } else if (state.status === 'updated') {
+      this._versionLabel.set_text(state.message ||
+        `${this._('Updated to Codex')} ${state.installedVersion}. ` +
+        this._('New Codex launches use this version.'));
+      this._updateButton.visible = false;
+    } else if (state.status === 'failed') {
+      this._versionLabel.set_text(state.message ||
+        `${this._('Update failed; Codex')} ${state.installedVersion} ` +
+        this._('is still installed'));
+      this._updateButton.set_label(this._('Retry'));
+    } else if (state.updateAvailable) {
+      this._versionLabel.set_text(
+        `${this._('Codex')} ${state.installedVersion} → ${state.latestVersion}`
+      );
+    } else {
+      this._versionLabel.set_text(state.installedVersion
+        ? `${this._('Codex')} ${state.installedVersion}` : '');
+    }
+  }
+
+  showUpdateError() {
+    const installed = this._updateState && this._updateState.installedVersion;
+    this.setUpdateState({
+      installedVersion: installed,
+      latestVersion: this._updateState && this._updateState.latestVersion,
+      updateAvailable: Boolean(this._updateState && this._updateState.updateAvailable),
+      status: 'failed',
+      message: installed
+        ? `${this._('Update failed; Codex')} ${installed} ${this._('is still installed')}`
+        : this._('Codex update failed'),
+    });
   }
 
   setSettings(settings) {
@@ -278,7 +416,7 @@ var Dashboard = class Dashboard {
       button.remove_style_pseudo_class('checked');
   }
 
-  update(snapshot, remoteStatus) {
+  update(snapshot, remoteStatus, panelState) {
     this._snapshot = snapshot;
     this._remoteStatus = remoteStatus || this._remoteStatus;
     const now = Math.floor(Date.now() / 1000);
@@ -286,6 +424,7 @@ var Dashboard = class Dashboard {
     this._status.set_text(`${plan} · ${this._('Live')} ●`);
     this._fiveHourCard.update(snapshot.windows.fiveHour, this._model, now);
     this._weeklyCard.update(snapshot.windows.weekly, this._model, now);
+    this.setIndicators(panelState && panelState.indicators);
     this._updated.set_text(`${this._('Updated')} ${this._model.formatDuration(now - snapshot.capturedAt)} ${this._('ago')}`);
     this._renderGraph();
     this._renderResetBank();
@@ -311,8 +450,12 @@ var Dashboard = class Dashboard {
 
   setPairingStatus(status) {
     this._pairingStatusSupported = !status || status.supported !== false;
-    if (this._pairing && this._pairingStatusSupported)
-      this._pairing.claimed = Boolean(status && status.claimed);
+    if (this._pairing && this._pairingStatusSupported) {
+      if (status && status.claimed)
+        this._pairing = { claimed: true };
+      else
+        this._pairing.claimed = false;
+    }
     this._renderRemote();
   }
 
@@ -348,6 +491,7 @@ var Dashboard = class Dashboard {
       return;
     const now = Math.floor(Date.now() / 1000);
     const cutoff = now - Number(this._settings.graphRangeHours || 168) * 3600;
+    const rangeHours = Number(this._settings.graphRangeHours || 168);
     const mode = this._settings.graphMode || 'quota';
     const series = [];
     const markers = new Set();
@@ -359,14 +503,23 @@ var Dashboard = class Dashboard {
         const quotaPoints = this._model.quotaSeries(
           this._snapshot.history, windowName, cutoff, now
         );
-        let previousReset = null;
         const points = quotaPoints.map(point => {
-          if (previousReset != null && point.resetsAt !== previousReset)
+          if (point.resetTransition)
             markers.add(point.timestamp);
-          previousReset = point.resetsAt;
-          return { timestamp: point.timestamp, value: point.usedPercent };
+          return {
+            timestamp: point.timestamp,
+            value: point.usedPercent,
+            usedPercent: point.usedPercent,
+            resetTransition: point.resetTransition,
+          };
         });
-        series.push({ label, kind: 'quota', points, colorIndex });
+        series.push({
+          label,
+          kind: 'quota',
+          points,
+          segments: this._model.quotaSegments(points, rangeHours),
+          colorIndex,
+        });
       }
     }
     if (mode === 'activity' || mode === 'both') {
@@ -380,6 +533,7 @@ var Dashboard = class Dashboard {
       });
     }
     const summaries = series.map(item => this._model.graphSummary(item));
+    const axes = this._model.graphAxes(series, cutoff, now, rangeHours, mode);
     const valueText = point => {
       if (!point)
         return '—';
@@ -403,9 +557,11 @@ var Dashboard = class Dashboard {
       return `${cursorTime} · ${details}`;
     };
     this._graph.updateQuotaGraph(this._graphActor, {
+      mode,
+      rangeHours,
       series,
       resetMarkers: Array.from(markers),
-      axis: this._model.graphAxis(cutoff, now, this._settings.graphRangeHours || 168),
+      axes,
       legend,
       hoverFormatter,
       defaultDetail: legend.length > 0
@@ -566,12 +722,12 @@ var Dashboard = class Dashboard {
     }
     const now = Math.floor(Date.now() / 1000);
     if (this._pairing && this._pairing.claimed) {
-      this._qr.updateQrCode(this._pairingQr, null);
+      _updateQrSvg(this._pairingQr, null);
       this._pairingManualLabel.set_text('');
       this._pairingQrFallback.set_text('');
       this._pairingState.set_text(this._('Pairing complete'));
     } else if (this._pairing && this._pairing.expiresAt > now) {
-      const qrReady = this._qr.updateQrCode(this._pairingQr, this._pairing.qrMatrix);
+      const qrReady = _updateQrSvg(this._pairingQr, this._pairing.qrSvg);
       this._pairingManualLabel.set_text(this._pairing.manualPairingCode
         ? `${this._('Manual code')}: ${this._pairing.manualPairingCode}`
         : '');
@@ -586,7 +742,8 @@ var Dashboard = class Dashboard {
           : ` · ${this._('claim detection requires a newer Codex version')}`)
       );
     } else {
-      this._qr.updateQrCode(this._pairingQr, null);
+      this._pairing = null;
+      _updateQrSvg(this._pairingQr, null);
       this._pairingManualLabel.set_text('');
       this._pairingQrFallback.set_text('');
       this._pairingState.set_text('');

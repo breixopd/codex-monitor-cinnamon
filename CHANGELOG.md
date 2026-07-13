@@ -4,18 +4,20 @@
 
 ### Added
 
-- Detailed graph axes, a compact current-value legend, reset markers, hover values, and empty states
+- Stepped quota segments, activity bars, dual percentage/token axes, reset markers, hover values, and explicit graph empty states
 - Active/recent Codex sessions with safe default-terminal resume and Open Codex actions
 - Remote Control pairing status, paired-device inventory, refresh, and confirmed revocation
-- In-memory pairing QR with the manual code retained as a fallback
-- Repeatable installed Cinnamon and live bridge smoke tests
+- A single bounded Python SVG pairing QR path with native Cinnamon rendering and manual-code fallback
+- Automatic read-only Codex update discovery and a conditional confirmed background-update action
+- Repeatable installed Cinnamon and full dynamic-state live smoke tests
 
 ### Changed
 
-- Centered the compact two-row panel meter and made reset, stale, and Remote states dynamic
+- Centered the compact two-row panel meter and added explicit amber/red/green indicator severity
+- Added a dashboard Current indicators row so badge symbols and colors are always explained
 - Promoted Remote Control from an experimental dashboard gate to an always-available management section
 - Replaced retained installer backups with temporary rollback-only replacement and cleanup
-- Bounded long-running history and graph work, and hardened malformed optional Codex payload handling
+- Bounded history, graph, QR, release-response, and updater work; hardened malformed optional Codex payload handling
 
 ## [0.1.0] - 2026-07-13
 

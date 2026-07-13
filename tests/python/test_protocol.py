@@ -56,6 +56,18 @@ class FakeService:
         self.calls.append(("open_session", thread_id, cwd))
         return {"launched": True}
 
+    def update_status(self):
+        self.calls.append(("update_status", None))
+        return {"status": "idle", "updateAvailable": True}
+
+    def update_check(self, force=False):
+        self.calls.append(("update_check", force))
+        return {"status": "checking", "updateAvailable": True}
+
+    def update_start(self):
+        self.calls.append(("update_start", None))
+        return {"status": "updating", "updateAvailable": True}
+
 
 def test_router_returns_correlated_success_response():
     router = CommandRouter(FakeService())
@@ -177,6 +189,56 @@ def test_router_exposes_bounded_sessions_and_launch_actions():
         ("open_codex", None),
         ("open_session", thread_id, "/tmp"),
     ]
+
+
+def test_router_exposes_validated_update_status_check_and_confirmed_start():
+    service = FakeService()
+    router = CommandRouter(service)
+
+    status = router.handle({"id": "update-1", "action": "update_status", "params": {}})
+    check = router.handle(
+        {
+            "id": "update-2",
+            "action": "update_check",
+            "params": {"force": True},
+        }
+    )
+    denied = router.handle(
+        {"id": "update-3", "action": "update_start", "params": {}}
+    )
+    started = router.handle(
+        {
+            "id": "update-4",
+            "action": "update_start",
+            "params": {"confirmed": True},
+        }
+    )
+
+    assert status["data"]["status"] == "idle"
+    assert check["data"]["status"] == "checking"
+    assert denied["error"]["code"] == "CONFIRMATION_REQUIRED"
+    assert started["data"]["status"] == "updating"
+    assert service.calls == [
+        ("update_status", None),
+        ("update_check", True),
+        ("update_start", None),
+    ]
+
+
+def test_router_rejects_unknown_or_mistyped_update_parameters():
+    router = CommandRouter(FakeService())
+    requests = [
+        {"id": "bad-status", "action": "update_status", "params": {"extra": True}},
+        {"id": "bad-check", "action": "update_check", "params": {"force": "yes"}},
+        {
+            "id": "bad-start",
+            "action": "update_start",
+            "params": {"confirmed": True, "extra": True},
+        },
+    ]
+
+    for request in requests:
+        assert router.handle(request)["error"]["code"] == "INVALID_PARAMS"
 
 
 def test_router_rejects_invalid_session_limits_ids_and_paths():

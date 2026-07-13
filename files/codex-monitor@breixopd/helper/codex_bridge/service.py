@@ -11,11 +11,21 @@ from .sessions import normalize_session_list
 
 
 class CodexService:
-    def __init__(self, client, history, *, remote=None, launcher=None, clock=time.time):
+    def __init__(
+        self,
+        client,
+        history,
+        *,
+        remote=None,
+        launcher=None,
+        updates=None,
+        clock=time.time,
+    ):
         self.client = client
         self.history = history
         self.remote = remote
         self.launcher = launcher
+        self.updates = updates
         self.clock = clock
         self._notification_probe_complete = False
 
@@ -93,6 +103,15 @@ class CodexService:
     def remote_revoke(self, environment_id, client_id):
         return self._require_remote().revoke(environment_id, client_id)
 
+    def update_status(self):
+        return self._require_updates().status()
+
+    def update_check(self, force=False):
+        return self._require_updates().check(force=force)
+
+    def update_start(self):
+        return self._require_updates().start()
+
     def _require_remote(self):
         if self.remote is None:
             raise RuntimeError("Codex remote control is unavailable")
@@ -102,6 +121,11 @@ class CodexService:
         if self.launcher is None:
             raise RuntimeError("Codex terminal launcher is unavailable")
         return self.launcher
+
+    def _require_updates(self):
+        if self.updates is None:
+            raise RuntimeError("Codex update management is unavailable")
+        return self.updates
 
     def _merge_latest_rate_limits(self, response):
         wait = getattr(self.client, "wait_for_notification", None)

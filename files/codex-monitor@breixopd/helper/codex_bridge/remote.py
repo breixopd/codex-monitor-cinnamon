@@ -8,7 +8,7 @@ import stat
 import subprocess
 
 from .rpc import RpcError
-from .qr import encode_qr
+from .qr import encode_qr_svg
 
 
 class _ProxyUnavailable(RuntimeError):
@@ -31,7 +31,7 @@ class RemoteControl:
         self.client_factory = client_factory
         self.environment = environment
         self.daemon_running = daemon_running or self._control_socket_running
-        self.qr_encoder = qr_encoder or encode_qr
+        self.qr_encoder = qr_encoder or encode_qr_svg
         self._last_status = None
 
     def status(self):
@@ -95,7 +95,7 @@ class RemoteControl:
             "manualPairingCode": manual_code,
             "environmentId": environment_id,
             "expiresAt": expires_at,
-            "qrMatrix": self.qr_encoder(pairing_code),
+            "qrSvg": self.qr_encoder(pairing_code),
         }
 
     def pair(self):

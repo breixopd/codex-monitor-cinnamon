@@ -13,12 +13,10 @@ const Settings = imports.ui.settings;
 const St = imports.gi.St;
 
 const UUID = 'codex-monitor@breixopd';
-const Modules = imports.applets[UUID];
-const BridgeClient = Modules.bridgeClient.BridgeClient;
-const Dashboard = Modules.ui.Dashboard;
-const Graph = Modules.graph;
-const Model = Modules.model;
-const Qr = Modules.qr;
+const { BridgeClient } = require('./bridgeClient');
+const { Dashboard } = require('./ui');
+const Graph = require('./graph');
+const Model = require('./model');
 
 class CodexMonitorApplet extends Applet.Applet {
   constructor(metadata, orientation, panelHeight, instanceId) {
@@ -34,6 +32,10 @@ class CodexMonitorApplet extends Applet.Applet {
     this._remoteRefreshing = false;
     this._pairingPolling = false;
     this._clientsLoading = false;
+    this._updateState = null;
+    this._updateRefreshing = false;
+    this._updateTimer = 0;
+    this._updatePollTimer = 0;
     this._restartTimer = 0;
     this._restartAttempt = 0;
     this._bridge = null;
@@ -49,6 +51,7 @@ class CodexMonitorApplet extends Applet.Applet {
     this._buildMenu();
     this._startBridge();
     this._installRefreshTimer();
+    this._installUpdateTimer();
   }
 
   _bindSettings(instanceId) {
@@ -87,25 +90,12 @@ class CodexMonitorApplet extends Applet.Applet {
     [this._weeklyLabel, this._weeklyBar] = this._createPanelUsageRow(
       'W', 'codex-monitor-weekly-bar'
     );
-    this._resetBadge = new St.Label({
-      text: '',
-      style_class: 'codex-monitor-badge',
-      y_align: Clutter.ActorAlign.CENTER,
-    });
-    this._remoteBadge = new St.Label({
-      text: '',
-      style_class: 'codex-monitor-remote-badge',
-      y_align: Clutter.ActorAlign.CENTER,
-    });
-    this._staleBadge = new St.Label({
-      text: '',
-      style_class: 'codex-monitor-stale-badge',
+    this._indicatorBox = new St.BoxLayout({
+      style_class: 'codex-monitor-panel-indicators',
       y_align: Clutter.ActorAlign.CENTER,
     });
     this._panelBox.add_child(this._panelUsage);
-    this._panelBox.add_child(this._resetBadge);
-    this._panelBox.add_child(this._remoteBadge);
-    this._panelBox.add_child(this._staleBadge);
+    this._panelBox.add_child(this._indicatorBox);
     this.actor.add_child(this._panelBox);
     this.on_orientation_changed(this._orientation);
   }
@@ -134,7 +124,6 @@ class CodexMonitorApplet extends Applet.Applet {
       translate: this._,
       model: Model,
       graph: Graph,
-      qr: Qr,
       callbacks: {
         onRefresh: this._refresh.bind(this),
         onGraphMode: mode => {
@@ -153,6 +142,7 @@ class CodexMonitorApplet extends Applet.Applet {
         onRemotePair: () => this._remoteAction('remote_pair_start'),
         onRemoteRefresh: this._refreshRemoteState.bind(this),
         onRemoteRevoke: this._confirmRemoteRevoke.bind(this),
+        onUpdate: this._confirmUpdate.bind(this),
       },
     });
     this._menuItem = new PopupMenu.PopupBaseMenuItem({
@@ -216,6 +206,58 @@ class CodexMonitorApplet extends Applet.Applet {
       this._render();
       this._refreshSessions();
       this._readRemoteStatus();
+      this._readUpdateStatus();
+    });
+  }
+
+  _readUpdateStatus() {
+    if (this._updateRefreshing || !this._bridge)
+      return;
+    this._updateRefreshing = true;
+    this._bridge.request('update_status', {}, (error, value) => {
+      this._updateRefreshing = false;
+      if (error)
+        return;
+      this._updateState = Model.normalizeUpdateState(value);
+      this._dashboard.setUpdateState(this._updateState);
+      const status = this._updateState.status;
+      const active = status === 'checking' || status === 'updating';
+      this._setUpdatePolling(active);
+      const now = Math.floor(Date.now() / 1000);
+      if (!active && (this._updateState.checkedAt == null ||
+          now - this._updateState.checkedAt >= 12 * 3600))
+        this._checkUpdates(false);
+    });
+  }
+
+  _checkUpdates(force) {
+    if (this._updateRefreshing || !this._bridge)
+      return;
+    this._updateRefreshing = true;
+    this._bridge.request('update_check', { force: Boolean(force) }, (error, value) => {
+      this._updateRefreshing = false;
+      if (error)
+        return;
+      this._updateState = Model.normalizeUpdateState(value);
+      this._dashboard.setUpdateState(this._updateState);
+      this._setUpdatePolling(
+        this._updateState.status === 'checking' ||
+        this._updateState.status === 'updating'
+      );
+    });
+  }
+
+  _setUpdatePolling(active) {
+    if (!active && this._updatePollTimer) {
+      Mainloop.source_remove(this._updatePollTimer);
+      this._updatePollTimer = 0;
+      return;
+    }
+    if (!active || this._updatePollTimer)
+      return;
+    this._updatePollTimer = Mainloop.timeout_add_seconds(2, () => {
+      this._readUpdateStatus();
+      return GLib.SOURCE_CONTINUE;
     });
   }
 
@@ -304,10 +346,15 @@ class CodexMonitorApplet extends Applet.Applet {
         return;
       if (status && status.supported === false)
         this._pairing.pollingSupported = false;
-      this._pairing.claimed = Boolean(status.claimed);
-      this._dashboard.setPairingStatus(status);
-      if (status.claimed && this._pairing.environmentId)
-        this._loadRemoteClients(this._pairing.environmentId);
+      if (status.claimed) {
+        const environmentId = this._pairing.environmentId;
+        this._pairing = null;
+        this._dashboard.setPairing({ claimed: true });
+        if (environmentId)
+          this._loadRemoteClients(environmentId);
+      } else {
+        this._dashboard.setPairingStatus(status);
+      }
       this._setRemotePolling(this._shouldPollRemote());
     });
   }
@@ -357,16 +404,19 @@ class CodexMonitorApplet extends Applet.Applet {
     );
     const vertical = this._orientation === St.Side.LEFT ||
       this._orientation === St.Side.RIGHT;
-    this._resetBadge.set_text(state.resetBadge);
-    this._resetBadge.visible = !vertical && Boolean(state.resetBadge);
-    if (state.resetExpiring)
-      this._resetBadge.add_style_class_name('codex-monitor-expiring');
-    else
-      this._resetBadge.remove_style_class_name('codex-monitor-expiring');
-    this._remoteBadge.set_text(state.remoteBadge);
-    this._remoteBadge.visible = !vertical && Boolean(state.remoteBadge);
-    this._staleBadge.set_text(state.staleBadge);
-    this._staleBadge.visible = !vertical && Boolean(state.staleBadge);
+    for (const child of this._indicatorBox.get_children())
+      child.destroy();
+    for (const indicator of state.indicators) {
+      this._indicatorBox.add_child(new St.Label({
+        text: indicator.symbol,
+        style_class: 'codex-indicator ' +
+          `codex-indicator-${indicator.kind} ` +
+          `codex-indicator-${indicator.severity}`,
+        accessible_name: indicator.text,
+        y_align: Clutter.ActorAlign.CENTER,
+      }));
+    }
+    this._indicatorBox.visible = !vertical && state.indicators.length > 0;
     Graph.updatePanelBar(this._fiveHourBar, this._snapshot.windows.fiveHour);
     Graph.updatePanelBar(this._weeklyBar, this._snapshot.windows.weekly);
     for (const style of ['normal', 'warning', 'critical', 'stale'])
@@ -374,8 +424,10 @@ class CodexMonitorApplet extends Applet.Applet {
     this._panelBox.add_style_class_name(`codex-monitor-${state.level}`);
     if (state.stale)
       this._panelBox.add_style_class_name('codex-monitor-stale');
-    this.set_applet_tooltip(Model.tooltipText(this._snapshot, now, this._remoteStatus));
-    this._dashboard.update(this._snapshot, this._remoteStatus);
+    const tooltip = Model.tooltipText(this._snapshot, now, this._remoteStatus);
+    this.set_applet_tooltip(tooltip +
+      (state.indicatorText ? `\n${state.indicatorText}` : ''));
+    this._dashboard.update(this._snapshot, this._remoteStatus, state);
   }
 
   _confirmConsumeReset(credit) {
@@ -444,6 +496,35 @@ class CodexMonitorApplet extends Applet.Applet {
     }).open();
   }
 
+  _confirmUpdate() {
+    const state = this._updateState;
+    if (!state || !state.updateAvailable || !state.installedVersion ||
+        !state.latestVersion)
+      return;
+    const message = `${this._('Update Codex?')}\n\n` +
+      `${state.installedVersion} → ${state.latestVersion}\n` +
+      this._('Existing Codex and Remote sessions will keep running.');
+    new ModalDialog.ConfirmDialog(message, () => {
+      this._startUpdate();
+    }).open();
+  }
+
+  _startUpdate() {
+    if (this._updateRefreshing || !this._bridge)
+      return;
+    this._updateRefreshing = true;
+    this._bridge.request('update_start', { confirmed: true }, (error, value) => {
+      this._updateRefreshing = false;
+      if (error) {
+        this._dashboard.showUpdateError();
+        return;
+      }
+      this._updateState = Model.normalizeUpdateState(value);
+      this._dashboard.setUpdateState(this._updateState);
+      this._setUpdatePolling(this._updateState.status === 'updating');
+    });
+  }
+
   _remoteAction(action, params = {}) {
     this._dashboard.showActionMessage(this._('Updating Remote Control…'));
     this._bridge.request(action, params, (error, result) => {
@@ -492,6 +573,15 @@ class CodexMonitorApplet extends Applet.Applet {
     );
   }
 
+  _installUpdateTimer() {
+    if (this._updateTimer)
+      Mainloop.source_remove(this._updateTimer);
+    this._updateTimer = Mainloop.timeout_add_seconds(12 * 3600, () => {
+      this._checkUpdates(true);
+      return GLib.SOURCE_CONTINUE;
+    });
+  }
+
   on_applet_clicked() {
     this.menu.toggle();
   }
@@ -507,9 +597,8 @@ class CodexMonitorApplet extends Applet.Applet {
     const vertical = orientation === St.Side.LEFT || orientation === St.Side.RIGHT;
     this._fiveHourLabel.visible = !vertical;
     this._weeklyLabel.visible = !vertical;
-    this._resetBadge.visible = !vertical && Boolean(this._resetBadge.get_text());
-    this._remoteBadge.visible = !vertical && Boolean(this._remoteBadge.get_text());
-    this._staleBadge.visible = !vertical && Boolean(this._staleBadge.get_text());
+    this._indicatorBox.visible = !vertical &&
+      this._indicatorBox.get_children().length > 0;
   }
 
   on_applet_removed_from_panel() {
@@ -519,6 +608,10 @@ class CodexMonitorApplet extends Applet.Applet {
       Mainloop.source_remove(this._restartTimer);
     if (this._remoteTimer)
       Mainloop.source_remove(this._remoteTimer);
+    if (this._updateTimer)
+      Mainloop.source_remove(this._updateTimer);
+    if (this._updatePollTimer)
+      Mainloop.source_remove(this._updatePollTimer);
     if (this._bridge)
       this._bridge.stop();
     if (this.menu)
