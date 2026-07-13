@@ -100,3 +100,12 @@ def test_run_probe_completes_start_from_connecting_socket_fallback():
 
     assert ("remote_start", {"confirmed": True}) in session.actions
     assert result["remoteLifecycle"] is True
+
+
+def test_settings_button_uses_instance_aware_cinnamon_xlet_settings():
+    source = Path("files/codex-monitor@breixopd/applet.js").read_text(
+        encoding="utf-8"
+    )
+
+    assert "this.configureApplet();" in source
+    assert "cinnamon-settings', 'applets'" not in source

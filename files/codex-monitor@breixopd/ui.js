@@ -392,12 +392,10 @@ var Dashboard = class Dashboard {
         ? `${this._model.formatTokenCount(point.tokens)} ${this._('tokens')}`
         : `${Math.round(Number(point.value))}%`;
     };
-    const legend = summaries.map((summary, index) => ({
+    const legend = summaries.map((summary, index) => summary.current ? {
       colorIndex: series[index].colorIndex,
-      text: `${summary.label}  ${this._('now')} ${valueText(summary.current)} · ` +
-        `${this._('min')} ${valueText(summary.minimum)} · ` +
-        `${this._('max')} ${valueText(summary.maximum)}`,
-    }));
+      text: `${summary.label} ${valueText(summary.current)}`,
+    } : null).filter(Boolean);
     const hoverFormatter = timestamp => {
       const values = this._model.nearestGraphValues(series, timestamp);
       if (values.length === 0)
@@ -406,17 +404,15 @@ var Dashboard = class Dashboard {
       const details = values.map(value => `${value.label} ${valueText(value)}`).join(' · ');
       return `${new Date(sampleTime * 1000).toLocaleString()} · ${details}`;
     };
-    const currentDetails = summaries
-      .filter(summary => summary.current)
-      .map(summary => `${summary.label} ${valueText(summary.current)}`)
-      .join(' · ');
     this._graph.updateQuotaGraph(this._graphActor, {
       series,
       resetMarkers: Array.from(markers),
       axis: this._model.graphAxis(cutoff, now, this._settings.graphRangeHours || 168),
       legend,
       hoverFormatter,
-      defaultDetail: currentDetails || this._('No samples yet'),
+      defaultDetail: legend.length > 0
+        ? this._('Hover for timestamp and exact values')
+        : this._('No samples yet'),
     });
   }
 

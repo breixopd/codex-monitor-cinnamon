@@ -176,6 +176,10 @@
   spacing: 5px;
 }
 
+.codex-monitor-graph-legend {
+  spacing: 12px;
+}
+
 .codex-monitor-graph-plot-row {
   spacing: 6px;
 }
@@ -202,7 +206,7 @@
 }
 
 .codex-monitor-graph-legend-item {
-  padding-left: 10px;
+  padding-left: 7px;
 }
 
 .codex-monitor-graph-color-0 {

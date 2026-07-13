@@ -6,7 +6,7 @@ Codex Monitor is a Linux Mint Cinnamon panel applet for checking Codex quota usa
 
 - Dual panel meter and percentages for 5-hour and weekly usage
 - Exact reset time plus a live compact countdown
-- 24-hour, 7-day, and 30-day quota/activity graphs with axes, legend statistics, reset markers, and hover details
+- 24-hour, 7-day, and 30-day quota/activity graphs with axes, a compact current-value legend, reset markers, and exact hover details
 - Banked reset count, expiry, and confirmed one-click redemption
 - Visual warning, critical, expiring-credit, stale, and Remote Control states
 - Active and recent Codex sessions that resume in Linux Mint's default terminal

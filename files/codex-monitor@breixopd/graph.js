@@ -115,7 +115,7 @@ var createQuotaGraph = function(options = {}) {
   }
   view.add_child(view._xAxis);
   view._legend = new St.BoxLayout({
-    vertical: true,
+    vertical: false,
     style_class: options.legendStyleClass || 'codex-monitor-graph-legend',
   });
   view.add_child(view._legend);
@@ -161,7 +161,7 @@ var updateQuotaGraph = function(view, payload) {
   }
   if ((data.resetMarkers || []).length > 0) {
     view._legend.add_child(new St.Label({
-      text: 'R · reset',
+      text: 'R = reset',
       style_class: 'codex-monitor-graph-legend-item codex-monitor-graph-reset-key',
     }));
   }

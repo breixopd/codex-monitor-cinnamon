@@ -11,7 +11,6 @@ const ModalDialog = imports.ui.modalDialog;
 const PopupMenu = imports.ui.popupMenu;
 const Settings = imports.ui.settings;
 const St = imports.gi.St;
-const Util = imports.misc.util;
 
 const UUID = 'codex-monitor@breixopd';
 const Modules = imports.applets[UUID];
@@ -491,7 +490,8 @@ class CodexMonitorApplet extends Applet.Applet {
   }
 
   _openSettings() {
-    Util.spawn(['cinnamon-settings', 'applets', UUID]);
+    this.menu.close();
+    this.configureApplet();
   }
 
   on_applet_clicked() {
