@@ -11,7 +11,7 @@ Keep an eye on Codex without keeping a terminal open. Codex Monitor adds a small
 - **24-hour, 7-day, and 30-day history** for quota and token activity, including exact values under the pointer
 - **Codex sessions** grouped by project, with Active, Attention, and Recent filters
 - **Banked resets**, including expiry details and a confirmation before one is used
-- **Remote Control** connection status, pairing, connected devices, and device removal
+- **Remote Control** connection status, pairing, a live connected-device list, and confirmed device removal
 - **Codex updates**, checked automatically and offered only when a newer stable version is available
 
 Missing information is shown as unavailable. The applet never guesses a quota, reset time, or connection state.
@@ -68,11 +68,13 @@ Right-click the applet and choose **Configure** to change refresh frequency, his
 
 Remote Control is never started silently. Starting it, stopping it, using a banked reset, installing an update, and removing a paired device all require confirmation.
 
+The device section labels its own health as **Checking**, **Live**, **Unavailable**, or **Unsupported**. A temporary local connection failure keeps the last successful list visible and retries automatically; it is not treated as an empty list or blamed on an outdated Codex version.
+
 ## Privacy
 
-Codex Monitor talks to the official local `codex app-server`. It does not read authentication files, copy API keys, scrape terminal output, or open a network port.
+Codex Monitor talks to the official local `codex app-server`. Quota and session requests use its standard input/output protocol; Remote device management uses Codex's user-owned Unix control socket. It does not read authentication files, copy API keys, scrape terminal output, or open a TCP network port.
 
-Quota history is stored only on this computer in:
+Quota history is stored locally in:
 
 ```text
 ~/.local/share/codex-monitor@breixopd/history.jsonl
@@ -93,6 +95,14 @@ Make sure `codex` works in a terminal and is signed in. Some accounts or models 
 **There is no QR code during pairing**
 
 Install your distribution's `python3-qrcode` package, or use the manual pairing code shown in the same section.
+
+**Paired devices says “Unavailable”**
+
+The Codex Remote daemon is running, but its local device-management channel did not answer. The applet keeps the last successful list and retries automatically. Use **Refresh devices** after Codex Remote has reconnected; you do not need to stop Remote.
+
+**Paired devices says “Unsupported”**
+
+The installed Codex build does not expose the local device-management methods. Update Codex when the applet offers an update, then refresh the section.
 
 **Remove the applet completely**
 

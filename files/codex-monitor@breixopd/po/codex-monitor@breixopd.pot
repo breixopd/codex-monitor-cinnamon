@@ -6,9 +6,9 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: codex-monitor@breixopd 1.0.0\n"
-"Report-Msgid-Bugs-To: https://github.com/linuxmint/cinnamon-spices-applets/"
+"Report-Msgid-Bugs-To: https://github.com/breixopd/codex-monitor-cinnamon/"
 "issues\n"
-"POT-Creation-Date: 2026-07-13 23:00+0200\n"
+"POT-Creation-Date: 2026-07-14 01:27+0200\n"
 "PO-Revision-Date: \n"
 "Last-Translator: \n"
 "Language-Team: \n"
@@ -27,10 +27,6 @@ msgstr ""
 
 #. applet.js:318
 msgid "Remote Control status unavailable"
-msgstr ""
-
-#. applet.js:399
-msgid "Paired devices unavailable"
 msgstr ""
 
 #. applet.js:409
@@ -68,7 +64,7 @@ msgstr ""
 #. applet.js:510
 msgid ""
 "Start Codex Remote Control? This allows paired mobile clients to control "
-"this machine."
+"this Linux device."
 msgstr ""
 
 #. applet.js:519
@@ -447,23 +443,51 @@ msgstr ""
 msgid "Waiting for device"
 msgstr ""
 
-#. ui.js:799
-msgid "claim detection requires a newer Codex version"
+#. ui.js:839
+msgid "claim detection is not exposed by this Codex build"
 msgstr ""
 
-#. ui.js:818
+#. ui.js:841
+msgid "claim status temporarily unavailable; retrying"
+msgstr ""
+
+#. ui.js:862
+msgid "Checking"
+msgstr ""
+
+#. ui.js:864
+msgid "Unsupported"
+msgstr ""
+
+#. ui.js:870
+msgid "Not checked"
+msgstr ""
+
+#. ui.js:876
 msgid "Refresh to confirm the connection before managing devices"
 msgstr ""
 
-#. ui.js:823
+#. ui.js:881
 msgid "Start Remote Control to manage paired devices"
 msgstr ""
 
-#. ui.js:828
-msgid "Device listing requires a newer Codex version"
+#. ui.js:886
+msgid "Checking paired devices…"
 msgstr ""
 
-#. ui.js:833
+#. ui.js:891
+msgid "This Codex build does not expose device management"
+msgstr ""
+
+#. ui.js:897
+msgid "Device channel is not responding; retrying automatically"
+msgstr ""
+
+#. ui.js:903
+msgid "Refresh devices to load paired devices"
+msgstr ""
+
+#. ui.js:908
 msgid "No paired devices"
 msgstr ""
 

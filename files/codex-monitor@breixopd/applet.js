@@ -525,7 +525,7 @@ class CodexMonitorApplet extends Applet.Applet {
 
   _confirmRemoteStart() {
     const message = this._(
-      'Start Codex Remote Control? This allows paired mobile clients to control this machine.'
+      'Start Codex Remote Control? This allows paired mobile clients to control this Linux device.'
     );
     new ModalDialog.ConfirmDialog(message, () => {
       this._remoteAction('remote_start', { confirmed: true });

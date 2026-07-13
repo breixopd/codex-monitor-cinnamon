@@ -2,7 +2,7 @@
 
 Codex Monitor puts Codex quota, reset windows, session activity, and Remote Control status in the Cinnamon panel, so you can check Codex without opening a terminal.
 
-The compact panel view shows 5-hour and weekly usage at a glance. Open the dashboard for exact reset countdowns, clear warning text, 24-hour to 30-day history, banked resets, recent and active sessions, Remote Control pairing and device management, and safe Codex update checks.
+The compact panel view shows 5-hour and weekly usage at a glance. Open the dashboard for exact reset countdowns, clear warning text, 24-hour to 30-day history, banked resets, recent and active sessions, Remote Control pairing and a live connected-device list, and safe Codex update checks.
 
 ## Requirements
 
@@ -10,4 +10,4 @@ The compact panel view shows 5-hour and weekly usage at a glance. Open the dashb
 - Python 3.10 or newer
 - The Codex CLI available as `codex`
 
-All usage history stays on this computer. The applet talks to the official local Codex app server and does not read authentication files or expose a network port.
+All usage history stays local. The applet talks to the official local Codex app server and its user-owned Unix control socket; it does not read authentication files or expose a TCP network port.

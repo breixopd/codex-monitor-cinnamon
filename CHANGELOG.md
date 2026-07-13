@@ -2,15 +2,25 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added a bounded WebSocket JSON-RPC client for Codex's local Unix control socket, including masked frames, ping/pong, fragmented responses, payload limits, and sanitized failures
+- Added explicit Checking, Live, Unavailable, and Unsupported states for connected-device management, with the last successful list retained during temporary failures
+- Added real Cinnamon-hosted smoke coverage for Remote pairing status and connected-device inventory without logging device identities or stopping Remote
+
 ### Changed
 
 - Widened the dashboard, arranged status alerts across readable rows, and added consistent spacing between content and the scrollbar
 - Rewrote the project and Cinnamon store READMEs around installation, everyday use, privacy, and troubleshooting
+- Replaced the raw `app-server proxy` JSONL attempt with direct local Unix WebSocket transport and daemon-advertised socket discovery
+- Added bounded exponential retry for pairing claim checks and disabled stale revocation controls until the device channel recovers
 
 ### Fixed
 
 - Removed the duplicated banked-reset count from dashboard status text while keeping the compact count in the panel badge
 - Made live layout checks measure the mapped popup so Cinnamon theme allocations are verified accurately
+- Fixed connected-device listing and revocation never reaching Codex because the proxy stream was being spoken to with the wrong wire protocol
+- Stopped reporting temporary control-channel failures as requiring a newer Codex version
 
 ## [1.0.0] - 2026-07-13
 
