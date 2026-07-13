@@ -386,6 +386,7 @@ var Dashboard = class Dashboard {
       return;
     const now = Math.floor(Date.now() / 1000);
     const cutoff = now - Number(this._settings.graphRangeHours || 168) * 3600;
+    const rangeHours = Number(this._settings.graphRangeHours || 168);
     const mode = this._settings.graphMode || 'quota';
     const series = [];
     const markers = new Set();
@@ -397,14 +398,23 @@ var Dashboard = class Dashboard {
         const quotaPoints = this._model.quotaSeries(
           this._snapshot.history, windowName, cutoff, now
         );
-        let previousReset = null;
         const points = quotaPoints.map(point => {
-          if (previousReset != null && point.resetsAt !== previousReset)
+          if (point.resetTransition)
             markers.add(point.timestamp);
-          previousReset = point.resetsAt;
-          return { timestamp: point.timestamp, value: point.usedPercent };
+          return {
+            timestamp: point.timestamp,
+            value: point.usedPercent,
+            usedPercent: point.usedPercent,
+            resetTransition: point.resetTransition,
+          };
         });
-        series.push({ label, kind: 'quota', points, colorIndex });
+        series.push({
+          label,
+          kind: 'quota',
+          points,
+          segments: this._model.quotaSegments(points, rangeHours),
+          colorIndex,
+        });
       }
     }
     if (mode === 'activity' || mode === 'both') {
@@ -418,6 +428,7 @@ var Dashboard = class Dashboard {
       });
     }
     const summaries = series.map(item => this._model.graphSummary(item));
+    const axes = this._model.graphAxes(series, cutoff, now, rangeHours, mode);
     const valueText = point => {
       if (!point)
         return '—';
@@ -441,9 +452,11 @@ var Dashboard = class Dashboard {
       return `${cursorTime} · ${details}`;
     };
     this._graph.updateQuotaGraph(this._graphActor, {
+      mode,
+      rangeHours,
       series,
       resetMarkers: Array.from(markers),
-      axis: this._model.graphAxis(cutoff, now, this._settings.graphRangeHours || 168),
+      axes,
       legend,
       hoverFormatter,
       defaultDetail: legend.length > 0

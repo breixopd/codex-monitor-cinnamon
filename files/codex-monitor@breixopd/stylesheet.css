@@ -204,8 +204,16 @@
   text-align: right;
 }
 
+.codex-monitor-graph-y-axis-right .codex-monitor-graph-axis-label {
+  text-align: left;
+}
+
 .codex-monitor-graph-x-axis {
   margin-left: 40px;
+}
+
+.codex-monitor-graph-dual-axis .codex-monitor-graph-x-axis {
+  margin-right: 40px;
 }
 
 .codex-monitor-graph-legend-item {
