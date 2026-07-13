@@ -75,6 +75,10 @@
   padding: 14px;
 }
 
+.codex-monitor-scroll {
+  max-height: 780px;
+}
+
 .codex-monitor-header,
 .codex-monitor-section-heading,
 .codex-monitor-footer,
@@ -130,6 +134,34 @@
 .codex-monitor-section-title,
 .codex-monitor-row-title {
   font-weight: 600;
+}
+
+.codex-monitor-session-group-title {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.76em;
+  font-weight: 700;
+  padding-top: 3px;
+}
+
+.codex-monitor-session-row {
+  padding: 6px 7px;
+  border-radius: 5px;
+  background-color: rgba(255, 255, 255, 0.035);
+  text-align: left;
+}
+
+.codex-monitor-session-row:hover,
+.codex-monitor-session-row:focus {
+  background-color: rgba(90, 169, 230, 0.18);
+}
+
+.codex-monitor-session-attention {
+  border-left: 3px solid #f0b64d;
+}
+
+.codex-monitor-session-content,
+.codex-monitor-sessions > StBoxLayout {
+  spacing: 3px;
 }
 
 .codex-monitor-graph {

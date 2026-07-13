@@ -2,6 +2,7 @@
 
 const BarLevel = imports.ui.barLevel;
 const Clutter = imports.gi.Clutter;
+const Pango = imports.gi.Pango;
 const St = imports.gi.St;
 
 function _clear(actor) {
@@ -72,6 +73,8 @@ var Dashboard = class Dashboard {
     this._snapshot = null;
     this._remoteStatus = null;
     this._pairing = null;
+    this._sessions = { active: [], recent: [] };
+    this._sessionsError = false;
     this._settings = {};
 
     this.actor = new St.BoxLayout({
@@ -81,6 +84,7 @@ var Dashboard = class Dashboard {
     this._buildHeader();
     this._buildQuotaCards();
     this._buildGraph();
+    this._buildSessions();
     this._buildResetBank();
     this._buildRemote();
     this._buildFooter();
@@ -162,6 +166,37 @@ var Dashboard = class Dashboard {
     this._resetSection.add_child(this._resetHeading);
     this._resetSection.add_child(this._resetList);
     this.actor.add_child(this._resetSection);
+  }
+
+  _buildSessions() {
+    const section = new St.BoxLayout({
+      vertical: true,
+      style_class: 'codex-monitor-section codex-monitor-sessions',
+    });
+    const heading = new St.BoxLayout({ style_class: 'codex-monitor-section-heading' });
+    this._sessionHeading = new St.Label({
+      text: this._('Codex sessions'),
+      style_class: 'codex-monitor-section-title',
+      x_expand: true,
+    });
+    heading.add_child(this._sessionHeading);
+    heading.add_child(_button(this._('Open Codex'), this._callbacks.onOpenCodex));
+    section.add_child(heading);
+
+    section.add_child(new St.Label({
+      text: this._('Active now'),
+      style_class: 'codex-monitor-session-group-title',
+    }));
+    this._activeSessionList = new St.BoxLayout({ vertical: true });
+    section.add_child(this._activeSessionList);
+    section.add_child(new St.Label({
+      text: this._('Recent / finished'),
+      style_class: 'codex-monitor-session-group-title',
+    }));
+    this._recentSessionList = new St.BoxLayout({ vertical: true });
+    section.add_child(this._recentSessionList);
+    this.actor.add_child(section);
+    this._renderSessions();
   }
 
   _buildRemote() {
@@ -248,6 +283,17 @@ var Dashboard = class Dashboard {
   setPairing(pairing) {
     this._pairing = pairing;
     this._renderRemote();
+  }
+
+  setSessions(sessions) {
+    this._sessions = sessions || { active: [], recent: [] };
+    this._sessionsError = false;
+    this._renderSessions();
+  }
+
+  showSessionsError() {
+    this._sessionsError = true;
+    this._renderSessions();
   }
 
   showActionMessage(message) {
@@ -354,6 +400,91 @@ var Dashboard = class Dashboard {
       row.add_child(_button(this._('Apply…'), () => this._callbacks.onConsumeReset(credit)));
       this._resetList.add_child(row);
     }
+  }
+
+  _renderSessions() {
+    if (!this._activeSessionList || !this._recentSessionList)
+      return;
+    _clear(this._activeSessionList);
+    _clear(this._recentSessionList);
+    const active = (this._sessions.active || []).slice(0, 12);
+    const recent = (this._sessions.recent || []).slice(0, Math.max(0, 12 - active.length));
+    this._sessionHeading.set_text(
+      `${this._('Codex sessions')} (${active.length + recent.length})`
+    );
+    if (this._sessionsError) {
+      this._activeSessionList.add_child(new St.Label({
+        text: this._('Session list unavailable; quota monitoring is still live'),
+        style_class: 'codex-monitor-secondary',
+      }));
+    } else if (active.length === 0) {
+      this._activeSessionList.add_child(new St.Label({
+        text: this._('No sessions reported as active'),
+        style_class: 'codex-monitor-secondary',
+      }));
+    } else {
+      for (const session of active)
+        this._activeSessionList.add_child(this._sessionRow(session));
+    }
+
+    if (recent.length === 0) {
+      this._recentSessionList.add_child(new St.Label({
+        text: this._('No recent sessions'),
+        style_class: 'codex-monitor-secondary',
+      }));
+    } else {
+      for (const session of recent)
+        this._recentSessionList.add_child(this._sessionRow(session));
+    }
+  }
+
+  _sessionRow(session) {
+    const content = new St.BoxLayout({
+      vertical: true,
+      style_class: 'codex-monitor-session-content',
+      x_expand: true,
+    });
+    const title = new St.Label({
+      text: session.title || this._('Untitled session'),
+      style_class: 'codex-monitor-row-title',
+      x_expand: true,
+    });
+    title.clutter_text.set_ellipsize(Pango.EllipsizeMode.END);
+    title.clutter_text.set_single_line_mode(true);
+    const attention = session.attention || [];
+    let status = session.statusLabel || this._('Unavailable');
+    if (attention.includes('waitingOnApproval'))
+      status = this._('Waiting for approval');
+    else if (attention.includes('waitingOnUserInput'))
+      status = this._('Waiting for you');
+    const updated = session.updatedAt
+      ? `${this._('updated')} ${this._model.formatDuration(
+        Math.floor(Date.now() / 1000) - Number(session.updatedAt)
+      )} ${this._('ago')}`
+      : this._('update time unavailable');
+    const meta = new St.Label({
+      text: `${session.project || this._('Unknown project')} · ` +
+        `${session.sourceLabel || this._('Unknown source')} · ${status} · ${updated}`,
+      style_class: 'codex-monitor-secondary',
+      x_expand: true,
+    });
+    meta.clutter_text.set_ellipsize(Pango.EllipsizeMode.END);
+    meta.clutter_text.set_single_line_mode(true);
+    content.add_child(title);
+    content.add_child(meta);
+    const row = new St.Button({
+      child: content,
+      style_class: attention.length > 0
+        ? 'codex-monitor-session-row codex-monitor-session-attention'
+        : 'codex-monitor-session-row',
+      reactive: true,
+      can_focus: true,
+      track_hover: true,
+      x_expand: true,
+      accessible_name: `${session.title || this._('Untitled session')} · ${status}`,
+    });
+    row.connect('clicked', () => this._callbacks.onOpenSession(session));
+    return row;
   }
 
   _renderRemote() {

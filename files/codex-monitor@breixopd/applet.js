@@ -4,6 +4,7 @@ const Applet = imports.ui.applet;
 const Clutter = imports.gi.Clutter;
 const GLib = imports.gi.GLib;
 const Gettext = imports.gettext;
+const Gtk = imports.gi.Gtk;
 const Main = imports.ui.main;
 const Mainloop = imports.mainloop;
 const ModalDialog = imports.ui.modalDialog;
@@ -26,6 +27,7 @@ class CodexMonitorApplet extends Applet.Applet {
     this._orientation = orientation;
     this._snapshot = null;
     this._remoteStatus = null;
+    this._sessions = { active: [], recent: [] };
     this._refreshing = false;
     this._refreshTimer = 0;
     this._restartTimer = 0;
@@ -140,6 +142,8 @@ class CodexMonitorApplet extends Applet.Applet {
           this._render();
         },
         onConsumeReset: this._confirmConsumeReset.bind(this),
+        onOpenCodex: this._openCodex.bind(this),
+        onOpenSession: this._openSession.bind(this),
         onRemoteStart: this._confirmRemoteStart.bind(this),
         onRemoteStop: () => this._remoteAction('remote_stop'),
         onRemotePair: () => this._remoteAction('remote_pair'),
@@ -148,7 +152,14 @@ class CodexMonitorApplet extends Applet.Applet {
     this._menuItem = new PopupMenu.PopupBaseMenuItem({
       reactive: false,
     });
-    this._menuItem.addActor(this._dashboard.actor);
+    this._dashboardScroll = new St.ScrollView({
+      style_class: 'codex-monitor-scroll',
+      overlay_scrollbars: true,
+      x_expand: true,
+    });
+    this._dashboardScroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
+    this._dashboardScroll.add_actor(this._dashboard.actor);
+    this._menuItem.addActor(this._dashboardScroll);
     this.menu.addMenuItem(this._menuItem);
     this._render();
   }
@@ -198,8 +209,20 @@ class CodexMonitorApplet extends Applet.Applet {
       this._restartAttempt = 0;
       this._snapshot = snapshot;
       this._render();
+      this._refreshSessions();
       if (this.enableRemote)
         this._readRemoteStatus();
+    });
+  }
+
+  _refreshSessions() {
+    this._bridge.request('sessions', { limit: 12 }, (error, sessions) => {
+      if (error) {
+        this._dashboard.showSessionsError();
+        return;
+      }
+      this._sessions = sessions;
+      this._dashboard.setSessions(sessions);
     });
   }
 
@@ -275,6 +298,29 @@ class CodexMonitorApplet extends Applet.Applet {
         this._refresh();
       });
     }).open();
+  }
+
+  _openCodex() {
+    this._bridge.request('open_codex', {}, error => {
+      if (error) {
+        this._dashboard.showActionMessage(this._('Could not open the default terminal'));
+        return;
+      }
+      this.menu.close();
+    });
+  }
+
+  _openSession(session) {
+    this._bridge.request('open_session', {
+      threadId: session.id,
+      cwd: session.cwd || null,
+    }, error => {
+      if (error) {
+        this._dashboard.showActionMessage(this._('Could not open the default terminal'));
+        return;
+      }
+      this.menu.close();
+    });
   }
 
   _confirmRemoteStart() {

@@ -62,6 +62,11 @@ def validate_sources():
         raise ValueError("dashboard graph must expose a legend")
     if "Remote access · Experimental" in ui_source:
         raise ValueError("Remote Control must not use experimental dashboard copy")
+    for text in ("Active now", "Recent / finished", "Open Codex"):
+        if text not in ui_source:
+            raise ValueError(f"session dashboard is missing {text}")
+    if "request('sessions'" not in applet_source:
+        raise ValueError("applet must refresh Codex sessions")
 
     for path in APPLET.rglob("*.py"):
         compile(path.read_text(encoding="utf-8"), str(path), "exec")
