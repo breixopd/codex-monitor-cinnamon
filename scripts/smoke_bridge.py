@@ -104,7 +104,7 @@ def run_probe(session, *, output=sys.stdout, sleeper=time.sleep):
     """Run the live bridge contract and emit only non-sensitive assertions."""
 
     initial = session.request("remote_status")
-    if initial.get("status") not in {"disabled", "connected"}:
+    if initial.get("status") not in {"disabled", "connecting", "connected"}:
         raise RuntimeError("Remote Control initial state was not smoke-testable")
     snapshot = session.request("snapshot")
     sessions = session.request("sessions", {"limit": 12})

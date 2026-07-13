@@ -8,17 +8,20 @@ from scripts.smoke_bridge import run_probe
 
 
 class FakeSession:
-    def __init__(self, *, fail_clients=False, pair_status_failures=0):
+    def __init__(
+        self, *, fail_clients=False, pair_status_failures=0, initial_status="disabled"
+    ):
         self.actions = []
         self.fail_clients = fail_clients
         self.pair_status_failures = pair_status_failures
+        self.initial_status = initial_status
 
     def request(self, action, params=None):
         self.actions.append((action, params or {}))
         responses = {
             "snapshot": {"capturedAt": 10, "windows": {}},
             "sessions": {"active": [{"id": "active"}], "recent": [{"id": "recent"}]},
-            "remote_status": {"status": "disabled"},
+            "remote_status": {"status": self.initial_status},
             "remote_start": {"status": "connected"},
             "remote_pair_start": {
                 "pairingCode": "opaque-private-code",
@@ -88,3 +91,12 @@ def test_run_probe_retries_pair_status_during_proxy_readiness_race():
     ]
     assert len(pair_status_calls) == 3
     assert result["remoteLeftRunning"] is True
+
+
+def test_run_probe_completes_start_from_connecting_socket_fallback():
+    session = FakeSession(initial_status="connecting")
+
+    result = run_probe(session, output=io.StringIO(), sleeper=lambda _seconds: None)
+
+    assert ("remote_start", {"confirmed": True}) in session.actions
+    assert result["remoteLifecycle"] is True
