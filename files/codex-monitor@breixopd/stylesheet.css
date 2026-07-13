@@ -72,11 +72,11 @@
 .codex-monitor-dashboard {
   width: 560px;
   spacing: 14px;
-  padding: 14px;
 }
 
 .codex-monitor-scroll {
-  max-height: 780px;
+  max-height: 752px;
+  padding: 14px;
 }
 
 .codex-monitor-header,

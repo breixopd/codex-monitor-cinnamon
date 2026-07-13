@@ -154,6 +154,7 @@ class CodexMonitorApplet extends Applet.Applet {
       x_expand: true,
     });
     this._dashboardScroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
+    this._dashboardScroll.set_clip_to_allocation(true);
     this._dashboardScroll.add_actor(this._dashboard.actor);
     this._menuItem.addActor(this._dashboardScroll);
     this.menu.addMenuItem(this._menuItem);

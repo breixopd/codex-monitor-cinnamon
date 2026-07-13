@@ -56,7 +56,7 @@ case "$running" in
     ;;
 esac
 
-geometry_js='var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; var a=x._fiveHourBar; var b=x._weeklyBar; var g1=a.x-(x._fiveHourLabel.x+x._fiveHourLabel.width); var g2=b.x-(x._weeklyLabel.x+x._weeklyLabel.width); JSON.stringify({instance:Boolean(x),snapshot:Boolean(x._snapshot),bridge:Boolean(x._bridge),centered:Math.abs((x._panelUsage.y+x._panelUsage.height/2)-x._panelBox.height/2)<=2,equalBars:a.width===b.width,equalGaps:Math.abs(g1-g2)<=1});'
+geometry_js='var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; var a=x._fiveHourBar; var b=x._weeklyBar; var g1=a.x-(x._fiveHourLabel.x+x._fiveHourLabel.width); var g2=b.x-(x._weeklyLabel.x+x._weeklyLabel.width); var sn=x._dashboardScroll.get_theme_node(); var dn=x._dashboard.actor.get_theme_node(); JSON.stringify({instance:Boolean(x),snapshot:Boolean(x._snapshot),bridge:Boolean(x._bridge),centered:Math.abs((x._panelUsage.y+x._panelUsage.height/2)-x._panelBox.height/2)<=2,equalBars:a.width===b.width,equalGaps:Math.abs(g1-g2)<=1,viewportClipped:x._dashboardScroll.get_clip_to_allocation(),viewportBounded:x._dashboardScroll.height<=780,naturalContent:x._dashboard.actor.height>x._dashboardScroll.height,viewportPadding:sn.get_padding(imports.gi.St.Side.LEFT)===14&&sn.get_padding(imports.gi.St.Side.RIGHT)===14,contentUnpadded:dn.get_padding(imports.gi.St.Side.LEFT)===0&&dn.get_padding(imports.gi.St.Side.RIGHT)===0});'
 geometry=''
 attempt=0
 while [ "$attempt" -lt 20 ]; do
@@ -67,7 +67,7 @@ while [ "$attempt" -lt 20 ]; do
   attempt=$((attempt + 1))
   sleep 1
 done
-for assertion in instance snapshot bridge centered equalBars equalGaps; do
+for assertion in instance snapshot bridge centered equalBars equalGaps viewportClipped viewportBounded naturalContent viewportPadding contentUnpadded; do
   if ! printf '%s\n' "$geometry" | grep -E "$assertion.*true" >/dev/null; then
     printf '%s\n' "Panel geometry assertion failed: $geometry" >&2
     exit 1
