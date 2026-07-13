@@ -135,7 +135,6 @@ class CodexMonitorApplet extends Applet.Applet {
       graph: Graph,
       callbacks: {
         onRefresh: this._refresh.bind(this),
-        onSettings: this._openSettings.bind(this),
         onGraphMode: mode => {
           this.graphMode = mode;
           this._render();
@@ -487,11 +486,6 @@ class CodexMonitorApplet extends Applet.Applet {
         return GLib.SOURCE_CONTINUE;
       }
     );
-  }
-
-  _openSettings() {
-    this.menu.close();
-    this.configureApplet();
   }
 
   on_applet_clicked() {

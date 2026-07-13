@@ -102,10 +102,14 @@ def test_run_probe_completes_start_from_connecting_socket_fallback():
     assert result["remoteLifecycle"] is True
 
 
-def test_settings_button_uses_instance_aware_cinnamon_xlet_settings():
-    source = Path("files/codex-monitor@breixopd/applet.js").read_text(
+def test_dashboard_uses_only_cinnamons_native_context_settings_action():
+    applet = Path("files/codex-monitor@breixopd/applet.js").read_text(
+        encoding="utf-8"
+    )
+    dashboard = Path("files/codex-monitor@breixopd/ui.js").read_text(
         encoding="utf-8"
     )
 
-    assert "this.configureApplet();" in source
-    assert "cinnamon-settings', 'applets'" not in source
+    assert "onSettings" not in applet
+    assert "onSettings" not in dashboard
+    assert "cinnamon-settings', 'applets'" not in applet

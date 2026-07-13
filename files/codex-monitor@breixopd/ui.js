@@ -263,7 +263,6 @@ var Dashboard = class Dashboard {
     });
     footer.add_child(this._updated);
     footer.add_child(_button(this._('Refresh'), this._callbacks.onRefresh));
-    footer.add_child(_button(this._('Settings'), this._callbacks.onSettings));
     this.actor.add_child(footer);
   }
 

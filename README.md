@@ -53,7 +53,7 @@ To uninstall, remove that applet from the panel in System Settings, then delete 
 
 ## Configuration
 
-Right-click the applet and choose **Configure**, or use the Settings button in its popup. Available options cover refresh interval, history retention, graph mode/range, warning thresholds, panel indicators, the Codex executable, and a custom `CODEX_HOME`.
+Right-click the applet and choose **Configure**. Available options cover refresh interval, history retention, graph mode/range, warning thresholds, panel indicators, the Codex executable, and a custom `CODEX_HOME`.
 
 Remote Control is managed directly in the dashboard. Starting it and revoking a paired device require confirmation because paired clients can control Codex on this computer. Pairing codes are shown only in the popup and are not persisted by Codex Monitor. Codex CLI 0.144.3 still labels its underlying `remote-control` command experimental; the applet therefore reports unsupported methods without disrupting quota monitoring.
 
