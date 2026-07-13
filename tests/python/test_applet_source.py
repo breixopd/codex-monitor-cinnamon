@@ -74,3 +74,26 @@ def test_dashboard_sends_semantic_graph_payload():
     assert "mode," in source
     assert "rangeHours," in source
     assert "axes," in source
+
+
+def test_pairing_qr_uses_only_bounded_native_svg_rendering():
+    applet = APPLET_SOURCE.read_text(encoding="utf-8")
+    ui = UI_SOURCE.read_text(encoding="utf-8")
+
+    assert "Modules.qr" not in applet
+    assert "options.qr" not in ui
+    assert "Gio.BytesIcon.new" in ui
+    assert "ByteArray.fromString" in ui
+    assert "function _validatedQrSvg" in ui
+    assert "this._pairing.qrSvg" in ui
+    assert "qrMatrix" not in applet + ui
+    assert not APPLET_SOURCE.with_name("qr.js").exists()
+
+
+def test_claimed_and_expired_pairings_clear_secrets_from_ui_memory():
+    applet = APPLET_SOURCE.read_text(encoding="utf-8")
+    ui = UI_SOURCE.read_text(encoding="utf-8")
+
+    assert "this._pairing = null;" in applet
+    assert "this._pairing = { claimed: true };" in ui
+    assert "QR unavailable; use the manual code" in ui

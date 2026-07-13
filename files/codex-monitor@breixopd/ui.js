@@ -1,6 +1,9 @@
 'use strict';
 
+const ByteArray = imports.byteArray;
 const Clutter = imports.gi.Clutter;
+const Gio = imports.gi.Gio;
+const GLib = imports.gi.GLib;
 const Pango = imports.gi.Pango;
 const St = imports.gi.St;
 
@@ -20,6 +23,38 @@ function _button(label, callback, styleClass = 'codex-monitor-button') {
   });
   button.connect('clicked', callback);
   return button;
+}
+
+function _validatedQrSvg(value) {
+  if (typeof value !== 'string' || value.length === 0 || value.length > 256 * 1024)
+    return null;
+  const safeSvg = /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" viewBox="0 0 [0-9]+ [0-9]+" shape-rendering="crispEdges"><rect width="[0-9]+" height="[0-9]+" fill="#fff"\/><path d="[M0-9 hvz-]*" fill="#000"\/><\/svg>$/;
+  return safeSvg.test(value) ? value : null;
+}
+
+function _updateQrSvg(container, value) {
+  const child = container.get_child();
+  if (child)
+    child.destroy();
+  const svg = _validatedQrSvg(value);
+  if (!svg) {
+    container.visible = false;
+    return false;
+  }
+  try {
+    const bytes = GLib.Bytes.new(ByteArray.fromString(svg));
+    const icon = new St.Icon({
+      gicon: Gio.BytesIcon.new(bytes),
+      icon_size: 196,
+      style_class: 'codex-monitor-qr-icon',
+    });
+    container.set_child(icon);
+    container.visible = true;
+    return true;
+  } catch (error) {
+    container.visible = false;
+    return false;
+  }
 }
 
 class QuotaCard {
@@ -63,7 +98,6 @@ var Dashboard = class Dashboard {
     this._ = options.translate;
     this._model = options.model;
     this._graph = options.graph;
-    this._qr = options.qr;
     this._callbacks = options.callbacks;
     this._snapshot = null;
     this._remoteStatus = null;
@@ -259,7 +293,11 @@ var Dashboard = class Dashboard {
     this._remoteSection.add_child(heading);
     this._remoteSection.add_child(this._remoteIdentity);
     this._remoteSection.add_child(this._remoteButtons);
-    this._pairingQr = this._qr.createQrCode();
+    this._pairingQr = new St.Bin({
+      style_class: 'codex-monitor-qr',
+      x_align: Clutter.ActorAlign.CENTER,
+      x_expand: false,
+    });
     this._pairingQr.visible = false;
     this._pairingManualLabel = new St.Label({
       text: '',
@@ -349,8 +387,12 @@ var Dashboard = class Dashboard {
 
   setPairingStatus(status) {
     this._pairingStatusSupported = !status || status.supported !== false;
-    if (this._pairing && this._pairingStatusSupported)
-      this._pairing.claimed = Boolean(status && status.claimed);
+    if (this._pairing && this._pairingStatusSupported) {
+      if (status && status.claimed)
+        this._pairing = { claimed: true };
+      else
+        this._pairing.claimed = false;
+    }
     this._renderRemote();
   }
 
@@ -617,12 +659,12 @@ var Dashboard = class Dashboard {
     }
     const now = Math.floor(Date.now() / 1000);
     if (this._pairing && this._pairing.claimed) {
-      this._qr.updateQrCode(this._pairingQr, null);
+      _updateQrSvg(this._pairingQr, null);
       this._pairingManualLabel.set_text('');
       this._pairingQrFallback.set_text('');
       this._pairingState.set_text(this._('Pairing complete'));
     } else if (this._pairing && this._pairing.expiresAt > now) {
-      const qrReady = this._qr.updateQrCode(this._pairingQr, this._pairing.qrMatrix);
+      const qrReady = _updateQrSvg(this._pairingQr, this._pairing.qrSvg);
       this._pairingManualLabel.set_text(this._pairing.manualPairingCode
         ? `${this._('Manual code')}: ${this._pairing.manualPairingCode}`
         : '');
@@ -637,7 +679,8 @@ var Dashboard = class Dashboard {
           : ` · ${this._('claim detection requires a newer Codex version')}`)
       );
     } else {
-      this._qr.updateQrCode(this._pairingQr, null);
+      this._pairing = null;
+      _updateQrSvg(this._pairingQr, null);
       this._pairingManualLabel.set_text('');
       this._pairingQrFallback.set_text('');
       this._pairingState.set_text('');

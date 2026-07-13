@@ -18,7 +18,6 @@ const BridgeClient = Modules.bridgeClient.BridgeClient;
 const Dashboard = Modules.ui.Dashboard;
 const Graph = Modules.graph;
 const Model = Modules.model;
-const Qr = Modules.qr;
 
 class CodexMonitorApplet extends Applet.Applet {
   constructor(metadata, orientation, panelHeight, instanceId) {
@@ -121,7 +120,6 @@ class CodexMonitorApplet extends Applet.Applet {
       translate: this._,
       model: Model,
       graph: Graph,
-      qr: Qr,
       callbacks: {
         onRefresh: this._refresh.bind(this),
         onGraphMode: mode => {
@@ -291,10 +289,15 @@ class CodexMonitorApplet extends Applet.Applet {
         return;
       if (status && status.supported === false)
         this._pairing.pollingSupported = false;
-      this._pairing.claimed = Boolean(status.claimed);
-      this._dashboard.setPairingStatus(status);
-      if (status.claimed && this._pairing.environmentId)
-        this._loadRemoteClients(this._pairing.environmentId);
+      if (status.claimed) {
+        const environmentId = this._pairing.environmentId;
+        this._pairing = null;
+        this._dashboard.setPairing({ claimed: true });
+        if (environmentId)
+          this._loadRemoteClients(environmentId);
+      } else {
+        this._dashboard.setPairingStatus(status);
+      }
       this._setRemotePolling(this._shouldPollRemote());
     });
   }
