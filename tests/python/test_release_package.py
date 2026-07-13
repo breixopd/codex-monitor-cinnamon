@@ -80,5 +80,6 @@ def test_ci_runs_the_official_validator_with_its_pillow_environment():
     workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text()
     commands = {line.strip() for line in workflow.splitlines()}
 
+    assert "sudo apt-get install --yes --no-install-recommends gettext" in commands
     assert "python ./validate-spice codex-monitor@breixopd" in commands
     assert "./validate-spice codex-monitor@breixopd" not in commands

@@ -23,6 +23,10 @@ jobs:
           node-version: "20"
       - name: Install test runner
         run: python -m pip install pytest pillow
+      - name: Install official validator system tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends gettext
       - name: Validate source and shell syntax
         run: |
           python scripts/validate.py
