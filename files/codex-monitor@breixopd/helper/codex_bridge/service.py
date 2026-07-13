@@ -74,7 +74,6 @@ class CodexService:
         account_type = account.get("type")
         normalized = {"type": account_type}
         if account_type == "chatgpt":
-            normalized["email"] = account.get("email")
             normalized["planType"] = account.get("planType")
         return normalized
 

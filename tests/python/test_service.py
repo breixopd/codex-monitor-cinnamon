@@ -61,9 +61,9 @@ def test_snapshot_combines_account_limits_usage_and_history(tmp_path):
 
     assert snapshot["account"] == {
         "type": "chatgpt",
-        "email": "developer@example.com",
         "planType": "prolite",
     }
+    assert "developer@example.com" not in repr(snapshot)
     assert snapshot["tokenUsage"]["dailyUsageBuckets"][0]["tokens"] == 250
     assert snapshot["history"][0]["fiveHourUsedPercent"] == 25.0
 
