@@ -16,6 +16,7 @@ from codex_bridge.protocol import CommandRouter
 from codex_bridge.remote import RemoteControl
 from codex_bridge.rpc import AppServerClient
 from codex_bridge.service import CodexService
+from codex_bridge.updates import UpdateManager
 
 
 UUID = "codex-monitor@breixopd"
@@ -28,6 +29,7 @@ def create_runtime(
     client_factory=None,
     remote_runner=None,
     terminal_popen=None,
+    update_manager_factory=None,
 ):
     spawn = spawn or spawn_app_server
     client_factory = client_factory or (lambda process: AppServerClient(process=process))
@@ -67,12 +69,25 @@ def create_runtime(
     if terminal_popen is not None:
         launcher_kwargs["popen"] = terminal_popen
     launcher = TerminalLauncher(options.codex, **launcher_kwargs)
-    service = CodexService(client, history, remote=remote, launcher=launcher)
+    update_manager_factory = update_manager_factory or UpdateManager
+    updates = update_manager_factory(
+        options.codex,
+        options.codex_home,
+        options.data_dir,
+    )
+    service = CodexService(
+        client,
+        history,
+        remote=remote,
+        launcher=launcher,
+        updates=updates,
+    )
     return SimpleNamespace(
         client=client,
         history=history,
         remote=remote,
         launcher=launcher,
+        updates=updates,
         service=service,
         router=CommandRouter(service),
     )

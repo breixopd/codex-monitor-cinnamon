@@ -11,11 +11,21 @@ from .sessions import normalize_session_list
 
 
 class CodexService:
-    def __init__(self, client, history, *, remote=None, launcher=None, clock=time.time):
+    def __init__(
+        self,
+        client,
+        history,
+        *,
+        remote=None,
+        launcher=None,
+        updates=None,
+        clock=time.time,
+    ):
         self.client = client
         self.history = history
         self.remote = remote
         self.launcher = launcher
+        self.updates = updates
         self.clock = clock
         self._notification_probe_complete = False
 
