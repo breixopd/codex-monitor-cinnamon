@@ -75,7 +75,7 @@ sh scripts/package.sh
 npm run smoke:live
 ```
 
-JavaScript model tests run under Node; Cinnamon-specific modules are syntax-checked and then smoke-tested in a real Cinnamon session. Python tests cover response normalization, JSON-RPC behavior, persistence, command validation, terminal launching, installer isolation, reset redemption, and the full Remote Control lifecycle. The live smoke command requires the applet to already be enabled on a Cinnamon panel; it reloads the installed source, captures screenshots under `/tmp/codex-monitor-smoke`, and restores an initially disabled Remote Control state.
+JavaScript model tests run under Node; Cinnamon-specific modules are syntax-checked and then smoke-tested in a real Cinnamon session. Python tests cover response normalization, JSON-RPC behavior, persistence, command validation, terminal launching, installer isolation, reset redemption, and the full Remote Control lifecycle. The live smoke command requires the applet to already be enabled on a Cinnamon panel; it reloads the installed source, captures screenshots under `/tmp/codex-monitor-smoke`, and leaves the Codex Remote daemon running because stopping it can terminate the active Codex session. Stop behavior is verified in isolated tests.
 
 Project layout:
 

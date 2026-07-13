@@ -95,36 +95,30 @@ def run_probe(session, *, output=sys.stdout, sleeper=time.sleep):
     initial = session.request("remote_status")
     if initial.get("status") not in {"disabled", "connected"}:
         raise RuntimeError("Remote Control initial state was not smoke-testable")
-    restore_disabled = initial.get("status") == "disabled"
-    result = None
-    try:
-        snapshot = session.request("snapshot")
-        sessions = session.request("sessions", {"limit": 12})
-        status = _connected_status(session, initial, sleeper)
-        pairing = session.request("remote_pair_start")
-        pairing_status = session.request(
-            "remote_pair_status",
-            {
-                "pairingCode": pairing.get("pairingCode"),
-                "manualPairingCode": pairing.get("manualPairingCode"),
-            },
-        )
-        environment_id = pairing.get("environmentId") or status.get("environmentId")
-        clients = session.request(
-            "remote_clients", {"environmentId": environment_id}
-        )
-        result = {
-            "snapshot": isinstance(snapshot, dict) and "capturedAt" in snapshot,
-            "sessionCount": len(sessions.get("active") or [])
-            + len(sessions.get("recent") or []),
-            "remoteLifecycle": status.get("status") == "connected",
-            "pairClaimed": bool(pairing_status.get("claimed")),
-            "clientCount": len(clients.get("clients") or []),
-            "restoredInitialState": restore_disabled,
-        }
-    finally:
-        if restore_disabled:
-            session.request("remote_stop")
+    snapshot = session.request("snapshot")
+    sessions = session.request("sessions", {"limit": 12})
+    status = _connected_status(session, initial, sleeper)
+    pairing = session.request("remote_pair_start")
+    pairing_status = session.request(
+        "remote_pair_status",
+        {
+            "pairingCode": pairing.get("pairingCode"),
+            "manualPairingCode": pairing.get("manualPairingCode"),
+        },
+    )
+    environment_id = pairing.get("environmentId") or status.get("environmentId")
+    clients = session.request("remote_clients", {"environmentId": environment_id})
+    result = {
+        "snapshot": isinstance(snapshot, dict) and "capturedAt" in snapshot,
+        "sessionCount": len(sessions.get("active") or [])
+        + len(sessions.get("recent") or []),
+        "remoteLifecycle": status.get("status") == "connected",
+        "pairClaimed": bool(pairing_status.get("claimed")),
+        "clientCount": len(clients.get("clients") or []),
+        # Stopping the live daemon also terminates the Codex session running this
+        # smoke test. Stop behavior is covered by isolated command tests instead.
+        "remoteLeftRunning": True,
+    }
     output.write(json.dumps(result, sort_keys=True) + "\n")
     return result
 

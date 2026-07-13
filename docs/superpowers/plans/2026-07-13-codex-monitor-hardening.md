@@ -16,7 +16,7 @@
 - Never persist session previews, account identity, Remote Control pairing codes, or paired-client details.
 - Keep quotas usable when activity, sessions, reset credits, or Remote Control are unavailable.
 - Do not add runtime dependencies, a desklet, or another persistent daemon.
-- Leave one discoverable applet directory, restore Remote Control's initial live state after smoke testing, and merge locally to `main` without a PR, push, tag, or release.
+- Leave one discoverable applet directory, never stop the live Remote daemon from smoke testing, and merge locally to `main` without a PR, push, tag, or release.
 
 ## File Responsibility Map
 
@@ -31,7 +31,7 @@
 - `files/codex-monitor@breixopd/helper/codex_bridge/protocol.py`: validation and stable JSONL action contract.
 - `scripts/install.sh`: atomic install, external backup storage, and stale-copy cleanup.
 - `scripts/smoke-live.sh`: installed Cinnamon and live Codex smoke checks.
-- `scripts/smoke_bridge.py`: JSONL bridge lifecycle probe that redacts sensitive response fields and restores Remote Control state.
+- `scripts/smoke_bridge.py`: JSONL bridge lifecycle probe that redacts sensitive response fields and leaves the live Remote daemon running.
 
 ---
 
@@ -417,7 +417,7 @@ git commit -m "feat: finish Remote Control dashboard"
 
 **Interfaces:**
 - Produces: installer backup root `${XDG_DATA_HOME:-$HOME/.local/share}/codex-monitor@breixopd/install-backups/`.
-- Produces: `npm run smoke:live` entry point with cleanup that restores initial Remote Control state.
+- Produces: `npm run smoke:live` entry point that cannot stop the live Remote daemon; stop behavior remains isolated in unit tests.
 
 - [ ] **Step 1: Write failing isolated installer tests**
 
@@ -451,7 +451,7 @@ done
 
 - [ ] **Step 4: Build the live smoke harness**
 
-The shell script runs the installer, verifies one applet directory, reloads Cinnamon through `org.Cinnamon.Eval`, checks extension state/errors, opens the dashboard, cycles graph mode/range properties, and captures actor geometry. `scripts/smoke_bridge.py` starts the installed bridge, requests snapshot and sessions, records initial Remote status, starts only when initially disabled, requests pairing without printing its response, checks pairing status with the in-memory pairing codes and client listing with the in-memory environment ID, then restores disabled state in `finally`. It emits only boolean/count assertions. Terminal smoke relies on Task 3's injected-process argv test rather than opening an interactive Codex window.
+The shell script runs the installer, verifies one applet directory, reloads Cinnamon through `org.Cinnamon.Eval`, checks extension state/errors, opens the dashboard, cycles graph mode/range properties, and captures actor geometry. `scripts/smoke_bridge.py` starts the installed bridge, requests snapshot and sessions, records initial Remote status, starts only when initially disabled, requests pairing without printing its response, then checks pairing status with the in-memory pairing codes and client listing with the in-memory environment ID. It emits only boolean/count assertions and deliberately leaves Remote running, including on failure, because stopping the live daemon can terminate the Codex session executing the test. Terminal smoke relies on Task 3's injected-process argv test rather than opening an interactive Codex window.
 
 ```sh
 python3 "$ROOT/scripts/smoke_bridge.py" \
@@ -506,7 +506,7 @@ Delete only `~/.local/share/cinnamon/applets/codex-monitor@breixopd.backup-*`, r
 
 - [ ] **Step 4: Run live Cinnamon smoke and inspect screenshots**
 
-Run `npm run smoke:live`, inspect panel and dashboard screenshots, verify exact row/bar geometry and vertical centering, exercise every graph mode/range, check session launch plumbing without leaving terminals open, and test the complete Remote lifecycle. Inspect Cinnamon journal output from the smoke interval for applet errors and confirm Remote state matches its pre-test value.
+Run `npm run smoke:live`, inspect panel and dashboard screenshots, verify exact row/bar geometry and vertical centering, exercise every graph mode/range, check session launch plumbing without leaving terminals open, and test the live-safe Remote lifecycle. Inspect Cinnamon journal output from the smoke interval for applet errors and confirm Remote remains connected; do not issue a live stop.
 
 - [ ] **Step 5: Merge to main and reverify**
 

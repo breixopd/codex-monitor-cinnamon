@@ -26,14 +26,13 @@ class FakeSession:
             },
             "remote_pair_status": {"claimed": False},
             "remote_clients": {"clients": [{"clientId": "client-1"}]},
-            "remote_stop": {"status": "disabled"},
         }
         if action == "remote_clients" and self.fail_clients:
             raise RuntimeError("client list failed")
         return responses[action]
 
 
-def test_run_probe_exercises_lifecycle_redacts_codes_and_restores_disabled_state():
+def test_run_probe_exercises_lifecycle_redacts_codes_and_leaves_remote_running():
     session = FakeSession()
     output = io.StringIO()
 
@@ -44,17 +43,18 @@ def test_run_probe_exercises_lifecycle_redacts_codes_and_restores_disabled_state
     assert result["remoteLifecycle"] is True
     assert result["pairClaimed"] is False
     assert result["clientCount"] == 1
-    assert session.actions[-1] == ("remote_stop", {})
+    assert result["remoteLeftRunning"] is True
+    assert all(action != "remote_stop" for action, _params in session.actions)
     rendered = output.getvalue()
     assert json.loads(rendered) == result
     assert "opaque-private-code" not in rendered
     assert "PRIVATE-MANUAL" not in rendered
 
 
-def test_run_probe_restores_remote_state_when_lifecycle_step_fails():
+def test_run_probe_never_stops_live_remote_when_lifecycle_step_fails():
     session = FakeSession(fail_clients=True)
 
     with pytest.raises(RuntimeError, match="client list failed"):
         run_probe(session, output=io.StringIO(), sleeper=lambda _seconds: None)
 
-    assert session.actions[-1] == ("remote_stop", {})
+    assert all(action != "remote_stop" for action, _params in session.actions)

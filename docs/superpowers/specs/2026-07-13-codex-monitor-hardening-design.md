@@ -153,7 +153,7 @@ A repeatable smoke script installs the current source, reloads the applet, and v
 - every graph mode and range renders without an exception and exposes non-empty labels when data exists;
 - the dashboard opens and session/Remote Control sections exist;
 - default-terminal launch argument generation is valid without leaving a Codex TUI running;
-- Remote Control can complete start, status, pairing-start, pairing-status, client-list, and stop checks, restoring the user's initial enabled/disabled state in cleanup;
+- Remote Control can complete start, status, pairing-start, pairing-status, and client-list checks while leaving the live daemon running; stop behavior is verified only in isolated tests because stopping the daemon can terminate the active Codex session;
 - pairing codes and account identity are absent from captured logs and fixtures.
 
 Panel and dashboard screenshots are inspected at the final installed version. Live smoke failures block the merge.

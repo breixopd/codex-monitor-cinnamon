@@ -30,7 +30,7 @@ if [ "$copy_count" -ne 1 ]; then
 fi
 
 gdbus call --session --dest org.Cinnamon --object-path /org/Cinnamon \
-  --method org.Cinnamon.ReloadXlet "$UUID" applet >/dev/null
+  --method org.Cinnamon.ReloadXlet "$UUID" APPLET >/dev/null
 running=''
 attempt=0
 while [ "$attempt" -lt 20 ]; do
