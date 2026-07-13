@@ -103,6 +103,43 @@ var Dashboard = class Dashboard {
     header.add_child(title);
     header.add_child(this._status);
     this.actor.add_child(header);
+    this._indicatorSection = new St.BoxLayout({
+      vertical: true,
+      style_class: 'codex-monitor-indicator-section',
+    });
+    this._indicatorSection.add_child(new St.Label({
+      text: this._('Current indicators'),
+      style_class: 'codex-monitor-card-kicker',
+    }));
+    this._indicatorList = new St.BoxLayout({
+      style_class: 'codex-monitor-indicator-list',
+    });
+    this._indicatorSection.add_child(this._indicatorList);
+    this.actor.add_child(this._indicatorSection);
+    this.setIndicators([]);
+  }
+
+  setIndicators(indicators) {
+    if (!this._indicatorList)
+      return;
+    _clear(this._indicatorList);
+    const visibleIndicators = Array.isArray(indicators) ? indicators : [];
+    if (visibleIndicators.length === 0) {
+      this._indicatorList.add_child(new St.Label({
+        text: this._('Usage data current'),
+        style_class: 'codex-monitor-indicator-chip codex-indicator-info',
+      }));
+      return;
+    }
+    for (const indicator of visibleIndicators) {
+      this._indicatorList.add_child(new St.Label({
+        text: `${indicator.symbol} ${this._(indicator.text)}`,
+        style_class: 'codex-monitor-indicator-chip ' +
+          `codex-indicator-${indicator.kind} ` +
+          `codex-indicator-${indicator.severity}`,
+        accessible_name: indicator.text,
+      }));
+    }
   }
 
   _buildQuotaCards() {
@@ -278,7 +315,7 @@ var Dashboard = class Dashboard {
       button.remove_style_pseudo_class('checked');
   }
 
-  update(snapshot, remoteStatus) {
+  update(snapshot, remoteStatus, panelState) {
     this._snapshot = snapshot;
     this._remoteStatus = remoteStatus || this._remoteStatus;
     const now = Math.floor(Date.now() / 1000);
@@ -286,6 +323,7 @@ var Dashboard = class Dashboard {
     this._status.set_text(`${plan} · ${this._('Live')} ●`);
     this._fiveHourCard.update(snapshot.windows.fiveHour, this._model, now);
     this._weeklyCard.update(snapshot.windows.weekly, this._model, now);
+    this.setIndicators(panelState && panelState.indicators);
     this._updated.set_text(`${this._('Updated')} ${this._model.formatDuration(now - snapshot.capturedAt)} ${this._('ago')}`);
     this._renderGraph();
     this._renderResetBank();

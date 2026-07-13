@@ -24,10 +24,14 @@ function panelState(snapshot, settings, now, remoteStatus) {
   const windows = snapshot.windows || {};
   const fiveHour = windows.fiveHour;
   const weekly = windows.weekly;
-  const values = [fiveHour, weekly]
-    .filter(Boolean)
-    .map(window => Number(window.usedPercent));
-  const highest = values.length > 0 ? Math.max(...values) : 0;
+  const quotaWindows = [
+    { name: '5-hour', window: fiveHour },
+    { name: 'Weekly', window: weekly },
+  ].filter(item => item.window && Number.isFinite(Number(item.window.usedPercent)));
+  const highestWindow = quotaWindows.reduce((highestValue, item) =>
+    highestValue == null || Number(item.window.usedPercent) >
+      Number(highestValue.window.usedPercent) ? item : highestValue, null);
+  const highest = highestWindow ? Number(highestWindow.window.usedPercent) : 0;
   let level = 'normal';
   if (highest >= Number(settings.criticalThreshold || 90))
     level = 'critical';
@@ -45,45 +49,74 @@ function panelState(snapshot, settings, now, remoteStatus) {
   const nearestExpiry = expiryTimes.length > 0 ? expiryTimes[0] : null;
   const resetExpiring = nearestExpiry != null &&
     nearestExpiry - now <= expiryWarningSeconds;
-  const remoteBadges = {
-    connected: '●',
-    connecting: '◐',
-    errored: '!',
-    disabled: '',
-  };
   const stale = now - Number(snapshot.capturedAt || 0) >
     Number(settings.staleSeconds || 300);
   const resetCount = Number(resetCredits.availableCount) || 0;
-  const indicatorParts = [];
+  const indicators = [];
+  if (level !== 'normal' && highestWindow) {
+    indicators.push({
+      kind: 'quota',
+      severity: level,
+      symbol: '!',
+      text: `${highestWindow.name} quota ${level}: ${Math.round(highest)}% used`,
+    });
+  }
   if (settings.showResetBadge !== false && resetCount > 0) {
-    indicatorParts.push(resetExpiring
-      ? `Reset expires in ${formatDuration(nearestExpiry - now)}`
-      : `${resetCount} banked reset${resetCount === 1 ? '' : 's'}`);
+    const secondsUntilExpiry = nearestExpiry == null ? null : nearestExpiry - now;
+    indicators.push({
+      kind: 'reset',
+      severity: resetExpiring
+        ? secondsUntilExpiry <= 6 * 3600 ? 'critical' : 'warning'
+        : 'info',
+      symbol: `${resetExpiring ? '⚠' : '↻'}${resetCount}`,
+      text: resetExpiring
+        ? `Banked reset expires in ${formatDuration(secondsUntilExpiry)}`
+        : `${resetCount} banked reset${resetCount === 1 ? '' : 's'} available`,
+    });
   }
   if (settings.showRemoteBadge !== false && remoteStatus &&
-      remoteStatus.status !== 'disabled')
-    indicatorParts.push(`Remote ${remoteStatus.status || 'unknown'}`);
-  if (stale)
-    indicatorParts.push('Data stale');
+      remoteStatus.status !== 'disabled') {
+    const remoteIndicators = {
+      connecting: {
+        severity: 'warning', symbol: '◐', text: 'Remote Control connecting',
+      },
+      connected: {
+        severity: 'success', symbol: '●', text: 'Remote Control connected',
+      },
+      errored: {
+        severity: 'critical', symbol: '!', text: 'Remote Control error',
+      },
+    };
+    const remoteIndicator = remoteIndicators[remoteStatus.status] ||
+      { severity: 'critical', symbol: '!', text: 'Remote Control status unknown' };
+    indicators.push({ kind: 'remote', ...remoteIndicator });
+  }
+  if (stale) {
+    indicators.push({
+      kind: 'stale',
+      severity: 'critical',
+      symbol: '!',
+      text: 'Usage data stale',
+    });
+  }
+  const resetIndicator = indicators.find(indicator => indicator.kind === 'reset');
+  const remoteIndicator = indicators.find(indicator => indicator.kind === 'remote');
 
   return {
     label: `5h ${formatPercent(fiveHour)}  W ${formatPercent(weekly)}`,
     level,
     stale,
     staleBadge: stale ? '!' : '',
-    indicatorText: indicatorParts.join(' · '),
-    resetBadge: settings.showResetBadge !== false && resetCount > 0
-      ? `${resetExpiring ? '⚠' : '↻'}${resetCount}`
-      : '',
+    indicators,
+    indicatorText: indicators.map(indicator => indicator.text).join(' · '),
+    resetBadge: resetIndicator ? resetIndicator.symbol : '',
+    resetSeverity: resetIndicator ? resetIndicator.severity : null,
     resetExpiring,
     resetExpiryText: resetExpiring
       ? `Reset expires in ${formatDuration(nearestExpiry - now)}`
       : '',
-    remoteBadge: settings.showRemoteBadge !== false && remoteStatus
-      ? Object.prototype.hasOwnProperty.call(remoteBadges, remoteStatus.status)
-        ? remoteBadges[remoteStatus.status]
-        : '!'
-      : '',
+    remoteBadge: remoteIndicator ? remoteIndicator.symbol : '',
+    remoteSeverity: remoteIndicator ? remoteIndicator.severity : null,
   };
 }
 

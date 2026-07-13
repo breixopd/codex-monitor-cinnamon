@@ -31,37 +31,37 @@
   -usage-bar-color: #79c98c;
 }
 
-.codex-monitor-badge,
-.codex-monitor-remote-badge,
-.codex-monitor-stale-badge {
-  font-size: 0.88em;
-  font-weight: 600;
+.codex-monitor-panel-indicators {
+  spacing: 4px;
 }
 
-.codex-monitor-badge,
-.codex-monitor-remote-badge,
-.codex-monitor-stale-badge {
+.codex-indicator {
+  font-size: 0.88em;
+  font-weight: 600;
   padding: 0 3px;
 }
 
-.codex-monitor-expiring,
-.codex-monitor-stale-badge {
-  color: #f0b64d;
+.codex-indicator-warning {
+  color: #e8a641;
 }
 
-.codex-monitor-remote-badge {
+.codex-indicator-critical {
+  color: #e05a62;
+}
+
+.codex-indicator-success {
   color: #79c98c;
 }
 
-.codex-monitor-warning .codex-monitor-panel-bar,
-.codex-monitor-warning .codex-monitor-badge {
-  color: #e8a641;
+.codex-indicator-info {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.codex-monitor-warning .codex-monitor-panel-bar {
   -usage-bar-color: #e8a641;
 }
 
-.codex-monitor-critical .codex-monitor-panel-bar,
-.codex-monitor-critical .codex-monitor-badge {
-  color: #e05a62;
+.codex-monitor-critical .codex-monitor-panel-bar {
   -usage-bar-color: #e05a62;
 }
 
@@ -85,6 +85,18 @@
 .codex-monitor-action-row,
 .codex-monitor-range-row {
   spacing: 8px;
+}
+
+.codex-monitor-indicator-section,
+.codex-monitor-indicator-list {
+  spacing: 6px;
+}
+
+.codex-monitor-indicator-chip {
+  padding: 3px 7px;
+  border-radius: 4px;
+  background-color: rgba(255, 255, 255, 0.055);
+  font-size: 0.82em;
 }
 
 .codex-monitor-title {

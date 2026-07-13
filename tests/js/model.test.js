@@ -41,8 +41,8 @@ test('panel state uses explicit used percentages and conditional badges', () => 
   assert.equal(state.remoteBadge, '●');
   assert.equal(state.staleBadge, '');
   assert.equal(state.stale, false);
-  assert.match(state.indicatorText, /Reset expires in/);
-  assert.match(state.indicatorText, /Remote connected/);
+  assert.match(state.indicatorText, /Banked reset expires in/);
+  assert.match(state.indicatorText, /Remote Control connected/);
 });
 
 test('panel state keeps ordinary reset badge and hides disabled remote state', () => {
@@ -74,7 +74,110 @@ test('panel state marks stale data and highest quota pressure', () => {
   assert.equal(state.level, 'critical');
   assert.equal(state.stale, true);
   assert.equal(state.staleBadge, '!');
-  assert.match(state.indicatorText, /Data stale/);
+  assert.match(state.indicatorText, /Usage data stale/);
+});
+
+test('panel state exposes ordered indicators with explicit quota severity', () => {
+  const value = snapshot();
+  value.windows.fiveHour = { usedPercent: 74, resetsAt: 1_799_200_000 };
+  value.resetCredits = { availableCount: 0, credits: [] };
+
+  const warning = model.panelState(value, {
+    warningThreshold: 70,
+    criticalThreshold: 90,
+    staleSeconds: 300,
+  }, 1_799_100_100, { status: 'connecting' });
+
+  assert.deepEqual(warning.indicators, [
+    {
+      kind: 'quota',
+      severity: 'warning',
+      symbol: '!',
+      text: '5-hour quota warning: 74% used',
+    },
+    {
+      kind: 'remote',
+      severity: 'warning',
+      symbol: '◐',
+      text: 'Remote Control connecting',
+    },
+  ]);
+
+  value.windows.weekly.usedPercent = 94;
+  const critical = model.panelState(value, {
+    warningThreshold: 70,
+    criticalThreshold: 90,
+    staleSeconds: 300,
+  }, 1_799_100_100, { status: 'errored' });
+  assert.deepEqual(critical.indicators.map(indicator => [
+    indicator.kind, indicator.severity, indicator.text,
+  ]), [
+    ['quota', 'critical', 'Weekly quota critical: 94% used'],
+    ['remote', 'critical', 'Remote Control error'],
+  ]);
+});
+
+test('panel reset indicators distinguish info warning and final six hours', () => {
+  const value = snapshot();
+  const settings = {
+    warningThreshold: 70,
+    criticalThreshold: 90,
+    staleSeconds: 300,
+    resetExpiryWarningHours: 72,
+  };
+  const now = 1_799_100_000;
+
+  value.resetCredits.credits[0].expiresAt = now + 100 * 3600;
+  assert.deepEqual(model.panelState(value, settings, now, null).indicators, [{
+    kind: 'reset',
+    severity: 'info',
+    symbol: '↻2',
+    text: '2 banked resets available',
+  }]);
+
+  value.resetCredits.credits[0].expiresAt = now + 48 * 3600;
+  assert.deepEqual(model.panelState(value, settings, now, null).indicators, [{
+    kind: 'reset',
+    severity: 'warning',
+    symbol: '⚠2',
+    text: 'Banked reset expires in 2d',
+  }]);
+
+  value.resetCredits.credits[0].expiresAt = now + 4 * 3600;
+  assert.deepEqual(model.panelState(value, settings, now, null).indicators, [{
+    kind: 'reset',
+    severity: 'critical',
+    symbol: '⚠2',
+    text: 'Banked reset expires in 4h',
+  }]);
+});
+
+test('panel indicators explain remote success and stale quota data', () => {
+  const value = snapshot();
+  value.resetCredits = { availableCount: 0, credits: [] };
+
+  const state = model.panelState(value, {
+    warningThreshold: 70,
+    criticalThreshold: 90,
+    staleSeconds: 60,
+  }, 1_799_100_100, { status: 'connected' });
+
+  assert.deepEqual(state.indicators, [
+    {
+      kind: 'remote',
+      severity: 'success',
+      symbol: '●',
+      text: 'Remote Control connected',
+    },
+    {
+      kind: 'stale',
+      severity: 'critical',
+      symbol: '!',
+      text: 'Usage data stale',
+    },
+  ]);
+  assert.equal(state.indicatorText,
+    'Remote Control connected · Usage data stale');
 });
 
 test('duration formatting remains compact and never goes negative', () => {
