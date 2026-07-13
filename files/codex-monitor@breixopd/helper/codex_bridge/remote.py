@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-import stat
 import subprocess
 
 from .rpc import RpcError
@@ -25,12 +24,14 @@ class RemoteControl:
         environment=None,
         daemon_running=None,
         qr_encoder=None,
+        proc_root="/proc",
     ):
         self.executable = executable
         self.runner = runner or subprocess.run
         self.client_factory = client_factory
         self.environment = environment
-        self.daemon_running = daemon_running or self._control_socket_running
+        self.proc_root = proc_root
+        self.daemon_running = daemon_running or self._remote_process_running
         self.qr_encoder = qr_encoder or encode_qr_svg
         self._last_status = None
 
@@ -209,22 +210,37 @@ class RemoteControl:
             return False
 
     def _fallback_status(self):
+        if not self._daemon_is_running():
+            self._last_status = None
+            return {"status": "disabled"}
         if self._last_status is not None:
             return dict(self._last_status)
-        return {
-            "status": "connecting" if self._daemon_is_running() else "disabled"
-        }
+        try:
+            status = self._compact_status(self._normalize_status(self._run_json("start")))
+        except (RuntimeError, TimeoutError):
+            status = {"status": "running"}
+        self._last_status = status
+        return dict(status)
 
-    def _control_socket_running(self):
-        environment = self.environment or os.environ
-        codex_home = environment.get("CODEX_HOME")
-        if not codex_home:
-            home = environment.get("HOME") or os.path.expanduser("~")
-            codex_home = os.path.join(home, ".codex")
-        socket_path = os.path.join(
-            codex_home, "app-server-control", "app-server-control.sock"
-        )
-        return stat.S_ISSOCK(os.lstat(socket_path).st_mode)
+    def _remote_process_running(self):
+        try:
+            entries = os.scandir(self.proc_root)
+        except OSError:
+            return False
+        with entries:
+            for entry in entries:
+                if not entry.name.isdigit():
+                    continue
+                try:
+                    if entry.stat(follow_symlinks=False).st_uid != os.geteuid():
+                        continue
+                    with open(os.path.join(entry.path, "cmdline"), "rb") as handle:
+                        arguments = handle.read(4096).split(b"\0")
+                except OSError:
+                    continue
+                if b"app-server" in arguments and b"--remote-control" in arguments:
+                    return True
+        return False
 
     @staticmethod
     def _compact_status(value):

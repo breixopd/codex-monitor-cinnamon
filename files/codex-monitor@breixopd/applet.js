@@ -331,7 +331,8 @@ class CodexMonitorApplet extends Applet.Applet {
     const status = this._remoteStatus && this._remoteStatus.status;
     const pairingActive = this._pairing && !this._pairing.claimed &&
       Number(this._pairing.expiresAt) > Math.floor(Date.now() / 1000);
-    return status === 'connecting' || status === 'connected' || Boolean(pairingActive);
+    return status === 'connecting' || status === 'running' ||
+      status === 'connected' || Boolean(pairingActive);
   }
 
   _setRemotePolling(active) {

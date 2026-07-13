@@ -80,6 +80,10 @@ function panelState(snapshot, settings, now, remoteStatus) {
       connecting: {
         severity: 'warning', symbol: '◐', text: 'Remote Control connecting',
       },
+      running: {
+        severity: 'warning', symbol: '◐',
+        text: 'Remote Control running; connection state unavailable',
+      },
       connected: {
         severity: 'success', symbol: '●', text: 'Remote Control connected',
       },
@@ -437,7 +441,7 @@ function nearestGraphValues(series, timestamp, maximumDistance = null) {
 
 function isUsableRemoteStatus(remoteStatus) {
   const status = remoteStatus && remoteStatus.status;
-  return status === 'connecting' || status === 'connected';
+  return status === 'connecting' || status === 'connected' || status === 'running';
 }
 
 function _semanticVersion(value) {

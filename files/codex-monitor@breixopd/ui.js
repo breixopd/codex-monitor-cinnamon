@@ -709,6 +709,7 @@ var Dashboard = class Dashboard {
     const labels = {
       disabled: this._('Disabled'),
       connecting: this._('Connecting…'),
+      running: this._('Running'),
       connected: this._('Connected'),
       errored: this._('Error'),
     };
@@ -719,6 +720,8 @@ var Dashboard = class Dashboard {
       identityParts.push(identity.serverName);
     if (identity.environmentId)
       identityParts.push(`${this._('environment')} ${identity.environmentId}`);
+    if (status === 'running' && identityParts.length === 0)
+      identityParts.push(this._('Connection state unavailable; Remote is still running'));
     this._remoteIdentity.set_text(this._remoteError || identityParts.join(' · '));
     this._remoteIdentity.visible = Boolean(this._remoteIdentity.get_text());
     _clear(this._remoteButtons);
@@ -728,7 +731,7 @@ var Dashboard = class Dashboard {
       this._remoteButtons.add_child(_button(
         this._('Refresh devices'), this._callbacks.onRemoteRefresh
       ));
-    } else if (status === 'connecting') {
+    } else if (status === 'connecting' || status === 'running') {
       this._remoteButtons.add_child(_button(this._('Stop'), this._callbacks.onRemoteStop));
       this._remoteButtons.add_child(_button(
         this._('Refresh'), this._callbacks.onRemoteRefresh
@@ -775,7 +778,12 @@ var Dashboard = class Dashboard {
     this._remoteClientsHeading.set_text(
       `${this._('Paired devices')} (${this._remoteClients.length})`
     );
-    if (status !== 'connected') {
+    if (status === 'running') {
+      this._remoteClientList.add_child(new St.Label({
+        text: this._('Refresh to confirm the connection before managing devices'),
+        style_class: 'codex-monitor-secondary',
+      }));
+    } else if (status !== 'connected') {
       this._remoteClientList.add_child(new St.Label({
         text: this._('Start Remote Control to manage paired devices'),
         style_class: 'codex-monitor-secondary',

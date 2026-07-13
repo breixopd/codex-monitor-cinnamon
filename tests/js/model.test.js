@@ -103,6 +103,18 @@ test('panel state exposes ordered indicators with explicit quota severity', () =
     },
   ]);
 
+  const running = model.panelState(value, {
+    warningThreshold: 70,
+    criticalThreshold: 90,
+    staleSeconds: 300,
+  }, 1_799_100_100, { status: 'running' });
+  assert.deepEqual(running.indicators.at(-1), {
+    kind: 'remote',
+    severity: 'warning',
+    symbol: '◐',
+    text: 'Remote Control running; connection state unavailable',
+  });
+
   value.windows.weekly.usedPercent = 94;
   const critical = model.panelState(value, {
     warningThreshold: 70,
@@ -190,6 +202,7 @@ test('duration formatting remains compact and never goes negative', () => {
 test('transient Remote read failures retain only usable live states', () => {
   assert.equal(model.isUsableRemoteStatus({ status: 'connected' }), true);
   assert.equal(model.isUsableRemoteStatus({ status: 'connecting' }), true);
+  assert.equal(model.isUsableRemoteStatus({ status: 'running' }), true);
   assert.equal(model.isUsableRemoteStatus({ status: 'disabled' }), false);
   assert.equal(model.isUsableRemoteStatus({ status: 'errored' }), false);
   assert.equal(model.isUsableRemoteStatus(null), false);

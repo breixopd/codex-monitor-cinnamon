@@ -178,6 +178,8 @@
     results.remoteDisabled = indicatorState(normal, { status: "disabled" }).length === 0;
     results.remoteConnecting = indicatorState(normal, { status: "connecting" })[0]
       .severity === "warning";
+    results.remoteRunning = indicatorState(normal, { status: "running" })[0]
+      .text.indexOf("connection state unavailable") >= 0;
     results.remoteConnected = indicatorState(normal, { status: "connected" })[0]
       .severity === "success";
     results.remoteError = indicatorState(normal, { status: "errored" })[0]

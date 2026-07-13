@@ -73,22 +73,96 @@ def test_remote_status_treats_unavailable_proxy_daemon_as_disabled():
     assert client.closed is True
 
 
-def test_remote_status_reports_running_daemon_as_connecting_when_proxy_is_unavailable():
+def test_remote_status_probes_confirmed_existing_daemon_when_proxy_is_unavailable():
     client = FailingInitializeClient({})
+    calls = []
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=json.dumps(
+                {
+                    "status": "connected",
+                    "serverName": "mint-workstation",
+                    "environmentId": "environment-1",
+                    "daemon": {"status": "alreadyRunning"},
+                }
+            ),
+            stderr="",
+        )
+
     remote = RemoteControl(
-        "codex", client_factory=lambda: client, daemon_running=lambda: True
+        "codex",
+        runner=runner,
+        client_factory=lambda: client,
+        daemon_running=lambda: True,
     )
 
-    assert remote.status() == {"status": "connecting"}
+    assert remote.status() == {
+        "status": "connected",
+        "serverName": "mint-workstation",
+        "environmentId": "environment-1",
+    }
+    assert calls == [["codex", "remote-control", "start", "--json"]]
 
 
-def test_remote_status_reports_running_daemon_when_status_method_is_unavailable():
+def test_remote_status_reports_running_when_existing_daemon_probe_fails():
     client = FailingRequestClient({})
+
+    def runner(command, **kwargs):
+        return subprocess.CompletedProcess(command, 1, stdout="", stderr="private")
+
     remote = RemoteControl(
-        "codex", client_factory=lambda: client, daemon_running=lambda: True
+        "codex",
+        runner=runner,
+        client_factory=lambda: client,
+        daemon_running=lambda: True,
     )
 
-    assert remote.status() == {"status": "connecting"}
+    assert remote.status() == {"status": "running"}
+
+
+def test_remote_status_invalidates_cached_connection_when_daemon_disappears():
+    running = iter([True, False])
+    client = FailingInitializeClient({})
+
+    def runner(command, **kwargs):
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout='{"status":"connected","serverName":"mint-workstation"}',
+            stderr="",
+        )
+
+    remote = RemoteControl(
+        "codex",
+        runner=runner,
+        client_factory=lambda: client,
+        daemon_running=lambda: next(running),
+    )
+
+    assert remote.status()["status"] == "connected"
+    assert remote.status() == {"status": "disabled"}
+
+
+def test_remote_process_detection_requires_same_user_remote_control_process(tmp_path):
+    proc_root = tmp_path / "proc"
+    remote_process = proc_root / "123"
+    ordinary_process = proc_root / "456"
+    remote_process.mkdir(parents=True)
+    ordinary_process.mkdir()
+    remote_process.joinpath("cmdline").write_bytes(
+        b"/usr/bin/codex\0app-server\0--remote-control\0--listen\0unix://\0"
+    )
+    ordinary_process.joinpath("cmdline").write_bytes(
+        b"/usr/bin/codex\0app-server\0daemon\0"
+    )
+
+    remote = RemoteControl("codex", proc_root=str(proc_root))
+
+    assert remote._daemon_is_running() is True
 
 
 def test_remote_status_discards_invalid_or_oversized_metadata():
