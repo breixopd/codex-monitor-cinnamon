@@ -365,21 +365,15 @@ function graphDomain(series, cutoff, now) {
       end: selectedEnd,
       selectedSeconds,
       collectedSeconds: 0,
-      fitted: false,
     };
   }
   const first = Math.min(...timestamps);
   const collectedSeconds = Math.max(0, selectedEnd - first);
-  const fitted = selectedSeconds > 0 && collectedSeconds < selectedSeconds / 4;
-  const padding = fitted
-    ? Math.min(1800, Math.max(60, collectedSeconds * 0.04))
-    : 0;
   return {
-    start: fitted ? Math.max(selectedStart, first - padding) : selectedStart,
+    start: selectedStart,
     end: selectedEnd,
     selectedSeconds,
     collectedSeconds,
-    fitted,
   };
 }
 

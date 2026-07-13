@@ -117,6 +117,17 @@ def test_graph_supports_dynamic_left_and_right_axes():
     assert "data.axes.right" in source
 
 
+def test_graph_hover_uses_allocated_actor_width_outside_repaint():
+    source = GRAPH_SOURCE.read_text(encoding="utf-8")
+    motion_handler = source[
+        source.index("view._area.connect('motion-event'") :
+        source.index("view._area.connect('leave-event'")
+    ]
+
+    assert "view._area.width" in motion_handler
+    assert "get_surface_size" not in motion_handler
+
+
 def test_dashboard_sends_semantic_graph_payload():
     source = UI_SOURCE.read_text(encoding="utf-8")
 

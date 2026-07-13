@@ -120,7 +120,8 @@
     results.foreignQuotaFiltered = dashboard._graphActor._area._series.every(
       function (series) { return series.points.length === 2; }
     ) && dashboard._graphActor._area._resetMarkers.length === 0;
-    results.sparseQuotaFitted = dashboard._graphActor._area._minimum > now - 5 * 3600 &&
+    results.sparseQuotaFullRange = dashboard._graphActor._area._minimum === now - 168 * 3600 &&
+      dashboard._graphActor._area._maximum === now &&
       dashboard._graphActor._hover.get_text().indexOf("collected of 7d") >= 0;
 
     var dense = [];

@@ -399,7 +399,7 @@ test('graph axes distinguish quota activity and combined scales', () => {
   assert.equal(millionScale.left.ticks[0].label, '1M');
 });
 
-test('graph axes fit sparse collected history instead of crushing it at the range edge', () => {
+test('graph axes preserve the selected range when collected history is sparse', () => {
   const week = 7 * 24 * 3600;
   const series = [{
     kind: 'quota',
@@ -411,11 +411,10 @@ test('graph axes fit sparse collected history instead of crushing it at the rang
 
   const axes = model.graphAxes(series, 0, week, 168, 'quota');
 
-  assert.equal(axes.domain.fitted, true);
   assert.equal(axes.domain.collectedSeconds, 4 * 3600);
-  assert.ok(axes.x[0].timestamp > week - 5 * 3600);
+  assert.equal(axes.x[0].timestamp, 0);
   assert.equal(axes.x.at(-1).timestamp, week);
-  assert.match(axes.x[0].label, /^\d{2}:\d{2}$/);
+  assert.match(axes.x[0].label, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
 });
 
 test('nearest graph values select one point from every available series', () => {

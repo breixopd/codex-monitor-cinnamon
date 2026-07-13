@@ -568,7 +568,8 @@ var Dashboard = class Dashboard {
       return `${cursorTime} · ${details}`;
     };
     const selectedRange = rangeHours === 24 ? '24h' : rangeHours === 168 ? '7d' : '30d';
-    const coverage = axes.domain && axes.domain.fitted
+    const coverage = axes.domain && axes.domain.collectedSeconds > 0 &&
+      axes.domain.collectedSeconds < axes.domain.selectedSeconds
       ? `${this._('Showing')} ${this._model.formatDuration(
         axes.domain.collectedSeconds
       )} ${this._('collected of')} ${selectedRange}`

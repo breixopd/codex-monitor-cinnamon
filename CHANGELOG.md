@@ -9,7 +9,7 @@
 - Remote Control pairing status, paired-device inventory, refresh, and confirmed revocation
 - A single bounded Python SVG pairing QR path with native Cinnamon rendering and manual-code fallback
 - Automatic read-only Codex update discovery and a conditional confirmed background-update action
-- Repeatable installed Cinnamon and full dynamic-state live smoke tests
+- Repeatable installed Cinnamon and full dynamic-state live smoke tests, including real pointer travel across the graph
 
 ### Changed
 
@@ -22,7 +22,9 @@
 ### Fixed
 
 - Kept model-specific quota windows out of the canonical 5-hour/weekly history and filtered the already-recorded interleaving pattern without hiding genuine resets
-- Replaced sparse full-range quota plots with fitted, labeled, filled step trends that show current usage, percentage-point change, collected coverage, and only real reset transitions
+- Kept every graph on its selected 24-hour, 7-day, or 30-day timeline even when local history covers only part of that period
+- Corrected graph pointer geometry so hover timestamps and exact values follow the pointer instead of remaining at the newest sample
+- Added labeled, filled quota step trends that show current usage, percentage-point change, collected coverage, and only real reset transitions
 - Moved dashboard padding onto the clipped scroll viewport so scrolling cannot leave stale section fragments in the side gutters
 - Reserved scrollbar space so it cannot cover dashboard labels or controls
 - Ignored callbacks from retired helpers, prevented post-removal bridge restarts, and force-closed unresponsive app-server helpers

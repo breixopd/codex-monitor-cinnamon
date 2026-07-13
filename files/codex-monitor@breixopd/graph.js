@@ -89,7 +89,9 @@ var createQuotaGraph = function(options = {}) {
     const transformed = view._area.transform_stage_point(stageX, stageY);
     if (!transformed[0] || !view._hoverFormatter)
       return Clutter.EVENT_PROPAGATE;
-    const [width] = view._area.get_surface_size();
+    // Cairo's surface only exists during repaint, so its dimensions are 0x0
+    // here on Cinnamon. Use the actor's allocated width for pointer geometry.
+    const width = Math.max(1, Number(view._area.width) || 1);
     const ratio = Math.max(0, Math.min(1, transformed[1] / Math.max(1, width)));
     const timestamp = view._area._minimum +
       ratio * (view._area._maximum - view._area._minimum);

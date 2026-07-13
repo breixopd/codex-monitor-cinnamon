@@ -6,7 +6,7 @@ Codex Monitor is a Linux Mint Cinnamon panel applet for checking Codex quota usa
 
 - Dual panel meter and percentages for 5-hour and weekly usage
 - Live compact reset countdowns with unavailable windows shown honestly
-- 24-hour, 7-day, and 30-day graphs with fitted filled quota trends, percentage-point change, collected-coverage labels, token-activity bars, percentage/token axes, genuine reset markers, and exact hover details
+- 24-hour, 7-day, and 30-day graphs with fixed selected ranges, filled quota trends, percentage-point change, collected-coverage labels, token-activity bars, percentage/token axes, genuine reset markers, and exact pointer hover details
 - Banked reset count, expiry, and confirmed one-click redemption
 - Amber warning and red critical badges with a plain-language **Current indicators** explanation in the dashboard
 - Active and recent Codex sessions that resume in Linux Mint's default terminal
@@ -80,7 +80,7 @@ sh scripts/package.sh
 npm run smoke:live
 ```
 
-JavaScript model tests run under Node; Cinnamon-specific modules are syntax-checked and then smoke-tested in a real Cinnamon session. Python tests cover response normalization, JSON-RPC behavior, persistence, command validation, terminal launching, updater isolation, reset redemption, and Remote Control. The live smoke command requires the applet to already be enabled on a Cinnamon panel. It exercises every graph mode/range and the empty, single, gap, dense, peak, badge, Remote, pairing, update, and session states; restores real state; captures screenshots under `/tmp/codex-monitor-smoke`; and verifies that the Codex Remote daemon state did not change. Stop behavior is verified only in isolated tests because stopping the live daemon can terminate the active Codex session.
+JavaScript model tests run under Node; Cinnamon-specific modules are syntax-checked and then smoke-tested in a real Cinnamon session. Python tests cover response normalization, JSON-RPC behavior, persistence, command validation, terminal launching, updater isolation, reset redemption, and Remote Control. The live smoke command requires the applet to already be enabled on a Cinnamon panel. It exercises every graph mode/range and the empty, single, gap, dense, peak, badge, Remote, pairing, update, and session states; drives the real Cinnamon pointer across the graph; restores real state; captures screenshots under `/tmp/codex-monitor-smoke`; and verifies that the Codex Remote daemon state did not change. Stop behavior is verified only in isolated tests because stopping the live daemon can terminate the active Codex session.
 
 Project layout:
 
