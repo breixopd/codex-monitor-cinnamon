@@ -68,6 +68,12 @@ for assertion in instance snapshot bridge centered equalBars equalGaps; do
   fi
 done
 
+python3 "$ROOT/scripts/smoke_bridge.py" \
+  --helper "$TARGET/helper/bridge.py" \
+  --codex "${CODEX_BINARY:-codex}"
+
+eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; x._refreshRemoteState(); "refreshing";' >/dev/null
+
 dashboard_js='var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; var modes=["quota","activity","both"]; var ranges=[24,168,720]; for (var i=0;i<modes.length;i++){for(var j=0;j<ranges.length;j++){x.graphMode=modes[i];x.graphRangeHours=ranges[j];x._render();}} x.menu.open(); var labels=x._dashboard._graphActor._xAxis.get_children().map(function(v){return v.get_text();}); JSON.stringify({legendReady:x._dashboard._graphActor._legend.get_children().length>0,axisReady:labels.every(function(v){return Boolean(v)&&v!=="—";}),sessions:Boolean(x._dashboard._activeSessionList&&x._dashboard._recentSessionList),remote:Boolean(x._dashboard._remoteClientList)});'
 dashboard=$(eval_cinnamon "$dashboard_js")
 for assertion in legendReady axisReady sessions remote; do
@@ -77,16 +83,36 @@ for assertion in legendReady axisReady sessions remote; do
   fi
 done
 
+
+settled_js='var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; JSON.stringify({settledQuota:Boolean(x._snapshot&&x._dashboard._snapshot===x._snapshot&&x._dashboard._fiveHourCard._percent.get_text()!=="—"),settledSessions:Boolean(x._sessions&&x._dashboard._sessions===x._sessions),settledRemote:Boolean(x._remoteStatus&&x._remoteStatus.status==="connected")});'
+settled=''
+attempt=0
+while [ "$attempt" -lt 20 ]; do
+  settled=$(eval_cinnamon "$settled_js")
+  if printf '%s\n' "$settled" | grep -E 'settledQuota.*true' >/dev/null && \
+      printf '%s\n' "$settled" | grep -E 'settledSessions.*true' >/dev/null && \
+      printf '%s\n' "$settled" | grep -E 'settledRemote.*true' >/dev/null; then
+    break
+  fi
+  attempt=$((attempt + 1))
+  sleep 1
+done
+for assertion in settledQuota settledSessions settledRemote; do
+  if ! printf '%s\n' "$settled" | grep -E "$assertion.*true" >/dev/null; then
+    printf '%s\n' "Dashboard readiness assertion failed: $settled" >&2
+    exit 1
+  fi
+done
+
+# Allow the next Cinnamon paint to commit the verified actor state to the frame.
+sleep 1
+
 mkdir -p "$SCREENSHOT_DIR"
 gdbus call --session --dest org.Cinnamon --object-path /org/Cinnamon \
   --method org.Cinnamon.Screenshot false false "$SCREENSHOT_DIR/dashboard.png" >/dev/null
 eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; x.menu.close(); "closed";' >/dev/null
 gdbus call --session --dest org.Cinnamon --object-path /org/Cinnamon \
   --method org.Cinnamon.Screenshot false false "$SCREENSHOT_DIR/panel.png" >/dev/null
-
-python3 "$ROOT/scripts/smoke_bridge.py" \
-  --helper "$TARGET/helper/bridge.py" \
-  --codex "${CODEX_BINARY:-codex}"
 
 if journalctl --user -b --since "$STARTED_AT" --no-pager -o cat | \
   rg -i 'codex-monitor.*(error|exception|traceback)|(error|exception|traceback).*codex-monitor' >/dev/null; then

@@ -1,5 +1,6 @@
 import io
 import json
+from pathlib import Path
 
 import pytest
 
@@ -58,3 +59,13 @@ def test_run_probe_never_stops_live_remote_when_lifecycle_step_fails():
         run_probe(session, output=io.StringIO(), sleeper=lambda _seconds: None)
 
     assert all(action != "remote_stop" for action, _params in session.actions)
+
+
+def test_live_smoke_connects_remote_before_capturing_dashboard():
+    script = Path("scripts/smoke-live.sh").read_text(encoding="utf-8")
+
+    assert "remote_stop" not in script
+    assert script.index('python3 "$ROOT/scripts/smoke_bridge.py"') < script.index(
+        '"$SCREENSHOT_DIR/dashboard.png"'
+    )
+    assert "settledRemote" in script
