@@ -6,16 +6,19 @@
 
 - Stepped quota segments, activity bars, dual percentage/token axes, reset markers, hover values, and explicit graph empty states
 - Active/recent Codex sessions with safe default-terminal resume and Open Codex actions
+- All, Active, Attention, and Recent session filters with project grouping
 - Remote Control pairing status, paired-device inventory, refresh, and confirmed revocation
 - A single bounded Python SVG pairing QR path with native Cinnamon rendering and manual-code fallback
 - Automatic read-only Codex update discovery and a conditional confirmed background-update action
 - Repeatable installed Cinnamon and full dynamic-state live smoke tests, including real pointer travel across the graph
+- Shaded uncollected graph history with an explicit local-history start boundary
 
 ### Changed
 
 - Centered the compact two-row panel meter and added explicit amber/red/green indicator severity
 - Added a dashboard Current indicators row so badge symbols and colors are always explained
 - Promoted Remote Control from an experimental dashboard gate to an always-available management section
+- Replaced indefinite Remote `Connecting` fallback with verified `Connected` recovery or an honest `Running` state
 - Replaced retained installer backups with temporary rollback-only replacement and cleanup
 - Bounded history, graph, QR, release-response, and updater work; hardened malformed optional Codex payload handling
 
@@ -24,6 +27,7 @@
 - Kept model-specific quota windows out of the canonical 5-hour/weekly history and filtered the already-recorded interleaving pattern without hiding genuine resets
 - Kept every graph on its selected 24-hour, 7-day, or 30-day timeline even when local history covers only part of that period
 - Corrected graph pointer geometry so hover timestamps and exact values follow the pointer instead of remaining at the newest sample
+- Prevented a running but unreadable Remote daemon from being mislabeled as perpetually connecting
 - Added labeled, filled quota step trends that show current usage, percentage-point change, collected coverage, and only real reset transitions
 - Moved dashboard padding onto the clipped scroll viewport so scrolling cannot leave stale section fragments in the side gutters
 - Reserved scrollbar space so it cannot cover dashboard labels or controls

@@ -6,10 +6,10 @@ Codex Monitor is a Linux Mint Cinnamon panel applet for checking Codex quota usa
 
 - Dual panel meter and percentages for 5-hour and weekly usage
 - Live compact reset countdowns with unavailable windows shown honestly
-- 24-hour, 7-day, and 30-day graphs with fixed selected ranges, filled quota trends, percentage-point change, collected-coverage labels, token-activity bars, percentage/token axes, genuine reset markers, and exact pointer hover details
+- 24-hour, 7-day, and 30-day graphs with fixed selected ranges, visibly shaded uncollected history, quota trends, token activity, reset markers, and exact pointer hover details
 - Banked reset count, expiry, and confirmed one-click redemption
 - Amber warning and red critical badges with a plain-language **Current indicators** explanation in the dashboard
-- Active and recent Codex sessions that resume in Linux Mint's default terminal
+- Filterable Codex sessions grouped by project, with focused Active, Attention, and Recent views
 - Open Codex action using `x-terminal-emulator`
 - Confirmed Remote Control start, stop, native SVG/manual pairing, device listing, and revocation
 - Automatic 12-hour Codex update checks with a button shown only when a newer release is available
@@ -58,40 +58,24 @@ To uninstall, remove that applet from the panel in System Settings, then delete 
 
 Right-click the applet and choose **Configure**. Available options cover refresh interval, history retention, graph mode/range, warning thresholds, panel indicators, the Codex executable, and a custom `CODEX_HOME`.
 
-Remote Control is managed directly in the dashboard. Starting it and revoking a paired device require confirmation because paired clients can control Codex on this computer. Pairing uses one QR implementation: the Python bridge creates a bounded SVG and Cinnamon renders it as a native in-memory icon. The manual code remains available if `python3-qrcode` or SVG rendering is unavailable. Pairing data exists only in memory and is cleared when pairing completes or expires.
+Remote Control is managed directly in the dashboard. Starting it and revoking a paired device require confirmation because paired clients can control Codex on this computer. The applet confirms an existing Linux Remote process before probing its connection, so it does not silently enable Remote. Pairing uses one bounded SVG implementation with a manual-code fallback.
 
 Update discovery starts only after the first quota snapshot. It reads Codex's fresh local version cache first and otherwise checks the official OpenAI GitHub release endpoint every 12 hours. A current installation shows only its version; **Update Codex…** appears only when a newer stable release is known. Installing always requires confirmation and runs in the background without restarting Cinnamon, Remote Control, the bridge, or existing Codex sessions.
 
 ## Privacy and security
 
-The applet starts the official local `codex app-server` process and asks it for account limits. It does not scrape terminal output, read authentication files, copy API keys, or open a network port. Account email is discarded by the bridge and never sent to the UI. The only monitor-originated network request is the bounded release check (and, after explicit update confirmation, retrieval of the official installer fallback).
-
-Only graph samples—capture time, used percentage, and reset time—and non-sensitive update metadata are written to disk. Both history and update state use atomic user-only files with mode `0600`. Token activity, account identity, session previews, paired-client details, pairing codes, installer output, and updater diagnostics are not stored. Reset redemption is confirmed and uses an idempotency key. Session launches and updates use fixed argument arrays rather than a shell pipeline.
-
-See [ADR-001](docs/decisions/001-use-codex-app-server.md) and [ADR-002](docs/decisions/002-local-history-and-remote-control.md) for the design rationale.
+The applet uses the official local `codex app-server`. It does not scrape terminal output, read authentication files, copy API keys, or open a network port. Only bounded quota-history samples and non-sensitive update metadata are stored, in user-only files. Pairing codes, account identity, session previews, device details, and updater output remain ephemeral.
 
 ## Development
 
 ```sh
-pytest -q
-npm run test:js
-python3 scripts/validate.py
-sh scripts/package.sh
+npm test
+npm run check
+npm run package
 npm run smoke:live
 ```
 
-JavaScript model tests run under Node; Cinnamon-specific modules are syntax-checked and then smoke-tested in a real Cinnamon session. Python tests cover response normalization, JSON-RPC behavior, persistence, command validation, terminal launching, updater isolation, reset redemption, and Remote Control. The live smoke command requires the applet to already be enabled on a Cinnamon panel. It exercises every graph mode/range and the empty, single, gap, dense, peak, badge, Remote, pairing, update, and session states; drives the real Cinnamon pointer across the graph; restores real state; captures screenshots under `/tmp/codex-monitor-smoke`; and verifies that the Codex Remote daemon state did not change. Stop behavior is verified only in isolated tests because stopping the live daemon can terminate the active Codex session.
-
-Project layout:
-
-- `files/codex-monitor@breixopd/`: distributable Cinnamon applet
-- `helper/codex_bridge/`: local Codex app-server bridge inside the applet package
-- `tests/`: Python bridge and pure JavaScript model tests
-- `scripts/`: validation, packaging, and local installation
-
-## Compatibility behavior
-
-Codex 0.144.3 is the tested baseline for quota/session monitoring, the Remote daemon, CLI pairing, and self-update. Newer app-server builds add pairing-claim polling and paired-client management methods; Codex Monitor detects those methods independently and labels unavailable controls without disrupting quota monitoring. A monitor-owned app-server can report sessions owned by another Codex process as `notLoaded`; those rows are labeled **Ready to resume**, not falsely reported as active or finished. Unknown quota-window durations are preserved but not mislabeled. Bridge failures leave the last snapshot visible and retry with bounded exponential backoff.
+The live smoke command requires the applet to be enabled on a Cinnamon panel. It restores the user’s graph/filter state and never stops the live Remote daemon.
 
 ## License
 
