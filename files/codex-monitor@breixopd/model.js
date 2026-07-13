@@ -387,6 +387,48 @@ function isUsableRemoteStatus(remoteStatus) {
   return status === 'connecting' || status === 'connected';
 }
 
+function _semanticVersion(value) {
+  if (typeof value !== 'string' || value.length > 64)
+    return null;
+  const match = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$/.exec(value);
+  if (!match)
+    return null;
+  return {
+    display: value,
+    core: match.slice(1, 4).map(Number),
+    prerelease: match[4] || null,
+  };
+}
+
+function _isNewerSemanticVersion(candidate, current) {
+  if (!candidate || !current)
+    return false;
+  for (let index = 0; index < 3; index += 1) {
+    if (candidate.core[index] !== current.core[index])
+      return candidate.core[index] > current.core[index];
+  }
+  return candidate.prerelease == null && current.prerelease != null;
+}
+
+function normalizeUpdateState(value) {
+  const raw = value && typeof value === 'object' ? value : {};
+  const installed = _semanticVersion(raw.installedVersion);
+  const latest = _semanticVersion(raw.latestVersion);
+  const statuses = new Set(['idle', 'checking', 'updating', 'updated', 'failed']);
+  const checkedAt = Number(raw.checkedAt);
+  return {
+    installedVersion: installed ? installed.display : null,
+    latestVersion: latest ? latest.display : null,
+    updateAvailable: raw.updateAvailable === true &&
+      _isNewerSemanticVersion(latest, installed),
+    checkedAt: Number.isFinite(checkedAt) && checkedAt >= 0
+      ? Math.floor(checkedAt) : null,
+    status: statuses.has(raw.status) ? raw.status : 'idle',
+    message: typeof raw.message === 'string' && raw.message.length <= 256
+      ? raw.message : null,
+  };
+}
+
 const CodexModel = {
   formatDuration,
   formatPercent,
@@ -402,6 +444,7 @@ const CodexModel = {
   graphAxes,
   nearestGraphValues,
   isUsableRemoteStatus,
+  normalizeUpdateState,
 };
 
 if (typeof module !== 'undefined' && module.exports)

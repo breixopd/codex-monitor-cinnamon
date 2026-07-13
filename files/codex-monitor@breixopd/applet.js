@@ -33,6 +33,10 @@ class CodexMonitorApplet extends Applet.Applet {
     this._remoteRefreshing = false;
     this._pairingPolling = false;
     this._clientsLoading = false;
+    this._updateState = null;
+    this._updateRefreshing = false;
+    this._updateTimer = 0;
+    this._updatePollTimer = 0;
     this._restartTimer = 0;
     this._restartAttempt = 0;
     this._bridge = null;
@@ -48,6 +52,7 @@ class CodexMonitorApplet extends Applet.Applet {
     this._buildMenu();
     this._startBridge();
     this._installRefreshTimer();
+    this._installUpdateTimer();
   }
 
   _bindSettings(instanceId) {
@@ -138,6 +143,7 @@ class CodexMonitorApplet extends Applet.Applet {
         onRemotePair: () => this._remoteAction('remote_pair_start'),
         onRemoteRefresh: this._refreshRemoteState.bind(this),
         onRemoteRevoke: this._confirmRemoteRevoke.bind(this),
+        onUpdate: this._confirmUpdate.bind(this),
       },
     });
     this._menuItem = new PopupMenu.PopupBaseMenuItem({
@@ -201,6 +207,58 @@ class CodexMonitorApplet extends Applet.Applet {
       this._render();
       this._refreshSessions();
       this._readRemoteStatus();
+      this._readUpdateStatus();
+    });
+  }
+
+  _readUpdateStatus() {
+    if (this._updateRefreshing || !this._bridge)
+      return;
+    this._updateRefreshing = true;
+    this._bridge.request('update_status', {}, (error, value) => {
+      this._updateRefreshing = false;
+      if (error)
+        return;
+      this._updateState = Model.normalizeUpdateState(value);
+      this._dashboard.setUpdateState(this._updateState);
+      const status = this._updateState.status;
+      const active = status === 'checking' || status === 'updating';
+      this._setUpdatePolling(active);
+      const now = Math.floor(Date.now() / 1000);
+      if (!active && (this._updateState.checkedAt == null ||
+          now - this._updateState.checkedAt >= 12 * 3600))
+        this._checkUpdates(false);
+    });
+  }
+
+  _checkUpdates(force) {
+    if (this._updateRefreshing || !this._bridge)
+      return;
+    this._updateRefreshing = true;
+    this._bridge.request('update_check', { force: Boolean(force) }, (error, value) => {
+      this._updateRefreshing = false;
+      if (error)
+        return;
+      this._updateState = Model.normalizeUpdateState(value);
+      this._dashboard.setUpdateState(this._updateState);
+      this._setUpdatePolling(
+        this._updateState.status === 'checking' ||
+        this._updateState.status === 'updating'
+      );
+    });
+  }
+
+  _setUpdatePolling(active) {
+    if (!active && this._updatePollTimer) {
+      Mainloop.source_remove(this._updatePollTimer);
+      this._updatePollTimer = 0;
+      return;
+    }
+    if (!active || this._updatePollTimer)
+      return;
+    this._updatePollTimer = Mainloop.timeout_add_seconds(2, () => {
+      this._readUpdateStatus();
+      return GLib.SOURCE_CONTINUE;
     });
   }
 
@@ -439,6 +497,35 @@ class CodexMonitorApplet extends Applet.Applet {
     }).open();
   }
 
+  _confirmUpdate() {
+    const state = this._updateState;
+    if (!state || !state.updateAvailable || !state.installedVersion ||
+        !state.latestVersion)
+      return;
+    const message = `${this._('Update Codex?')}\n\n` +
+      `${state.installedVersion} → ${state.latestVersion}\n` +
+      this._('Existing Codex and Remote sessions will keep running.');
+    new ModalDialog.ConfirmDialog(message, () => {
+      this._startUpdate();
+    }).open();
+  }
+
+  _startUpdate() {
+    if (this._updateRefreshing || !this._bridge)
+      return;
+    this._updateRefreshing = true;
+    this._bridge.request('update_start', { confirmed: true }, (error, value) => {
+      this._updateRefreshing = false;
+      if (error) {
+        this._dashboard.showUpdateError();
+        return;
+      }
+      this._updateState = Model.normalizeUpdateState(value);
+      this._dashboard.setUpdateState(this._updateState);
+      this._setUpdatePolling(this._updateState.status === 'updating');
+    });
+  }
+
   _remoteAction(action, params = {}) {
     this._dashboard.showActionMessage(this._('Updating Remote Control…'));
     this._bridge.request(action, params, (error, result) => {
@@ -487,6 +574,15 @@ class CodexMonitorApplet extends Applet.Applet {
     );
   }
 
+  _installUpdateTimer() {
+    if (this._updateTimer)
+      Mainloop.source_remove(this._updateTimer);
+    this._updateTimer = Mainloop.timeout_add_seconds(12 * 3600, () => {
+      this._checkUpdates(true);
+      return GLib.SOURCE_CONTINUE;
+    });
+  }
+
   on_applet_clicked() {
     this.menu.toggle();
   }
@@ -513,6 +609,10 @@ class CodexMonitorApplet extends Applet.Applet {
       Mainloop.source_remove(this._restartTimer);
     if (this._remoteTimer)
       Mainloop.source_remove(this._remoteTimer);
+    if (this._updateTimer)
+      Mainloop.source_remove(this._updateTimer);
+    if (this._updatePollTimer)
+      Mainloop.source_remove(this._updatePollTimer);
     if (this._bridge)
       this._bridge.stop();
     if (this.menu)

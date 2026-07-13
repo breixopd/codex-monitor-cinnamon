@@ -97,3 +97,30 @@ def test_claimed_and_expired_pairings_clear_secrets_from_ui_memory():
     assert "this._pairing = null;" in applet
     assert "this._pairing = { claimed: true };" in ui
     assert "QR unavailable; use the manual code" in ui
+
+
+def test_update_check_starts_only_after_snapshot_and_repeats_every_twelve_hours():
+    source = APPLET_SOURCE.read_text(encoding="utf-8")
+
+    snapshot_callback = source.index("this._snapshot = snapshot;")
+    update_read = source.index("this._readUpdateStatus();")
+    assert update_read > snapshot_callback
+    assert "12 * 3600" in source
+    assert "update_status" in source
+    assert "update_check" in source
+    assert "status === 'checking' || status === 'updating'" in source
+
+
+def test_update_ui_is_conditional_confirmed_and_has_no_panel_badge():
+    applet = APPLET_SOURCE.read_text(encoding="utf-8")
+    ui = UI_SOURCE.read_text(encoding="utf-8")
+
+    assert "Update Codex…" in ui
+    assert "Updating Codex…" in ui
+    assert "New Codex launches use this version" in ui
+    assert "this._updateButton.visible = state.updateAvailable" in ui
+    assert "onUpdate: this._confirmUpdate.bind(this)" in applet
+    assert "update_start" in applet
+    assert "confirmed: true" in applet
+    assert "ModalDialog.ConfirmDialog" in applet
+    assert "updateBadge" not in applet + ui

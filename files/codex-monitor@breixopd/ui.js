@@ -108,6 +108,7 @@ var Dashboard = class Dashboard {
     this._remoteError = '';
     this._sessions = { active: [], recent: [] };
     this._sessionsError = false;
+    this._updateState = null;
     this._settings = {};
 
     this.actor = new St.BoxLayout({
@@ -326,6 +327,21 @@ var Dashboard = class Dashboard {
   }
 
   _buildFooter() {
+    this._versionRow = new St.BoxLayout({
+      style_class: 'codex-monitor-version-row',
+    });
+    this._versionLabel = new St.Label({
+      text: '',
+      style_class: 'codex-monitor-secondary',
+      x_expand: true,
+    });
+    this._updateButton = _button(this._('Update Codex…'), this._callbacks.onUpdate);
+    this._updateButton.visible = false;
+    this._versionRow.add_child(this._versionLabel);
+    this._versionRow.add_child(this._updateButton);
+    this._versionRow.visible = false;
+    this.actor.add_child(this._versionRow);
+
     const footer = new St.BoxLayout({ style_class: 'codex-monitor-footer' });
     this._updated = new St.Label({
       text: this._('No data yet'),
@@ -335,6 +351,53 @@ var Dashboard = class Dashboard {
     footer.add_child(this._updated);
     footer.add_child(_button(this._('Refresh'), this._callbacks.onRefresh));
     this.actor.add_child(footer);
+  }
+
+  setUpdateState(value) {
+    const state = this._model.normalizeUpdateState(value);
+    this._updateState = state;
+    this._versionRow.visible = Boolean(state.installedVersion || state.message);
+    this._updateButton.visible = state.updateAvailable;
+    this._updateButton.set_label(this._('Update Codex…'));
+    if (state.status === 'checking') {
+      this._versionLabel.set_text(state.installedVersion
+        ? `${this._('Codex')} ${state.installedVersion} · ${this._('Checking for updates…')}`
+        : this._('Checking for Codex updates…'));
+      this._updateButton.visible = false;
+    } else if (state.status === 'updating') {
+      this._versionLabel.set_text(this._('Updating Codex…'));
+      this._updateButton.visible = false;
+    } else if (state.status === 'updated') {
+      this._versionLabel.set_text(state.message ||
+        `${this._('Updated to Codex')} ${state.installedVersion}. ` +
+        this._('New Codex launches use this version.'));
+      this._updateButton.visible = false;
+    } else if (state.status === 'failed') {
+      this._versionLabel.set_text(state.message ||
+        `${this._('Update failed; Codex')} ${state.installedVersion} ` +
+        this._('is still installed'));
+      this._updateButton.set_label(this._('Retry'));
+    } else if (state.updateAvailable) {
+      this._versionLabel.set_text(
+        `${this._('Codex')} ${state.installedVersion} → ${state.latestVersion}`
+      );
+    } else {
+      this._versionLabel.set_text(state.installedVersion
+        ? `${this._('Codex')} ${state.installedVersion}` : '');
+    }
+  }
+
+  showUpdateError() {
+    const installed = this._updateState && this._updateState.installedVersion;
+    this.setUpdateState({
+      installedVersion: installed,
+      latestVersion: this._updateState && this._updateState.latestVersion,
+      updateAvailable: Boolean(this._updateState && this._updateState.updateAvailable),
+      status: 'failed',
+      message: installed
+        ? `${this._('Update failed; Codex')} ${installed} ${this._('is still installed')}`
+        : this._('Codex update failed'),
+    });
   }
 
   setSettings(settings) {

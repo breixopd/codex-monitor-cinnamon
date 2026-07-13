@@ -400,3 +400,53 @@ test('graph summary reports empty and insufficient history states', () => {
     points: [{ timestamp: 100, value: 10 }],
   }).state, 'insufficient');
 });
+
+test('update state accepts only bounded consistent bridge fields', () => {
+  assert.deepEqual(model.normalizeUpdateState({
+    installedVersion: '0.144.3',
+    latestVersion: '0.145.0',
+    updateAvailable: true,
+    checkedAt: 1_800_000_000,
+    status: 'idle',
+    message: null,
+  }), {
+    installedVersion: '0.144.3',
+    latestVersion: '0.145.0',
+    updateAvailable: true,
+    checkedAt: 1_800_000_000,
+    status: 'idle',
+    message: null,
+  });
+
+  assert.deepEqual(model.normalizeUpdateState({
+    installedVersion: '0.145.0',
+    latestVersion: '0.144.3',
+    updateAvailable: true,
+    checkedAt: -1,
+    status: 'unknown',
+    message: 'x'.repeat(1000),
+  }), {
+    installedVersion: '0.145.0',
+    latestVersion: '0.144.3',
+    updateAvailable: false,
+    checkedAt: null,
+    status: 'idle',
+    message: null,
+  });
+});
+
+test('update state preserves known active and result states without raw fields', () => {
+  for (const status of ['checking', 'updating', 'updated', 'failed']) {
+    const state = model.normalizeUpdateState({
+      installedVersion: '0.144.3',
+      latestVersion: '0.145.0',
+      updateAvailable: true,
+      checkedAt: 1_800_000_000,
+      status,
+      message: status === 'failed' ? 'Update failed' : null,
+      privateDiagnostics: 'do not expose',
+    });
+    assert.equal(state.status, status);
+    assert.equal(state.privateDiagnostics, undefined);
+  }
+});
