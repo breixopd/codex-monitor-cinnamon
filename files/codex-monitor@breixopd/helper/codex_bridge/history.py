@@ -9,6 +9,7 @@ from typing import Any
 
 
 SECONDS_PER_DAY = 86_400
+SAMPLE_BUCKET_SECONDS = 300
 REQUIRED_KEYS = {
     "capturedAt",
     "fiveHourUsedPercent",
@@ -27,7 +28,13 @@ class QuotaHistory:
         rows = self.load(now=now)
         sample = self._to_sample(snapshot)
         if sample is not None:
-            rows.append(sample)
+            if rows and (
+                rows[-1]["capturedAt"] // SAMPLE_BUCKET_SECONDS
+                == sample["capturedAt"] // SAMPLE_BUCKET_SECONDS
+            ):
+                rows[-1] = sample
+            else:
+                rows.append(sample)
         self._write(rows)
 
     def load(self, *, now):

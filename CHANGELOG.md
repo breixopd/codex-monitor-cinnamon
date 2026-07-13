@@ -4,7 +4,7 @@
 
 ### Added
 
-- Detailed graph axes, legend statistics, reset markers, hover values, and empty states
+- Detailed graph axes, a compact current-value legend, reset markers, hover values, and empty states
 - Active/recent Codex sessions with safe default-terminal resume and Open Codex actions
 - Remote Control pairing status, paired-device inventory, refresh, and confirmed revocation
 - In-memory pairing QR with the manual code retained as a fallback
@@ -15,6 +15,7 @@
 - Centered the compact two-row panel meter and made reset, stale, and Remote states dynamic
 - Promoted Remote Control from an experimental dashboard gate to an always-available management section
 - Replaced retained installer backups with temporary rollback-only replacement and cleanup
+- Bounded long-running history and graph work, and hardened malformed optional Codex payload handling
 
 ## [0.1.0] - 2026-07-13
 

@@ -93,6 +93,38 @@ def test_snapshot_treats_account_usage_as_optional_for_older_codex(tmp_path):
     assert snapshot["capabilities"]["resetCredits"] is True
 
 
+def test_snapshot_discards_malformed_optional_usage_fields(tmp_path):
+    client = FakeClient(
+        {
+            "account/read": {
+                "account": {
+                    "type": {"private": "discard"},
+                    "planType": {"private": "discard"},
+                }
+            },
+            "account/rateLimits/read": _rate_limits(),
+            "account/usage/read": {
+                "summary": {"lifetimeTokens": "not-a-number", "private": "discard"},
+                "dailyUsageBuckets": [
+                    {"startDate": "2026-07-13", "tokens": 250},
+                    {"startDate": "2026-07-14"},
+                    {"startDate": {"private": "discard"}, "tokens": 999},
+                ],
+            },
+        }
+    )
+    service = CodexService(client, history=None, clock=lambda: 1_799_100_000)
+
+    snapshot = service.snapshot()
+
+    assert snapshot["tokenUsage"] == {
+        "summary": {},
+        "dailyUsageBuckets": [{"startDate": "2026-07-13", "tokens": 250}],
+    }
+    assert snapshot["account"] is None
+    assert "private" not in repr(snapshot)
+
+
 def test_snapshot_merges_the_latest_sparse_rate_limit_update(tmp_path):
     initial = _rate_limits()
     initial["rateLimits"]["secondary"]["usedPercent"] = 0

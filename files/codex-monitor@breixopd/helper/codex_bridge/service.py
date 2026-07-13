@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+from datetime import date
 import time
 
 from .models import normalize_snapshot
@@ -144,27 +145,47 @@ class CodexService:
         if not isinstance(account, dict):
             return None
         account_type = account.get("type")
+        if (
+            not isinstance(account_type, str)
+            or not account_type
+            or len(account_type) > 64
+        ):
+            return None
         normalized = {"type": account_type}
         if account_type == "chatgpt":
-            normalized["planType"] = account.get("planType")
+            plan_type = account.get("planType")
+            normalized["planType"] = (
+                plan_type
+                if isinstance(plan_type, str) and 0 < len(plan_type) <= 64
+                else None
+            )
         return normalized
 
     @staticmethod
     def _normalize_token_usage(value):
         if not isinstance(value, dict):
             return None
-        summary = value.get("summary") if isinstance(value.get("summary"), dict) else {}
         buckets = []
         for raw in value.get("dailyUsageBuckets") or []:
             if not isinstance(raw, dict):
                 continue
+            start_date = raw.get("startDate")
+            tokens = raw.get("tokens")
+            if (
+                not isinstance(start_date, str)
+                or isinstance(tokens, bool)
+                or not isinstance(tokens, (int, float))
+            ):
+                continue
+            try:
+                normalized_date = date.fromisoformat(start_date).isoformat()
+                normalized_tokens = max(0, int(tokens))
+            except (OverflowError, TypeError, ValueError):
+                continue
             buckets.append(
-                {"startDate": str(raw["startDate"]), "tokens": int(raw["tokens"])}
+                {"startDate": normalized_date, "tokens": normalized_tokens}
             )
         return {
-            "summary": {
-                key: (int(item) if item is not None else None)
-                for key, item in summary.items()
-            },
+            "summary": {},
             "dailyUsageBuckets": buckets,
         }

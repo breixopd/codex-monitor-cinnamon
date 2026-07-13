@@ -96,3 +96,38 @@ def test_normalize_snapshot_accepts_a_known_window_without_a_reset_time():
         "windowDurationMins": 10080,
         "resetsAt": None,
     }
+
+
+def test_normalize_snapshot_discards_malformed_external_fields():
+    snapshot = normalize_snapshot(
+        {
+            "rateLimits": {
+                "planType": {"private": "discard"},
+                "primary": {
+                    "usedPercent": "not-a-number",
+                    "windowDurationMins": 300,
+                    "resetsAt": 1_800_000_000,
+                },
+            },
+            "rateLimitResetCredits": {
+                "availableCount": "not-a-number",
+                "credits": [
+                    {"id": "credit-without-required-times", "status": "available"},
+                    {"id": {"private": "discard"}, "grantedAt": 1},
+                ],
+            },
+        },
+        captured_at=1_799_100_000,
+    )
+
+    assert snapshot["planType"] is None
+    assert snapshot["windows"] == {"fiveHour": None, "weekly": None}
+    assert snapshot["resetCredits"] == {"availableCount": 0, "credits": []}
+    assert "private" not in repr(snapshot)
+
+
+def test_normalize_snapshot_handles_non_object_payload():
+    snapshot = normalize_snapshot(None, captured_at=1_799_100_000)
+
+    assert snapshot["windows"] == {"fiveHour": None, "weekly": None}
+    assert snapshot["resetCredits"] == {"availableCount": 0, "credits": []}

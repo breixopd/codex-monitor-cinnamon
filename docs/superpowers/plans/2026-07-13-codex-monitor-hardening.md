@@ -11,11 +11,11 @@
 ## Global Constraints
 
 - Target Linux Mint Cinnamon 6.6+ and remain compatible with metadata-declared Cinnamon 6.0, 6.2, and 6.4.
-- Use Codex CLI 0.144.3 as the full-feature tested baseline; optional unsupported methods degrade independently.
+- Use Codex CLI 0.144.3 as the tested baseline; unsupported Remote methods degrade independently.
 - Use `x-terminal-emulator` for Linux Mint's default terminal and argument arrays with `shell=False`.
 - Never persist session previews, account identity, Remote Control pairing codes, or paired-client details.
 - Keep quotas usable when activity, sessions, reset credits, or Remote Control are unavailable.
-- Do not add runtime dependencies, a desklet, or another persistent daemon.
+- Do not add mandatory runtime dependencies, a desklet, or another persistent daemon; QR support may use the optional system `python3-qrcode` package.
 - Leave one discoverable applet directory, never stop the live Remote daemon from smoke testing, and merge locally to `main` without a PR, push, tag, or release.
 
 ## File Responsibility Map

@@ -87,3 +87,16 @@ def test_history_keeps_usage_when_the_reset_time_is_unknown(tmp_path):
 
     assert history.load(now=100)[0]["weeklyUsedPercent"] == 18.0
     assert history.load(now=100)[0]["weeklyResetsAt"] is None
+
+
+def test_history_coalesces_samples_inside_five_minute_bucket(tmp_path):
+    history = QuotaHistory(tmp_path / "history.jsonl", retention_days=30)
+
+    history.append(_snapshot(100, 10, 20), now=100)
+    history.append(_snapshot(250, 11, 21), now=250)
+    history.append(_snapshot(401, 12, 22), now=401)
+
+    rows = history.load(now=401)
+
+    assert [row["capturedAt"] for row in rows] == [250, 401]
+    assert rows[0]["fiveHourUsedPercent"] == 11.0

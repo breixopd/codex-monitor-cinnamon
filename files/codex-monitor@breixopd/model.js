@@ -91,7 +91,7 @@ function quotaSeries(history, windowName, cutoff, now) {
   const prefix = windowName === 'weekly' ? 'weekly' : 'fiveHour';
   const usedKey = `${prefix}UsedPercent`;
   const resetKey = `${prefix}ResetsAt`;
-  return (history || [])
+  const points = (history || [])
     .filter(row => Number(row.capturedAt) >= cutoff && Number(row.capturedAt) <= now)
     .filter(row => row[usedKey] != null)
     .map(row => ({
@@ -99,6 +99,11 @@ function quotaSeries(history, windowName, cutoff, now) {
       usedPercent: Number(row[usedKey]),
       resetsAt: row[resetKey] != null ? Number(row[resetKey]) : null,
     }));
+  const maximumPoints = 1200;
+  if (points.length <= maximumPoints)
+    return points;
+  return Array.from({ length: maximumPoints }, (_unused, index) =>
+    points[Math.round(index * (points.length - 1) / (maximumPoints - 1))]);
 }
 
 function formatPercent(window) {

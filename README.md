@@ -5,7 +5,7 @@ Codex Monitor is a Linux Mint Cinnamon panel applet for checking Codex quota usa
 ## Features
 
 - Dual panel meter and percentages for 5-hour and weekly usage
-- Exact reset time plus a live compact countdown
+- Live compact reset countdowns with unavailable windows shown honestly
 - 24-hour, 7-day, and 30-day quota/activity graphs with axes, a compact current-value legend, reset markers, and exact hover details
 - Banked reset count, expiry, and confirmed one-click redemption
 - Visual warning, critical, expiring-credit, stale, and Remote Control states
@@ -13,7 +13,7 @@ Codex Monitor is a Linux Mint Cinnamon panel applet for checking Codex quota usa
 - Open Codex action using `x-terminal-emulator`
 - Confirmed Remote Control start, stop, QR/manual pairing, device listing, and revocation
 - Theme-integrated Cinnamon popup, keyboard-focusable controls, and vertical-panel fallback
-- Local-only quota history with configurable 7–90 day retention
+- Local-only quota history with configurable 7–90 day retention, five-minute coalescing, and bounded graph rendering
 
 Codex does not always provide every window or activity method. Missing values appear as unavailable instead of being guessed.
 
@@ -21,7 +21,7 @@ Codex does not always provide every window or activity method. Missing values ap
 
 - Linux Mint Cinnamon with Cinnamon 6.0, 6.2, 6.4, or 6.6
 - Python 3.10 or newer
-- Codex CLI available as `codex` (0.144.3 is the tested full-feature baseline)
+- Codex CLI available as `codex` (0.144.3 is the tested baseline)
 - Optional `python3-qrcode` package for scannable pairing QR codes; manual pairing remains available without it
 
 The installer does not install or modify system packages.

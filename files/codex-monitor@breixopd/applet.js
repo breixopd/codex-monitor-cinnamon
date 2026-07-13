@@ -355,16 +355,18 @@ class CodexMonitorApplet extends Applet.Applet {
       `${this._('Codex usage monitor')} · ${state.label}` +
       (state.indicatorText ? ` · ${state.indicatorText}` : '')
     );
+    const vertical = this._orientation === St.Side.LEFT ||
+      this._orientation === St.Side.RIGHT;
     this._resetBadge.set_text(state.resetBadge);
-    this._resetBadge.visible = Boolean(state.resetBadge);
+    this._resetBadge.visible = !vertical && Boolean(state.resetBadge);
     if (state.resetExpiring)
       this._resetBadge.add_style_class_name('codex-monitor-expiring');
     else
       this._resetBadge.remove_style_class_name('codex-monitor-expiring');
     this._remoteBadge.set_text(state.remoteBadge);
-    this._remoteBadge.visible = Boolean(state.remoteBadge);
+    this._remoteBadge.visible = !vertical && Boolean(state.remoteBadge);
     this._staleBadge.set_text(state.staleBadge);
-    this._staleBadge.visible = Boolean(state.staleBadge);
+    this._staleBadge.visible = !vertical && Boolean(state.staleBadge);
     Graph.updatePanelBar(this._fiveHourBar, this._snapshot.windows.fiveHour);
     Graph.updatePanelBar(this._weeklyBar, this._snapshot.windows.weekly);
     for (const style of ['normal', 'warning', 'critical', 'stale'])

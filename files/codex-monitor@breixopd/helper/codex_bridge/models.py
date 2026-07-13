@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 
@@ -11,17 +12,41 @@ WEEKLY_MINUTES = 10_080
 
 def _normalize_window(
     window: dict[str, Any], *, limit_id: str | None, limit_name: str | None
-) -> dict[str, Any]:
-    used_percent = max(0.0, min(100.0, float(window.get("usedPercent", 0))))
-    duration = window.get("windowDurationMins")
-    reset_time = window.get("resetsAt")
+) -> dict[str, Any] | None:
+    used_percent = window.get("usedPercent")
+    duration = _integer(window.get("windowDurationMins"))
+    if (
+        isinstance(used_percent, bool)
+        or not isinstance(used_percent, (int, float))
+        or not math.isfinite(float(used_percent))
+        or duration is None
+        or duration <= 0
+    ):
+        return None
+    reset_time = _integer(window.get("resetsAt"), optional=True)
     return {
-        "limitId": limit_id,
-        "limitName": limit_name,
-        "usedPercent": used_percent,
-        "windowDurationMins": int(duration) if duration is not None else None,
-        "resetsAt": int(reset_time) if reset_time is not None else None,
+        "limitId": _bounded_string(limit_id),
+        "limitName": _bounded_string(limit_name),
+        "usedPercent": max(0.0, min(100.0, float(used_percent))),
+        "windowDurationMins": duration,
+        "resetsAt": reset_time,
     }
+
+
+def _integer(value: Any, *, optional: bool = False) -> int | None:
+    if value is None and optional:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    if not math.isfinite(float(value)):
+        return None
+    return int(value)
+
+
+def _bounded_string(value: Any, *, maximum: int = 256) -> str | None:
+    if not isinstance(value, str) or not value or len(value) > maximum:
+        return None
+    return " ".join(value.split()) or None
 
 
 def _normalize_reset_credits(value: Any) -> dict[str, Any]:
@@ -30,29 +55,38 @@ def _normalize_reset_credits(value: Any) -> dict[str, Any]:
 
     credits = []
     for raw in value.get("credits") or []:
-        if not isinstance(raw, dict) or not isinstance(raw.get("id"), str):
+        if not isinstance(raw, dict):
+            continue
+        credit_id = _bounded_string(raw.get("id"))
+        granted_at = _integer(raw.get("grantedAt"))
+        expires_at = _integer(raw.get("expiresAt"), optional=True)
+        if credit_id is None or granted_at is None:
             continue
         credits.append(
             {
-                "id": raw["id"],
-                "resetType": raw.get("resetType", "unknown"),
-                "status": raw.get("status", "unknown"),
-                "grantedAt": int(raw["grantedAt"]),
-                "expiresAt": (
-                    int(raw["expiresAt"])
-                    if raw.get("expiresAt") is not None
-                    else None
+                "id": credit_id,
+                "resetType": _bounded_string(raw.get("resetType")) or "unknown",
+                "status": _bounded_string(raw.get("status")) or "unknown",
+                "grantedAt": granted_at,
+                "expiresAt": expires_at,
+                "title": _bounded_string(raw.get("title"), maximum=160),
+                "description": _bounded_string(
+                    raw.get("description"), maximum=500
                 ),
-                "title": raw.get("title"),
-                "description": raw.get("description"),
             }
         )
-    return {"availableCount": int(value.get("availableCount", 0)), "credits": credits}
+    available_count = _integer(value.get("availableCount"))
+    return {
+        "availableCount": max(0, available_count or 0),
+        "credits": credits[:50],
+    }
 
 
 def normalize_snapshot(payload: dict[str, Any], *, captured_at: int) -> dict[str, Any]:
     """Return a UI-safe snapshot from an account/rateLimits/read response."""
-    base = payload.get("rateLimits") or {}
+    payload = payload if isinstance(payload, dict) else {}
+    base = payload.get("rateLimits")
+    base = base if isinstance(base, dict) else {}
     buckets_by_id = payload.get("rateLimitsByLimitId")
     buckets = list(buckets_by_id.values()) if isinstance(buckets_by_id, dict) else [base]
     if not buckets:
@@ -73,6 +107,8 @@ def normalize_snapshot(payload: dict[str, Any], *, captured_at: int) -> dict[str
             normalized = _normalize_window(
                 raw_window, limit_id=limit_id, limit_name=limit_name
             )
+            if normalized is None:
+                continue
             duration = normalized["windowDurationMins"]
             if duration == FIVE_HOUR_MINUTES and windows["fiveHour"] is None:
                 windows["fiveHour"] = normalized
@@ -83,11 +119,11 @@ def normalize_snapshot(payload: dict[str, Any], *, captured_at: int) -> dict[str
 
     return {
         "capturedAt": int(captured_at),
-        "planType": base.get("planType"),
+        "planType": _bounded_string(base.get("planType")),
         "windows": windows,
         "extraWindows": extra_windows,
-        "credits": base.get("credits"),
-        "individualLimit": base.get("individualLimit"),
-        "rateLimitReachedType": base.get("rateLimitReachedType"),
+        "credits": _integer(base.get("credits"), optional=True),
+        "individualLimit": None,
+        "rateLimitReachedType": _bounded_string(base.get("rateLimitReachedType")),
         "resetCredits": _normalize_reset_credits(payload.get("rateLimitResetCredits")),
     }

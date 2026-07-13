@@ -103,6 +103,20 @@ test('quota series filters by selected range and preserves reset markers', () =>
   ]);
 });
 
+test('quota series bounds long histories while preserving endpoints', () => {
+  const history = Array.from({ length: 2401 }, (_unused, index) => ({
+    capturedAt: index,
+    weeklyUsedPercent: index % 101,
+    weeklyResetsAt: 5000,
+  }));
+
+  const points = model.quotaSeries(history, 'weekly', 0, 2400);
+
+  assert.equal(points.length, 1200);
+  assert.equal(points[0].timestamp, 0);
+  assert.equal(points.at(-1).timestamp, 2400);
+});
+
 test('tooltip summarizes limits, reset bank, remote state, and freshness', () => {
   const text = model.tooltipText(snapshot(), 1_799_100_100, { status: 'connected' });
 

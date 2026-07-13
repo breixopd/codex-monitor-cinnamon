@@ -475,6 +475,21 @@ def test_remote_command_errors_do_not_expose_stderr():
         raise AssertionError("expected remote-control failure")
 
 
+def test_remote_command_timeout_uses_sanitized_timeout_error():
+    def runner(command, **kwargs):
+        raise subprocess.TimeoutExpired(command, kwargs["timeout"], stderr="private")
+
+    remote = RemoteControl("codex", runner=runner)
+
+    try:
+        remote.start()
+    except TimeoutError as error:
+        assert str(error) == "Codex remote-control command timed out"
+        assert "private" not in str(error)
+    else:
+        raise AssertionError("expected remote-control timeout")
+
+
 def test_remote_commands_receive_scoped_environment():
     captured = {}
 

@@ -178,15 +178,20 @@ class RemoteControl:
 
     def _run_json(self, action):
         command = [self.executable, "remote-control", action, "--json"]
-        completed = self.runner(
-            command,
-            shell=False,
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=20,
-            env=self.environment,
-        )
+        try:
+            completed = self.runner(
+                command,
+                shell=False,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=20,
+                env=self.environment,
+            )
+        except subprocess.TimeoutExpired:
+            raise TimeoutError("Codex remote-control command timed out") from None
+        except OSError:
+            raise RuntimeError("Codex remote-control command failed") from None
         if completed.returncode != 0:
             raise RuntimeError("Codex remote-control command failed")
         try:
