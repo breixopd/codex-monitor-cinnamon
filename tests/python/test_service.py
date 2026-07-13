@@ -155,6 +155,41 @@ def test_snapshot_merges_the_latest_sparse_rate_limit_update(tmp_path):
     assert snapshot["windows"]["weekly"]["resetsAt"] == 1_800_500_000
 
 
+def test_snapshot_does_not_replace_canonical_limits_with_a_foreign_notification(
+    tmp_path,
+):
+    client = FakeClient(
+        {
+            "account/read": {"account": {"type": "chatgpt", "planType": "prolite"}},
+            "account/rateLimits/read": _rate_limits(),
+            "account/usage/read": {"summary": {}, "dailyUsageBuckets": []},
+        },
+        notifications={
+            "account/rateLimits/updated": {
+                "rateLimits": {
+                    "limitId": "codex_bengalfox",
+                    "limitName": "GPT-5.3-Codex-Spark",
+                    "primary": {
+                        "usedPercent": 0,
+                        "windowDurationMins": 10080,
+                        "resetsAt": 1_800_604_800,
+                    },
+                }
+            }
+        },
+    )
+    service = CodexService(
+        client,
+        QuotaHistory(tmp_path / "history.jsonl", retention_days=30),
+        clock=lambda: 1_799_100_000,
+    )
+
+    snapshot = service.snapshot()
+
+    assert snapshot["windows"]["weekly"]["limitId"] == "codex"
+    assert snapshot["windows"]["weekly"]["usedPercent"] == 40.0
+
+
 def test_consume_reset_sends_credit_and_idempotency_key():
     client = FakeClient(
         {"account/rateLimitResetCredit/consume": {"outcome": "reset"}}

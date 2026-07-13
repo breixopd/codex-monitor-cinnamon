@@ -51,6 +51,8 @@ def test_graph_renderer_has_separate_step_bar_and_reset_paths():
 
     assert "function _drawQuotaSteps" in source
     assert "function _drawActivityBars" in source
+    assert "function _drawQuotaArea" in source
+    assert "function _drawQuotaEndpoint" in source
     assert "function _drawResetMarkers" in source
     assert "series.segments" in source
     assert "series.kind === 'activity'" in source

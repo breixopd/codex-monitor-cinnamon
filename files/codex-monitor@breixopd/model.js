@@ -124,7 +124,8 @@ function quotaSeries(history, windowName, cutoff, now) {
   const prefix = windowName === 'weekly' ? 'weekly' : 'fiveHour';
   const usedKey = `${prefix}UsedPercent`;
   const resetKey = `${prefix}ResetsAt`;
-  const points = (history || [])
+  const windowSeconds = windowName === 'weekly' ? 7 * 24 * 3600 : 5 * 3600;
+  const rawPoints = (history || [])
     .filter(row => Number(row.capturedAt) >= cutoff && Number(row.capturedAt) <= now)
     .filter(row => row[usedKey] != null)
     .slice()
@@ -133,11 +134,33 @@ function quotaSeries(history, windowName, cutoff, now) {
       timestamp: Number(row.capturedAt),
       usedPercent: Number(row[usedKey]),
       resetsAt: row[resetKey] != null ? Number(row[resetKey]) : null,
-    }))
+    }));
+  const previousPositive = [];
+  let previous = null;
+  for (const point of rawPoints) {
+    previousPositive.push(previous);
+    if (point.usedPercent > 0)
+      previous = point;
+  }
+  const nextPositive = Array(rawPoints.length).fill(null);
+  let next = null;
+  for (let index = rawPoints.length - 1; index >= 0; index -= 1) {
+    nextPositive[index] = next;
+    if (rawPoints[index].usedPercent > 0)
+      next = rawPoints[index];
+  }
+  const sameCycle = (left, right) => left && right && left.resetsAt != null &&
+    right.resetsAt != null && Math.abs(left.resetsAt - right.resetsAt) <= 300;
+  const points = rawPoints
+    .filter((point, index) => point.usedPercent !== 0 ||
+      !sameCycle(previousPositive[index], nextPositive[index]) ||
+      sameCycle(point, previousPositive[index]))
     .map((point, index, visiblePoints) => ({
       ...point,
       resetTransition: index > 0 && visiblePoints[index - 1].resetsAt != null &&
-        point.resetsAt != null && point.resetsAt !== visiblePoints[index - 1].resetsAt,
+        point.resetsAt != null &&
+        point.resetsAt - visiblePoints[index - 1].resetsAt >= windowSeconds / 2 &&
+        point.usedPercent <= visiblePoints[index - 1].usedPercent,
     }));
   return downsampleQuota(points, 1200);
 }
@@ -327,6 +350,39 @@ function graphAxis(cutoff, now, rangeHours) {
   }));
 }
 
+function graphDomain(series, cutoff, now) {
+  const selectedStart = Number(cutoff);
+  const selectedEnd = Math.max(selectedStart, Number(now));
+  const selectedSeconds = selectedEnd - selectedStart;
+  const timestamps = (series || [])
+    .flatMap(item => item.points || [])
+    .map(point => Number(point.timestamp))
+    .filter(timestamp => Number.isFinite(timestamp) &&
+      timestamp >= selectedStart && timestamp <= selectedEnd);
+  if (timestamps.length === 0) {
+    return {
+      start: selectedStart,
+      end: selectedEnd,
+      selectedSeconds,
+      collectedSeconds: 0,
+      fitted: false,
+    };
+  }
+  const first = Math.min(...timestamps);
+  const collectedSeconds = Math.max(0, selectedEnd - first);
+  const fitted = selectedSeconds > 0 && collectedSeconds < selectedSeconds / 4;
+  const padding = fitted
+    ? Math.min(1800, Math.max(60, collectedSeconds * 0.04))
+    : 0;
+  return {
+    start: fitted ? Math.max(selectedStart, first - padding) : selectedStart,
+    end: selectedEnd,
+    selectedSeconds,
+    collectedSeconds,
+    fitted,
+  };
+}
+
 function _tokenMaximum(series) {
   const peak = (series || [])
     .filter(item => item.kind === 'activity')
@@ -350,6 +406,8 @@ function _axisTicks(maximum, formatter) {
 }
 
 function graphAxes(series, cutoff, now, rangeHours, mode) {
+  const domain = graphDomain(series, cutoff, now);
+  const visibleHours = Math.max(1, (domain.end - domain.start) / 3600);
   const percentAxis = {
     kind: 'percent',
     maximum: 100,
@@ -362,9 +420,10 @@ function graphAxes(series, cutoff, now, rangeHours, mode) {
     ticks: _axisTicks(tokenMaximum, formatTokenCount),
   };
   return {
-    x: graphAxis(cutoff, now, rangeHours),
+    x: graphAxis(domain.start, domain.end, visibleHours),
     left: mode === 'activity' ? tokenAxis : percentAxis,
     right: mode === 'both' ? tokenAxis : null,
+    domain,
   };
 }
 
@@ -441,6 +500,7 @@ const CodexModel = {
   formatTokenCount,
   graphSummary,
   graphAxis,
+  graphDomain,
   graphAxes,
   nearestGraphValues,
   isUsableRemoteStatus,

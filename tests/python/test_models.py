@@ -98,6 +98,37 @@ def test_normalize_snapshot_accepts_a_known_window_without_a_reset_time():
     }
 
 
+def test_normalize_snapshot_prefers_canonical_codex_windows_over_model_specific_order():
+    payload = {
+        "rateLimits": {"planType": "prolite"},
+        "rateLimitsByLimitId": {
+            "codex_bengalfox": {
+                "limitId": "codex_bengalfox",
+                "limitName": "GPT-5.3-Codex-Spark",
+                "primary": {
+                    "usedPercent": 0,
+                    "windowDurationMins": 10080,
+                    "resetsAt": 1_800_604_800,
+                },
+            },
+            "codex": {
+                "limitId": "codex",
+                "primary": {
+                    "usedPercent": 57,
+                    "windowDurationMins": 10080,
+                    "resetsAt": 1_800_500_000,
+                },
+            },
+        },
+    }
+
+    snapshot = normalize_snapshot(payload, captured_at=1_800_000_000)
+
+    assert snapshot["windows"]["weekly"]["limitId"] == "codex"
+    assert snapshot["windows"]["weekly"]["usedPercent"] == 57.0
+    assert snapshot["extraWindows"][0]["limitId"] == "codex_bengalfox"
+
+
 def test_normalize_snapshot_discards_malformed_external_fields():
     snapshot = normalize_snapshot(
         {

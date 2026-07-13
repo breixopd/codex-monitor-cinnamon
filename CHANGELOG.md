@@ -19,6 +19,11 @@
 - Replaced retained installer backups with temporary rollback-only replacement and cleanup
 - Bounded history, graph, QR, release-response, and updater work; hardened malformed optional Codex payload handling
 
+### Fixed
+
+- Kept model-specific quota windows out of the canonical 5-hour/weekly history and filtered the already-recorded interleaving pattern without hiding genuine resets
+- Replaced sparse full-range quota plots with fitted, labeled, filled step trends that show current usage, percentage-point change, collected coverage, and only real reset transitions
+
 ## [0.1.0] - 2026-07-13
 
 ### Added

@@ -541,10 +541,21 @@ var Dashboard = class Dashboard {
         ? `${this._model.formatTokenCount(point.tokens)} ${this._('tokens')}`
         : `${Math.round(Number(point.value))}%`;
     };
-    const legend = summaries.map((summary, index) => summary.current ? {
-      colorIndex: series[index].colorIndex,
-      text: `${summary.label} ${valueText(summary.current)}`,
-    } : null).filter(Boolean);
+    const legend = summaries.map((summary, index) => {
+      if (!summary.current)
+        return null;
+      const points = series[index].points || [];
+      const first = points[0];
+      const delta = summary.kind === 'quota' && first && points.length > 1
+        ? Number(summary.current.value) - Number(first.value)
+        : null;
+      const change = delta == null || Math.abs(delta) < 0.5
+        ? '' : ` · ${delta > 0 ? '+' : ''}${Math.round(delta)} pp`;
+      return {
+        colorIndex: series[index].colorIndex,
+        text: `${summary.label} ${valueText(summary.current)}${change}`,
+      };
+    }).filter(Boolean);
     const hoverFormatter = timestamp => {
       const rangeSeconds = Number(this._settings.graphRangeHours || 168) * 3600;
       const values = this._model.nearestGraphValues(
@@ -556,6 +567,12 @@ var Dashboard = class Dashboard {
       const details = values.map(value => `${value.label} ${valueText(value)}`).join(' · ');
       return `${cursorTime} · ${details}`;
     };
+    const selectedRange = rangeHours === 24 ? '24h' : rangeHours === 168 ? '7d' : '30d';
+    const coverage = axes.domain && axes.domain.fitted
+      ? `${this._('Showing')} ${this._model.formatDuration(
+        axes.domain.collectedSeconds
+      )} ${this._('collected of')} ${selectedRange}`
+      : null;
     this._graph.updateQuotaGraph(this._graphActor, {
       mode,
       rangeHours,
@@ -565,7 +582,8 @@ var Dashboard = class Dashboard {
       legend,
       hoverFormatter,
       defaultDetail: legend.length > 0
-        ? this._('Hover for timestamp and exact values')
+        ? `${coverage ? `${coverage} · ` : ''}` +
+          this._('Hover for timestamp and exact values')
         : this._('No samples yet'),
     });
   }

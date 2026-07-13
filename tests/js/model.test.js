@@ -213,15 +213,43 @@ test('quota series filters by selected range and preserves reset markers', () =>
 
 test('quota series marks reset transitions without inventing diagonal data', () => {
   const history = [
-    { capturedAt: 100, weeklyUsedPercent: 80, weeklyResetsAt: 500 },
-    { capturedAt: 200, weeklyUsedPercent: 5, weeklyResetsAt: 900 },
-    { capturedAt: 300, weeklyUsedPercent: 10, weeklyResetsAt: 900 },
+    { capturedAt: 100, weeklyUsedPercent: 80, weeklyResetsAt: 200 },
+    { capturedAt: 200, weeklyUsedPercent: 5, weeklyResetsAt: 604900 },
+    { capturedAt: 300, weeklyUsedPercent: 10, weeklyResetsAt: 604900 },
   ];
 
   const points = model.quotaSeries(history, 'weekly', 0, 400);
 
   assert.deepEqual(points.map(point => point.resetTransition), [false, true, false]);
   assert.deepEqual(points.map(point => point.usedPercent), [80, 5, 10]);
+});
+
+test('quota series removes interleaved foreign zero samples from one real cycle', () => {
+  const history = [
+    { capturedAt: 100, weeklyUsedPercent: 55, weeklyResetsAt: 500000 },
+    { capturedAt: 200, weeklyUsedPercent: 0, weeklyResetsAt: 604800 },
+    { capturedAt: 260, weeklyUsedPercent: 0, weeklyResetsAt: 604860 },
+    { capturedAt: 300, weeklyUsedPercent: 56, weeklyResetsAt: 500000 },
+  ];
+
+  const points = model.quotaSeries(history, 'weekly', 0, 400);
+
+  assert.deepEqual(points.map(point => point.usedPercent), [55, 56]);
+  assert.deepEqual(points.map(point => point.timestamp), [100, 300]);
+  assert.deepEqual(points.map(point => point.resetTransition), [false, false]);
+});
+
+test('quota series retains a genuine reset and ignores small reset-time corrections', () => {
+  const history = [
+    { capturedAt: 100, weeklyUsedPercent: 95, weeklyResetsAt: 200 },
+    { capturedAt: 200, weeklyUsedPercent: 0, weeklyResetsAt: 604900 },
+    { capturedAt: 300, weeklyUsedPercent: 3, weeklyResetsAt: 604930 },
+  ];
+
+  const points = model.quotaSeries(history, 'weekly', 0, 400);
+
+  assert.deepEqual(points.map(point => point.usedPercent), [95, 0, 3]);
+  assert.deepEqual(points.map(point => point.resetTransition), [false, true, false]);
 });
 
 test('quota segments break range-specific gaps but retain reset transitions', () => {
@@ -362,6 +390,25 @@ test('graph axes distinguish quota activity and combined scales', () => {
   assert.equal(combined.right.kind, 'tokens');
   assert.equal(combined.right.maximum, 15_000);
   assert.deepEqual(combined.x.map(item => item.timestamp), [100, 200, 300]);
+});
+
+test('graph axes fit sparse collected history instead of crushing it at the range edge', () => {
+  const week = 7 * 24 * 3600;
+  const series = [{
+    kind: 'quota',
+    points: [
+      { timestamp: week - 4 * 3600, value: 36 },
+      { timestamp: week - 60, value: 57 },
+    ],
+  }];
+
+  const axes = model.graphAxes(series, 0, week, 168, 'quota');
+
+  assert.equal(axes.domain.fitted, true);
+  assert.equal(axes.domain.collectedSeconds, 4 * 3600);
+  assert.ok(axes.x[0].timestamp > week - 5 * 3600);
+  assert.equal(axes.x.at(-1).timestamp, week);
+  assert.match(axes.x[0].label, /^\d{2}:\d{2}$/);
 });
 
 test('nearest graph values select one point from every available series', () => {

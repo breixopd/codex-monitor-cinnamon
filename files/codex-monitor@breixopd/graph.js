@@ -261,6 +261,41 @@ function _drawQuotaSteps(context, series, xFor, yFor, color) {
   }
 }
 
+function _drawQuotaArea(context, series, xFor, yFor, bottom, color) {
+  const segments = series.segments || [series.points || []];
+  context.setSourceRGBA(..._rgba(color, 0.12));
+  for (const segment of segments) {
+    if (segment.length < 2)
+      continue;
+    const first = segment[0];
+    const last = segment[segment.length - 1];
+    context.moveTo(xFor(first.timestamp), bottom);
+    context.lineTo(xFor(first.timestamp), yFor(first.usedPercent ?? first.value));
+    for (let index = 1; index < segment.length; index += 1) {
+      const previous = segment[index - 1];
+      const point = segment[index];
+      const x = xFor(point.timestamp);
+      context.lineTo(x, yFor(previous.usedPercent ?? previous.value));
+      context.lineTo(x, yFor(point.usedPercent ?? point.value));
+    }
+    context.lineTo(xFor(last.timestamp), bottom);
+    context.closePath();
+    context.fill();
+  }
+}
+
+function _drawQuotaEndpoint(context, series, xFor, yFor, color) {
+  const points = series.points || [];
+  if (points.length === 0)
+    return;
+  const point = points[points.length - 1];
+  const x = xFor(point.timestamp);
+  const y = yFor(point.usedPercent ?? point.value);
+  context.setSourceRGBA(..._rgba(color, 0.95));
+  context.arc(x, y, 3.5, 0, Math.PI * 2);
+  context.fill();
+}
+
 function _drawActivityBars(context, series, xFor, yFor, plotWidth, bottom, color) {
   const points = series.points || [];
   if (points.length === 0)
@@ -306,10 +341,6 @@ function _drawQuotaGraph(area) {
   const maximum = Math.max(Number(area._maximum), minimum + 1);
   const xFor = timestamp => padding + ((timestamp - minimum) / (maximum - minimum)) * plotWidth;
 
-  _drawResetMarkers(
-    context, area, area._resetMarkers, xFor, padding, height, foreground,
-    minimum, maximum
-  );
   const axes = area._axes || {};
   const quotaMaximum = Number(axes.left && axes.left.maximum) || 100;
   const tokenAxis = axes.right || axes.left;
@@ -332,7 +363,23 @@ function _drawQuotaGraph(area) {
     if (series.kind === 'activity')
       return;
     const colorIndex = Number.isInteger(series.colorIndex) ? series.colorIndex : seriesIndex;
+    _drawQuotaArea(
+      context, series, xFor, yForQuota, height - padding,
+      colors[colorIndex % colors.length]
+    );
+  });
+  _drawResetMarkers(
+    context, area, area._resetMarkers, xFor, padding, height, foreground,
+    minimum, maximum
+  );
+  area._series.forEach((series, seriesIndex) => {
+    if (series.kind === 'activity')
+      return;
+    const colorIndex = Number.isInteger(series.colorIndex) ? series.colorIndex : seriesIndex;
     _drawQuotaSteps(
+      context, series, xFor, yForQuota, colors[colorIndex % colors.length]
+    );
+    _drawQuotaEndpoint(
       context, series, xFor, yForQuota, colors[colorIndex % colors.length]
     );
   });
