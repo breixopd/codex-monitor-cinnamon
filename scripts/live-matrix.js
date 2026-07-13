@@ -140,7 +140,7 @@
     x.graphMode = "activity";
     x._render();
     results.peakGraph = dashboard._graphActor._leftAxis.get_children()[0]
-      .get_text().indexOf("K") >= 0;
+      .get_text() === "1M";
 
     var unavailable = snapshot([], []);
     unavailable.windows = { fiveHour: null, weekly: null };

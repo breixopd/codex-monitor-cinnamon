@@ -151,7 +151,7 @@ class CodexMonitorApplet extends Applet.Applet {
     });
     this._dashboardScroll = new St.ScrollView({
       style_class: 'codex-monitor-scroll',
-      overlay_scrollbars: true,
+      overlay_scrollbars: false,
       x_expand: true,
     });
     this._dashboardScroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
@@ -417,7 +417,7 @@ class CodexMonitorApplet extends Applet.Applet {
   }
 
   _render() {
-    if (!this._dashboard)
+    if (this._destroyed || !this._dashboard)
       return;
     const settings = this._settingsView();
     this._dashboard.setSettings(settings);
@@ -592,7 +592,7 @@ class CodexMonitorApplet extends Applet.Applet {
   }
 
   _configurationChanged() {
-    if (!this._dashboard)
+    if (this._destroyed || !this._dashboard)
       return;
     this._installRefreshTimer();
     this._startBridge();

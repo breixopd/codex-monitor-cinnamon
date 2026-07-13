@@ -58,11 +58,18 @@ def test_scroll_viewport_owns_padding_and_clips_the_moving_dashboard():
     stylesheet = STYLESHEET_SOURCE.read_text(encoding="utf-8")
     dashboard_rule = _css_rule(stylesheet, ".codex-monitor-dashboard")
     scroll_rule = _css_rule(stylesheet, ".codex-monitor-scroll")
+    header_status_rule = _css_rule(
+        stylesheet, ".codex-monitor-header .codex-monitor-status"
+    )
 
     assert "padding" not in dashboard_rule
     assert "padding: 14px" in scroll_rule
     assert "max-height: 752px" in scroll_rule
     assert "set_clip_to_allocation(true)" in applet
+    assert "overlay_scrollbars: false" in applet
+    assert "width: 160px" in header_status_rule
+    assert "margin-right: 8px" in header_status_rule
+    assert "text-align: right" in header_status_rule
 
 
 def test_retired_bridge_callbacks_cannot_restart_or_mutate_a_removed_applet():
@@ -72,6 +79,8 @@ def test_retired_bridge_callbacks_cannot_restart_or_mutate_a_removed_applet():
     assert "_request(action, params, callback)" in source
     assert "this._destroyed || bridge !== this._bridge" in source
     assert source.count("this._bridge.request(") == 0
+    assert "_render() {\n    if (this._destroyed || !this._dashboard)" in source
+    assert "_configurationChanged() {\n    if (this._destroyed || !this._dashboard)" in source
 
     removal = source[source.index("on_applet_removed_from_panel()") :]
     assert removal.index("this._destroyed = true;") < removal.index("bridge.stop();")

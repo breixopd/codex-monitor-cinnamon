@@ -110,6 +110,14 @@ def test_live_smoke_preserves_remote_and_runs_full_visual_matrix():
         '"$SCREENSHOT_DIR/dashboard.png"'
     )
     assert "remoteStatePreserved" in script
+    assert "lifecycleRemovalClean" in script
+    assert "lifecycleRestartClean" in script
+    assert "dashboardCaptureReady" in script
+    assert 'rm -f -- "$SCREENSHOT_DIR/dashboard.png"' in script
+    assert "json_true()" in script
+    assert "wait_for_screenshot()" in script
+    assert "grep -F" in script
+    assert ".*true" not in script
     assert "_codexMonitorSmokeErrorIndex" in script
     assert "lookingGlassClean" in script
     for value in ('"quota"', '"activity"', '"both"', "24", "168", "720"):

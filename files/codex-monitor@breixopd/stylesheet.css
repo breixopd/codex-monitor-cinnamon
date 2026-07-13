@@ -111,6 +111,12 @@
   font-size: 0.9em;
 }
 
+.codex-monitor-header .codex-monitor-status {
+  width: 160px;
+  margin-right: 8px;
+  text-align: right;
+}
+
 .codex-monitor-card-row {
   spacing: 10px;
 }
