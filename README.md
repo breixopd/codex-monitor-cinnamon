@@ -1,17 +1,19 @@
 # Codex Monitor for Cinnamon
 
-Codex Monitor is a Linux Mint Cinnamon panel applet for checking Codex quota usage without opening a terminal. Its compact panel view shows centered 5-hour and weekly meters plus actionable reset, freshness, and Remote Control states. The popup adds countdowns, detailed history, recent sessions, banked resets, and complete Remote Control management.
+Codex Monitor is a Linux Mint Cinnamon panel applet for checking Codex quota usage without opening a terminal. Its compact panel view shows centered 5-hour and weekly meters plus explicit quota, reset, freshness, and Remote Control indicators. The popup adds countdowns, semantic history graphs, recent sessions, banked resets, Remote Control management, and safe Codex update discovery.
 
 ## Features
 
 - Dual panel meter and percentages for 5-hour and weekly usage
 - Live compact reset countdowns with unavailable windows shown honestly
-- 24-hour, 7-day, and 30-day quota/activity graphs with axes, a compact current-value legend, reset markers, and exact hover details
+- 24-hour, 7-day, and 30-day graphs with stepped quota segments, token-activity bars, percentage/token axes, reset markers, and exact hover details
 - Banked reset count, expiry, and confirmed one-click redemption
-- Visual warning, critical, expiring-credit, stale, and Remote Control states
+- Amber warning and red critical badges with a plain-language **Current indicators** explanation in the dashboard
 - Active and recent Codex sessions that resume in Linux Mint's default terminal
 - Open Codex action using `x-terminal-emulator`
-- Confirmed Remote Control start, stop, QR/manual pairing, device listing, and revocation
+- Confirmed Remote Control start, stop, native SVG/manual pairing, device listing, and revocation
+- Automatic 12-hour Codex update checks with a button shown only when a newer release is available
+- Confirmed background update using `codex update`, with the official standalone installer as a safe fallback
 - Theme-integrated Cinnamon popup, keyboard-focusable controls, and vertical-panel fallback
 - Local-only quota history with configurable 7–90 day retention, five-minute coalescing, and bounded graph rendering
 
@@ -56,13 +58,15 @@ To uninstall, remove that applet from the panel in System Settings, then delete 
 
 Right-click the applet and choose **Configure**. Available options cover refresh interval, history retention, graph mode/range, warning thresholds, panel indicators, the Codex executable, and a custom `CODEX_HOME`.
 
-Remote Control is managed directly in the dashboard. Starting it and revoking a paired device require confirmation because paired clients can control Codex on this computer. Pairing shows a scannable QR with the short manual code directly below as fallback. Pairing data exists only in memory and is not persisted by Codex Monitor. Codex CLI 0.144.3 still labels its underlying `remote-control` command experimental; the applet therefore reports unsupported methods without disrupting quota monitoring.
+Remote Control is managed directly in the dashboard. Starting it and revoking a paired device require confirmation because paired clients can control Codex on this computer. Pairing uses one QR implementation: the Python bridge creates a bounded SVG and Cinnamon renders it as a native in-memory icon. The manual code remains available if `python3-qrcode` or SVG rendering is unavailable. Pairing data exists only in memory and is cleared when pairing completes or expires.
+
+Update discovery starts only after the first quota snapshot. It reads Codex's fresh local version cache first and otherwise checks the official OpenAI GitHub release endpoint every 12 hours. A current installation shows only its version; **Update Codex…** appears only when a newer stable release is known. Installing always requires confirmation and runs in the background without restarting Cinnamon, Remote Control, the bridge, or existing Codex sessions.
 
 ## Privacy and security
 
-The applet starts the official local `codex app-server` process and asks it for account limits. It does not scrape terminal output, read authentication files, copy API keys, or open a network port. Account email is discarded by the bridge and never sent to the UI.
+The applet starts the official local `codex app-server` process and asks it for account limits. It does not scrape terminal output, read authentication files, copy API keys, or open a network port. Account email is discarded by the bridge and never sent to the UI. The only monitor-originated network request is the bounded release check (and, after explicit update confirmation, retrieval of the official installer fallback).
 
-Only graph samples—capture time, used percentage, and reset time—are written to disk. The file is replaced atomically with user-only mode `0600`. Token activity, account identity, session previews, paired-client details, and pairing codes are not stored. Reset redemption is confirmed and uses an idempotency key. Session launches validate the thread UUID and use fixed argument arrays rather than a shell.
+Only graph samples—capture time, used percentage, and reset time—and non-sensitive update metadata are written to disk. Both history and update state use atomic user-only files with mode `0600`. Token activity, account identity, session previews, paired-client details, pairing codes, installer output, and updater diagnostics are not stored. Reset redemption is confirmed and uses an idempotency key. Session launches and updates use fixed argument arrays rather than a shell pipeline.
 
 See [ADR-001](docs/decisions/001-use-codex-app-server.md) and [ADR-002](docs/decisions/002-local-history-and-remote-control.md) for the design rationale.
 
@@ -76,7 +80,7 @@ sh scripts/package.sh
 npm run smoke:live
 ```
 
-JavaScript model tests run under Node; Cinnamon-specific modules are syntax-checked and then smoke-tested in a real Cinnamon session. Python tests cover response normalization, JSON-RPC behavior, persistence, command validation, terminal launching, installer isolation, reset redemption, and the full Remote Control lifecycle. The live smoke command requires the applet to already be enabled on a Cinnamon panel; it reloads the installed source, captures screenshots under `/tmp/codex-monitor-smoke`, and leaves the Codex Remote daemon running because stopping it can terminate the active Codex session. Stop behavior is verified in isolated tests.
+JavaScript model tests run under Node; Cinnamon-specific modules are syntax-checked and then smoke-tested in a real Cinnamon session. Python tests cover response normalization, JSON-RPC behavior, persistence, command validation, terminal launching, updater isolation, reset redemption, and Remote Control. The live smoke command requires the applet to already be enabled on a Cinnamon panel. It exercises every graph mode/range and the empty, single, gap, dense, peak, badge, Remote, pairing, update, and session states; restores real state; captures screenshots under `/tmp/codex-monitor-smoke`; and verifies that the Codex Remote daemon state did not change. Stop behavior is verified only in isolated tests because stopping the live daemon can terminate the active Codex session.
 
 Project layout:
 
@@ -87,7 +91,7 @@ Project layout:
 
 ## Compatibility behavior
 
-Codex 0.144.3 is the tested baseline for quota/session monitoring, the Remote daemon, and CLI pairing. Newer app-server builds add pairing-claim polling and paired-client management methods; Codex Monitor detects those methods independently and labels unavailable controls without calling the whole Remote feature experimental or disrupting quota monitoring. A monitor-owned app-server can report sessions owned by another Codex process as `notLoaded`; those rows are labeled **Ready to resume**, not falsely reported as active or finished. Unknown quota-window durations are preserved but not mislabeled. Bridge failures leave the last snapshot visible and retry with bounded exponential backoff.
+Codex 0.144.3 is the tested baseline for quota/session monitoring, the Remote daemon, CLI pairing, and self-update. Newer app-server builds add pairing-claim polling and paired-client management methods; Codex Monitor detects those methods independently and labels unavailable controls without disrupting quota monitoring. A monitor-owned app-server can report sessions owned by another Codex process as `notLoaded`; those rows are labeled **Ready to resume**, not falsely reported as active or finished. Unknown quota-window durations are preserved but not mislabeled. Bridge failures leave the last snapshot visible and retry with bounded exponential backoff.
 
 ## License
 

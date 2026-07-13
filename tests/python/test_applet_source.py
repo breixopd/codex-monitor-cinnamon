@@ -124,3 +124,11 @@ def test_update_ui_is_conditional_confirmed_and_has_no_panel_badge():
     assert "confirmed: true" in applet
     assert "ModalDialog.ConfirmDialog" in applet
     assert "updateBadge" not in applet + ui
+
+
+def test_applet_uses_cinnamons_reloadable_commonjs_module_loader():
+    source = APPLET_SOURCE.read_text(encoding="utf-8")
+
+    for module in ("bridgeClient", "graph", "model", "ui"):
+        assert f"require('./{module}')" in source
+    assert "imports.applets[UUID]" not in source

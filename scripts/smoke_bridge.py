@@ -108,6 +108,8 @@ def run_probe(session, *, output=sys.stdout, sleeper=time.sleep):
         raise RuntimeError("Remote Control initial state was not smoke-testable")
     snapshot = session.request("snapshot")
     sessions = session.request("sessions", {"limit": 12})
+    update_status = session.request("update_status")
+    update_check = session.request("update_check", {"force": False})
     status = _connected_status(session, initial, sleeper)
     pairing = session.request("remote_pair_start")
     pairing_status = _retry_remote_request(
@@ -133,8 +135,18 @@ def run_probe(session, *, output=sys.stdout, sleeper=time.sleep):
         "remoteLifecycle": status.get("status") == "connected",
         "pairClaimed": bool(pairing_status.get("claimed")),
         "pairStatusSupported": pairing_status.get("supported") is not False,
+        "pairingQrSvg": isinstance(pairing.get("qrSvg"), str)
+        and pairing["qrSvg"].startswith("<svg")
+        and len(pairing["qrSvg"].encode("utf-8")) <= 256 * 1024,
         "clientCount": len(clients.get("clients") or []),
         "clientListSupported": clients.get("supported") is not False,
+        "updateContract": all(
+            isinstance(value, dict)
+            and value.get("status")
+            in {"idle", "checking", "updating", "updated", "failed"}
+            and isinstance(value.get("updateAvailable"), bool)
+            for value in (update_status, update_check)
+        ),
         # Stopping the live daemon also terminates the Codex session running this
         # smoke test. Stop behavior is covered by isolated command tests instead.
         "remoteLeftRunning": True,

@@ -13,11 +13,10 @@ const Settings = imports.ui.settings;
 const St = imports.gi.St;
 
 const UUID = 'codex-monitor@breixopd';
-const Modules = imports.applets[UUID];
-const BridgeClient = Modules.bridgeClient.BridgeClient;
-const Dashboard = Modules.ui.Dashboard;
-const Graph = Modules.graph;
-const Model = Modules.model;
+const { BridgeClient } = require('./bridgeClient');
+const { Dashboard } = require('./ui');
+const Graph = require('./graph');
+const Model = require('./model');
 
 class CodexMonitorApplet extends Applet.Applet {
   constructor(metadata, orientation, panelHeight, instanceId) {

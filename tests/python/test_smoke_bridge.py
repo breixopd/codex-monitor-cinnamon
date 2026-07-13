@@ -28,9 +28,26 @@ class FakeSession:
                 "manualPairingCode": "PRIVATE-MANUAL",
                 "environmentId": "environment-1",
                 "expiresAt": 1_900_000_000,
+                "qrSvg": '<svg viewBox="0 0 11 11"></svg>',
             },
             "remote_pair_status": {"claimed": False},
             "remote_clients": {"clients": [{"clientId": "client-1"}]},
+            "update_status": {
+                "installedVersion": "0.144.3",
+                "latestVersion": "0.145.0",
+                "updateAvailable": True,
+                "checkedAt": 1_800_000_000,
+                "status": "idle",
+                "message": None,
+            },
+            "update_check": {
+                "installedVersion": "0.144.3",
+                "latestVersion": "0.145.0",
+                "updateAvailable": True,
+                "checkedAt": 1_800_000_000,
+                "status": "idle",
+                "message": None,
+            },
         }
         if action == "remote_clients" and self.fail_clients:
             raise RuntimeError("client list failed")
@@ -54,7 +71,10 @@ def test_run_probe_exercises_lifecycle_redacts_codes_and_leaves_remote_running()
     assert result["clientCount"] == 1
     assert result["clientListSupported"] is True
     assert result["remoteLeftRunning"] is True
+    assert result["pairingQrSvg"] is True
+    assert result["updateContract"] is True
     assert all(action != "remote_stop" for action, _params in session.actions)
+    assert all(action != "update_start" for action, _params in session.actions)
     rendered = output.getvalue()
     assert json.loads(rendered) == result
     assert "opaque-private-code" not in rendered
@@ -70,15 +90,41 @@ def test_run_probe_never_stops_live_remote_when_lifecycle_step_fails():
     assert all(action != "remote_stop" for action, _params in session.actions)
 
 
-def test_live_smoke_connects_remote_before_capturing_dashboard():
+def test_live_smoke_preserves_remote_and_runs_full_visual_matrix():
     script = Path("scripts/smoke-live.sh").read_text(encoding="utf-8")
+    matrix = Path("scripts/live-matrix.js").read_text(encoding="utf-8")
 
     assert "remote_stop" not in script
-    assert 'x._remoteAction("remote_start",{confirmed:true})' in script
+    assert 'x._remoteAction("remote_start"' not in script
+    assert "delete imports.applets" not in script
     assert script.index('python3 "$ROOT/scripts/smoke_bridge.py"') < script.index(
         '"$SCREENSHOT_DIR/dashboard.png"'
     )
-    assert "settledRemote" in script
+    assert "remoteStatePreserved" in script
+    assert "_codexMonitorSmokeErrorIndex" in script
+    assert "lookingGlassClean" in script
+    for value in ('"quota"', '"activity"', '"both"', "24", "168", "720"):
+        assert value in matrix
+    for state in (
+        "emptyGraph",
+        "singleGraph",
+        "gapGraph",
+        "denseGraph",
+        "quotaWarning",
+        "quotaCritical",
+        "resetCritical",
+        "remoteConnecting",
+        "remoteError",
+        "qrFallback",
+        "pairingClaimed",
+        "updateCurrent",
+        "updateAvailable",
+        "updateUpdating",
+        "updateFailed",
+        "sessionsEmpty",
+        "sessionsUnavailable",
+    ):
+        assert state in matrix
 
 
 def test_run_probe_retries_pair_status_during_proxy_readiness_race():

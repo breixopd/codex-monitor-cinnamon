@@ -21,6 +21,12 @@ eval_cinnamon() {
   esac
 }
 
+cleanup_smoke() {
+  eval_cinnamon 'delete global._codexMonitorSmokeErrorIndex; "cleared";' >/dev/null 2>&1 || true
+}
+trap cleanup_smoke EXIT HUP INT TERM
+eval_cinnamon 'global._codexMonitorSmokeErrorIndex=imports.ui.main._errorLogStack.length; "recorded";' >/dev/null
+
 sh "$ROOT/scripts/install.sh"
 
 copy_count=$(find "$TARGET_ROOT" -mindepth 1 -maxdepth 1 -name "$UUID*" -print | wc -l)
@@ -72,7 +78,7 @@ python3 "$ROOT/scripts/smoke_bridge.py" \
   --helper "$TARGET/helper/bridge.py" \
   --codex "${CODEX_BINARY:-codex}"
 
-eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; x._remoteAction("remote_start",{confirmed:true}); "starting";' >/dev/null
+eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; x._readRemoteStatus(); "refreshing";' >/dev/null
 
 dashboard_js='var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; var modes=["quota","activity","both"]; var ranges=[24,168,720]; for (var i=0;i<modes.length;i++){for(var j=0;j<ranges.length;j++){x.graphMode=modes[i];x.graphRangeHours=ranges[j];x._render();}} x.menu.open(); var graph=x._dashboard._graphActor; var labels=graph._xAxis.get_children().map(function(v){return v.get_text();}); var legend=graph._legend.get_children().map(function(v){return v.get_text();}); var hoverStart=graph._hoverFormatter(graph._area._minimum); var hoverEnd=graph._hoverFormatter(graph._area._maximum); JSON.stringify({legendReady:legend.length>0,compactLegend:legend.length<=3&&legend.every(function(v){return v.indexOf(" min ")<0&&v.indexOf(" max ")<0&&v.indexOf("now —")<0;}),hoverDates:hoverStart!==hoverEnd,nativeQr:Boolean(x._dashboard._pairingQr),axisReady:labels.every(function(v){return Boolean(v)&&v!=="—";}),sessions:Boolean(x._dashboard._activeSessionList&&x._dashboard._recentSessionList),remote:Boolean(x._dashboard._remoteClientList),requestGuards:Boolean("_remoteRefreshing" in x&&"_pairingPolling" in x&&"_clientsLoading" in x)});'
 dashboard=$(eval_cinnamon "$dashboard_js")
@@ -83,8 +89,30 @@ for assertion in legendReady compactLegend hoverDates nativeQr axisReady session
   fi
 done
 
+remote_before=$(eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; String(x._remoteStatus&&x._remoteStatus.status||"unknown");')
+matrix_js=$(tr '\n' ' ' < "$ROOT/scripts/live-matrix.js")
+matrix=$(eval_cinnamon "$matrix_js")
+for assertion in instance graphMatrix emptyGraph singleGraph gapGraph denseGraph peakGraph quotaUnavailable quotaNormal quotaWarning quotaCritical staleCritical resetNormal resetWarning resetCritical remoteDisabled remoteConnecting remoteConnected remoteError qrAvailable qrFallback pairingClaimed pairingExpired updateCurrent updateAvailable updateChecking updateUpdating updateUpdated updateFailed sessionsEmpty sessionsActiveRecent sessionsUnavailable; do
+  if ! printf '%s\n' "$matrix" | grep -E "$assertion.*true" >/dev/null; then
+    printf '%s\n' "Dynamic visual matrix assertion failed ($assertion): $matrix" >&2
+    exit 1
+  fi
+done
+if printf '%s\n' "$matrix" | grep -E 'matrixException.*true' >/dev/null; then
+  printf '%s\n' "Dynamic visual matrix raised an exception: $matrix" >&2
+  exit 1
+fi
+remote_after=$(eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; String(x._remoteStatus&&x._remoteStatus.status||"unknown");')
+remoteStatePreserved=false
+if [ "$remote_before" = "$remote_after" ]; then
+  remoteStatePreserved=true
+fi
+if [ "$remoteStatePreserved" != true ]; then
+  printf '%s\n' "Remote state changed during visual matrix" >&2
+  exit 1
+fi
 
-settled_js='var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; var quotaReady=x._dashboard._fiveHourCard._percent.get_text().indexOf("%")>=0||x._dashboard._weeklyCard._percent.get_text().indexOf("%")>=0; JSON.stringify({settledQuota:Boolean(x._snapshot&&x._dashboard._snapshot===x._snapshot&&quotaReady),settledSessions:Boolean(x._sessions&&x._dashboard._sessions===x._sessions),settledRemote:Boolean(x._remoteStatus&&x._remoteStatus.status==="connected")});'
+settled_js='var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; var quotaReady=x._dashboard._fiveHourCard._percent.get_text().indexOf("%")>=0||x._dashboard._weeklyCard._percent.get_text().indexOf("%")>=0; JSON.stringify({settledQuota:Boolean(x._snapshot&&x._dashboard._snapshot===x._snapshot&&quotaReady),settledSessions:Boolean(x._sessions&&x._dashboard._sessions===x._sessions),settledRemote:Boolean(x._remoteStatus&&["disabled","connecting","connected"].indexOf(x._remoteStatus.status)>=0)});'
 settled=''
 attempt=0
 while [ "$attempt" -lt 20 ]; do
@@ -117,6 +145,12 @@ gdbus call --session --dest org.Cinnamon --object-path /org/Cinnamon \
 if journalctl --user -b --since "$STARTED_AT" --no-pager -o cat | \
   rg -i 'codex-monitor.*(error|exception|traceback)|(error|exception|traceback).*codex-monitor' >/dev/null; then
   printf '%s\n' "Cinnamon logged a Codex Monitor error during live smoke" >&2
+  exit 1
+fi
+
+looking_glass=$(eval_cinnamon 'var start=Number(global._codexMonitorSmokeErrorIndex||0); var errors=imports.ui.main._errorLogStack.slice(start).filter(function(item){var message=String(item.message||"").toLowerCase();return ["error","trace"].indexOf(item.category)>=0&&message.indexOf("codex-monitor@breixopd")>=0;}); JSON.stringify({lookingGlassClean:errors.length===0});')
+if ! printf '%s\n' "$looking_glass" | grep -E 'lookingGlassClean.*true' >/dev/null; then
+  printf '%s\n' "Cinnamon LookingGlass recorded a Codex Monitor error" >&2
   exit 1
 fi
 
