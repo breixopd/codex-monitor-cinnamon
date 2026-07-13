@@ -17,6 +17,7 @@ from urllib import request as urllib_request
 _CHECK_INTERVAL_SECONDS = 12 * 3600
 _MAX_RESPONSE_BYTES = 1_000_000
 _RELEASE_URL = "https://api.github.com/repos/openai/codex/releases/latest"
+_INSTALLER_URL = "https://chatgpt.com/codex/install.sh"
 _USER_AGENT = "Codex-Monitor-Cinnamon/0.1"
 _VERSION_RE = re.compile(
     r"^(?:rust-v|codex-cli\s+)?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$"
@@ -124,7 +125,48 @@ class UpdateManager:
         return self.status()
 
     def start(self):
-        raise RuntimeError("Codex update execution is not available")
+        with self._lock:
+            if self._state["status"] in {"checking", "updating"}:
+                return dict(self._state)
+            if not self._state["updateAvailable"]:
+                raise RuntimeError("No Codex update is available")
+            self._state["status"] = "updating"
+            self._state["message"] = None
+            worker = self.thread_factory(
+                target=self._update_worker,
+                daemon=True,
+                name="codex-monitor-update-install",
+            )
+            self._worker = worker
+        worker.start()
+        return self.status()
+
+    def _update_worker(self):
+        success = self._run_update_command()
+        if not success:
+            success = self._run_official_installer()
+        installed = self._installed_version() if success else None
+        with self._lock:
+            if installed is not None and not is_newer_version(
+                self._state.get("latestVersion"), installed
+            ):
+                self._state["installedVersion"] = installed
+                self._state["latestVersion"] = installed
+                self._state["checkedAt"] = int(self.clock())
+                self._state["status"] = "updated"
+                self._state["message"] = (
+                    f"Updated to Codex {installed}. "
+                    "New Codex launches use this version."
+                )
+                self._persist_monitor_cache()
+            else:
+                current = self._state.get("installedVersion") or "the current version"
+                self._state["status"] = "failed"
+                self._state["message"] = (
+                    f"Update failed; Codex {current} is still installed"
+                )
+            self._recalculate_availability()
+            self._worker = None
 
     def _check_worker(self):
         try:
@@ -238,6 +280,75 @@ class UpdateManager:
         if match is None:
             raise ValueError("release tag is invalid")
         return ".".join(match.groups())
+
+    def _run_update_command(self):
+        environment = self._update_environment()
+        try:
+            completed = self.runner(
+                [self.executable, "update"],
+                shell=False,
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=1800,
+                env=environment,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return False
+        return completed.returncode == 0
+
+    def _run_official_installer(self):
+        temporary_path = None
+        try:
+            request = urllib_request.Request(
+                _INSTALLER_URL,
+                headers={"User-Agent": _USER_AGENT, "Accept": "text/plain"},
+                method="GET",
+            )
+            with self.urlopen(request, timeout=10) as response:
+                payload = response.read(_MAX_RESPONSE_BYTES + 1)
+            if (
+                not isinstance(payload, bytes)
+                or len(payload) == 0
+                or len(payload) > _MAX_RESPONSE_BYTES
+                or b"\x00" in payload
+            ):
+                return False
+            self.data_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+            descriptor, raw_path = tempfile.mkstemp(
+                prefix=".codex-installer-", suffix=".sh", dir=self.data_dir
+            )
+            temporary_path = Path(raw_path)
+            os.fchmod(descriptor, 0o600)
+            with os.fdopen(descriptor, "wb") as handle:
+                handle.write(payload)
+                handle.flush()
+                os.fsync(handle.fileno())
+            completed = self.runner(
+                ["/bin/sh", str(temporary_path)],
+                shell=False,
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=1800,
+                env=self._update_environment(),
+            )
+            return completed.returncode == 0
+        except (OSError, RuntimeError, TimeoutError, ValueError, subprocess.TimeoutExpired):
+            return False
+        finally:
+            if temporary_path is not None:
+                try:
+                    temporary_path.unlink()
+                except OSError:
+                    pass
+
+    def _update_environment(self):
+        environment = dict(os.environ)
+        environment["CODEX_NON_INTERACTIVE"] = "true"
+        if self.codex_home:
+            environment["CODEX_HOME"] = str(self.codex_home)
+        return environment
 
     def _persist_monitor_cache(self):
         latest = self._state.get("latestVersion")

@@ -277,3 +277,29 @@ def test_remote_operations_are_delegated_to_remote_controller():
         "client@environment-1"
     )
     assert service.remote_revoke("environment-1", "client-1") == {"revoked": True}
+
+
+def test_update_operations_are_delegated_to_update_manager():
+    class FakeUpdates:
+        def __init__(self):
+            self.calls = []
+
+        def status(self):
+            self.calls.append(("status", None))
+            return {"status": "idle"}
+
+        def check(self, *, force=False):
+            self.calls.append(("check", force))
+            return {"status": "checking"}
+
+        def start(self):
+            self.calls.append(("start", None))
+            return {"status": "updating"}
+
+    updates = FakeUpdates()
+    service = CodexService(None, None, updates=updates)
+
+    assert service.update_status() == {"status": "idle"}
+    assert service.update_check(force=True) == {"status": "checking"}
+    assert service.update_start() == {"status": "updating"}
+    assert updates.calls == [("status", None), ("check", True), ("start", None)]

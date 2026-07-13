@@ -133,6 +133,38 @@ class CommandRouter:
                         "Explicit confirmation is required",
                     )
                 data = self.service.remote_revoke(environment_id, client_id)
+            elif action == "update_status":
+                if params:
+                    return _error(
+                        request_id, "INVALID_PARAMS", "Invalid update parameters"
+                    )
+                data = self.service.update_status()
+            elif action == "update_check":
+                if set(params) - {"force"} or (
+                    "force" in params and not isinstance(params["force"], bool)
+                ):
+                    return _error(
+                        request_id, "INVALID_PARAMS", "Invalid update parameters"
+                    )
+                data = self.service.update_check(params.get("force", False))
+            elif action == "update_start":
+                if set(params) != {"confirmed"}:
+                    if params.get("confirmed") is not True:
+                        return _error(
+                            request_id,
+                            "CONFIRMATION_REQUIRED",
+                            "Explicit confirmation is required",
+                        )
+                    return _error(
+                        request_id, "INVALID_PARAMS", "Invalid update parameters"
+                    )
+                if params.get("confirmed") is not True:
+                    return _error(
+                        request_id,
+                        "CONFIRMATION_REQUIRED",
+                        "Explicit confirmation is required",
+                    )
+                data = self.service.update_start()
             else:
                 return _error(
                     request_id,
