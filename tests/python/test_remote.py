@@ -23,6 +23,11 @@ class FakeStatusClient:
         self.closed = True
 
 
+class FailingInitializeClient(FakeStatusClient):
+    def initialize(self):
+        raise RuntimeError("proxy daemon is not running")
+
+
 def test_remote_status_reads_running_daemon_through_proxy():
     client = FakeStatusClient(
         {
@@ -42,6 +47,14 @@ def test_remote_status_reads_running_daemon_through_proxy():
         ("initialize", None),
         ("remoteControl/status/read", None),
     ]
+    assert client.closed is True
+
+
+def test_remote_status_treats_unavailable_proxy_daemon_as_disabled():
+    client = FailingInitializeClient({})
+    remote = RemoteControl("codex", client_factory=lambda: client)
+
+    assert remote.status() == {"status": "disabled"}
     assert client.closed is True
 
 

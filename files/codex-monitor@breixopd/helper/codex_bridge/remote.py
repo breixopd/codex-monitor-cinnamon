@@ -6,6 +6,10 @@ import json
 import subprocess
 
 
+class _ProxyUnavailable(RuntimeError):
+    pass
+
+
 class RemoteControl:
     def __init__(
         self, executable, *, runner=None, client_factory=None, environment=None
@@ -18,9 +22,11 @@ class RemoteControl:
     def status(self):
         if self.client_factory is None:
             return {"status": "disabled"}
-        return self._normalize_status(
-            self._proxy_request("remoteControl/status/read")
-        )
+        try:
+            value = self._proxy_request("remoteControl/status/read")
+        except _ProxyUnavailable:
+            return {"status": "disabled"}
+        return self._normalize_status(value)
 
     def start(self):
         return self._run_json("start")
@@ -112,7 +118,10 @@ class RemoteControl:
             raise RuntimeError("Codex remote control is unavailable")
         client = self.client_factory()
         try:
-            client.initialize()
+            try:
+                client.initialize()
+            except (OSError, RuntimeError, TimeoutError):
+                raise _ProxyUnavailable("Codex remote-control proxy is unavailable") from None
             return client.request(method, params)
         finally:
             client.close()
