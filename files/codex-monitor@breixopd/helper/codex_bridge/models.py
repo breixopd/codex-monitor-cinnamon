@@ -88,7 +88,20 @@ def normalize_snapshot(payload: dict[str, Any], *, captured_at: int) -> dict[str
     base = payload.get("rateLimits")
     base = base if isinstance(base, dict) else {}
     buckets_by_id = payload.get("rateLimitsByLimitId")
-    buckets = list(buckets_by_id.values()) if isinstance(buckets_by_id, dict) else [base]
+    if isinstance(buckets_by_id, dict):
+        base_limit_id = base.get("limitId")
+
+        def bucket_priority(bucket):
+            limit_id = bucket.get("limitId") if isinstance(bucket, dict) else None
+            if limit_id == "codex":
+                return 0
+            if base_limit_id is not None and limit_id == base_limit_id:
+                return 1
+            return 2
+
+        buckets = sorted(buckets_by_id.values(), key=bucket_priority)
+    else:
+        buckets = [base]
     if not buckets:
         buckets = [base]
 

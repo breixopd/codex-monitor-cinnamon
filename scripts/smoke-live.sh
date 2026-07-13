@@ -92,7 +92,7 @@ done
 remote_before=$(eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; String(x._remoteStatus&&x._remoteStatus.status||"unknown");')
 matrix_js=$(tr '\n' ' ' < "$ROOT/scripts/live-matrix.js")
 matrix=$(eval_cinnamon "$matrix_js")
-for assertion in instance graphMatrix emptyGraph singleGraph gapGraph denseGraph peakGraph quotaUnavailable quotaNormal quotaWarning quotaCritical staleCritical resetNormal resetWarning resetCritical remoteDisabled remoteConnecting remoteConnected remoteError qrAvailable qrFallback pairingClaimed pairingExpired updateCurrent updateAvailable updateChecking updateUpdating updateUpdated updateFailed sessionsEmpty sessionsActiveRecent sessionsUnavailable; do
+for assertion in instance graphMatrix emptyGraph singleGraph gapGraph foreignQuotaFiltered sparseQuotaFitted denseGraph peakGraph quotaUnavailable quotaNormal quotaWarning quotaCritical staleCritical resetNormal resetWarning resetCritical remoteDisabled remoteConnecting remoteConnected remoteError qrAvailable qrFallback pairingClaimed pairingExpired updateCurrent updateAvailable updateChecking updateUpdating updateUpdated updateFailed sessionsEmpty sessionsActiveRecent sessionsUnavailable; do
   if ! printf '%s\n' "$matrix" | grep -E "$assertion.*true" >/dev/null; then
     printf '%s\n' "Dynamic visual matrix assertion failed ($assertion): $matrix" >&2
     exit 1

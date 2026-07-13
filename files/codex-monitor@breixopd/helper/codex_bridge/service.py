@@ -139,11 +139,12 @@ class CodexService:
             return response
 
         merged = copy.deepcopy(response)
-        merged["rateLimits"] = self._merge_non_null(
-            merged.get("rateLimits"), update
-        )
-        buckets = merged.get("rateLimitsByLimitId")
+        base = merged.get("rateLimits")
+        base_id = base.get("limitId") if isinstance(base, dict) else None
         update_id = update.get("limitId")
+        if update_id is None or base_id is None or update_id == base_id:
+            merged["rateLimits"] = self._merge_non_null(base, update)
+        buckets = merged.get("rateLimitsByLimitId")
         if isinstance(buckets, dict) and isinstance(update_id, str):
             for key, bucket in buckets.items():
                 if key == update_id or (

@@ -109,6 +109,20 @@
     x._render();
     results.gapGraph = dashboard._graphActor._area._series[0].segments.length === 2;
 
+    x.graphRangeHours = 168;
+    x._snapshot = snapshot([
+      historyPoint(now - 4 * 3600, 30, 55, now + 2 * 86400),
+      historyPoint(now - 3 * 3600, 0, 0, now + 7 * 86400),
+      historyPoint(now - 2 * 3600, 0, 0, now + 7 * 86400 + 3600),
+      historyPoint(now - 60, 32, 57, now + 2 * 86400),
+    ], []);
+    x._render();
+    results.foreignQuotaFiltered = dashboard._graphActor._area._series.every(
+      function (series) { return series.points.length === 2; }
+    ) && dashboard._graphActor._area._resetMarkers.length === 0;
+    results.sparseQuotaFitted = dashboard._graphActor._area._minimum > now - 5 * 3600 &&
+      dashboard._graphActor._hover.get_text().indexOf("collected of 7d") >= 0;
+
     var dense = [];
     for (var denseIndex = 0; denseIndex < 1800; denseIndex += 1) {
       dense.push(historyPoint(
