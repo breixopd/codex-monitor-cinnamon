@@ -111,7 +111,12 @@ def run_probe(session, *, output=sys.stdout, sleeper=time.sleep):
     update_status = session.request("update_status")
     update_check = session.request("update_check", {"force": False})
     status = _connected_status(session, initial, sleeper)
-    pairing = session.request("remote_pair_start")
+    pairing = _retry_remote_request(
+        session,
+        "remote_pair_start",
+        {},
+        sleeper,
+    )
     pairing_status = _retry_remote_request(
         session,
         "remote_pair_status",
