@@ -11,6 +11,11 @@
     sessions: x._sessions,
     updateState: x._updateState,
     pairing: x._pairing,
+    remoteClients: dashboard._remoteClients,
+    remoteClientsSupported: dashboard._remoteClientsSupported,
+    remoteClientsAvailable: dashboard._remoteClientsAvailable,
+    remoteClientsLoaded: dashboard._remoteClientsLoaded,
+    remoteClientsLoading: dashboard._remoteClientsLoading,
     graphMode: x.graphMode,
     graphRangeHours: x.graphRangeHours,
     sessionFilter: dashboard._sessionFilter,
@@ -209,6 +214,49 @@
     results.remoteError = indicatorState(normal, { status: "errored" })[0]
       .severity === "critical";
 
+    dashboard.setRemoteStatus({
+      status: "connected",
+      serverName: "Test workstation",
+      environmentId: "environment-test",
+    });
+    dashboard._remoteClients = [];
+    dashboard._remoteClientsSupported = true;
+    dashboard._remoteClientsAvailable = true;
+    dashboard._remoteClientsLoaded = false;
+    dashboard.setRemoteClientsLoading(true);
+    results.remoteDevicesLoading =
+      dashboard._remoteClientsState.get_text() === "Checking" &&
+      dashboard._remoteClientList.get_children()[0].get_text()
+        .indexOf("Checking paired devices") >= 0;
+    dashboard.setRemoteClients({ available: false });
+    results.remoteDevicesUnavailable =
+      dashboard._remoteClientsState.get_text() === "Unavailable" &&
+      dashboard._remoteClientList.get_children()[0].get_text()
+        .indexOf("not responding") >= 0;
+    dashboard.setRemoteClients({ clients: [], supported: false });
+    results.remoteDevicesUnsupported =
+      dashboard._remoteClientsState.get_text() === "Unsupported" &&
+      dashboard._remoteClientList.get_children()[0].get_text()
+        .indexOf("does not expose device management") >= 0;
+    dashboard.setRemoteClients({ clients: [] });
+    results.remoteDevicesEmpty =
+      dashboard._remoteClientsState.get_text() === "Live" &&
+      dashboard._remoteClientList.get_children()[0].get_text() ===
+        "No paired devices";
+    dashboard.setRemoteClients({
+      clients: [{
+        clientId: "client-test",
+        displayName: "Test phone",
+        deviceType: "phone",
+        platform: "android",
+        lastSeenAt: now,
+      }],
+    });
+    results.remoteDevicesListed =
+      dashboard._remoteClientsState.get_text() === "Live" &&
+      dashboard._remoteClientsHeading.get_text() === "Paired devices (1)" &&
+      dashboard._remoteClientList.get_children().length === 1;
+
     var testSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 11 11" shape-rendering="crispEdges"><rect width="11" height="11" fill="#fff"/><path d="M4 4h1v1h-1z" fill="#000"/></svg>';
     dashboard.setPairing({
       qrSvg: testSvg,
@@ -302,6 +350,11 @@
     x.graphMode = saved.graphMode;
     x.graphRangeHours = saved.graphRangeHours;
     dashboard._sessionFilter = saved.sessionFilter;
+    dashboard._remoteClients = saved.remoteClients;
+    dashboard._remoteClientsSupported = saved.remoteClientsSupported;
+    dashboard._remoteClientsAvailable = saved.remoteClientsAvailable;
+    dashboard._remoteClientsLoaded = saved.remoteClientsLoaded;
+    dashboard._remoteClientsLoading = saved.remoteClientsLoading;
     dashboard.setSessions(saved.sessions || { active: [], recent: [] });
     dashboard.setRemoteStatus(saved.remoteStatus || { status: "disabled" });
     dashboard.setPairing(saved.pairing || null);

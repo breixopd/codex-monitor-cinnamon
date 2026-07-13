@@ -11,7 +11,7 @@ from .rpc import RpcError
 from .qr import encode_qr_svg
 
 
-class _ProxyUnavailable(RuntimeError):
+class _ControlChannelUnavailable(RuntimeError):
     pass
 
 
@@ -39,51 +39,51 @@ class RemoteControl:
         self.daemon_running = daemon_running or self._remote_process_running
         self.qr_encoder = qr_encoder or encode_qr_svg
         self._last_status = None
-        self._status_proxy_retry_at = 0
+        self._status_channel_retry_at = 0
         self._status_cli_retry_at = 0
 
     def status(self):
         if self.client_factory is None:
             return {"status": "disabled"}
         now = self.clock()
-        if now < self._status_proxy_retry_at:
+        if now < self._status_channel_retry_at:
             return self._fallback_status()
         try:
-            value = self._proxy_request("remoteControl/status/read")
-        except _ProxyUnavailable:
-            self._status_proxy_retry_at = now + self.STATUS_RETRY_SECONDS
+            value = self._channel_request("remoteControl/status/read")
+        except _ControlChannelUnavailable:
+            self._status_channel_retry_at = now + self.STATUS_RETRY_SECONDS
             return self._fallback_status()
         except RpcError as error:
             if error.code != -32601:
                 raise
-            self._status_proxy_retry_at = now + self.STATUS_RETRY_SECONDS
+            self._status_channel_retry_at = now + self.STATUS_RETRY_SECONDS
             return self._fallback_status()
-        self._status_proxy_retry_at = 0
+        self._status_channel_retry_at = 0
         self._status_cli_retry_at = 0
         self._last_status = self._normalize_status(value)
         return dict(self._last_status)
 
     def start(self):
         status = self._compact_status(self._normalize_status(self._run_json("start")))
-        self._status_proxy_retry_at = 0
+        self._status_channel_retry_at = 0
         self._status_cli_retry_at = 0
         self._last_status = status
         return dict(status)
 
     def stop(self):
         self._run_json("stop")
-        self._status_proxy_retry_at = 0
+        self._status_channel_retry_at = 0
         self._status_cli_retry_at = 0
         self._last_status = {"status": "disabled"}
         return dict(self._last_status)
 
     def pair_start(self):
         try:
-            value = self._proxy_request(
+            value = self._channel_request(
                 "remoteControl/pairing/start", {"manualCode": True}
             )
-        except _ProxyUnavailable:
-            # The pairing proxy method is newer than the Remote CLI surface and
+        except _ControlChannelUnavailable:
+            # The pairing app-server method is newer than the Remote CLI surface and
             # is not available in every app-server build. The fixed CLI command
             # provides the same bounded JSON contract.
             value = self._run_json("pair")
@@ -137,9 +137,9 @@ class RemoteControl:
             else {"manualPairingCode": manual_pairing_code}
         )
         try:
-            value = self._proxy_request("remoteControl/pairing/status", params)
-        except _ProxyUnavailable:
-            return {"claimed": False, "supported": False}
+            value = self._channel_request("remoteControl/pairing/status", params)
+        except _ControlChannelUnavailable:
+            return {"claimed": False, "available": False}
         except RpcError as error:
             if error.code != -32601:
                 raise
@@ -151,12 +151,12 @@ class RemoteControl:
     def clients(self, environment_id):
         environment_id = self._require_identifier(environment_id, "environment")
         try:
-            value = self._proxy_request(
+            value = self._channel_request(
                 "remoteControl/client/list",
                 {"environmentId": environment_id, "limit": 50, "order": "desc"},
             )
-        except _ProxyUnavailable:
-            return {"clients": [], "supported": False}
+        except _ControlChannelUnavailable:
+            return {"clients": [], "available": False}
         except RpcError as error:
             if error.code != -32601:
                 raise
@@ -174,7 +174,7 @@ class RemoteControl:
     def revoke(self, environment_id, client_id):
         environment_id = self._require_identifier(environment_id, "environment")
         client_id = self._require_identifier(client_id, "client")
-        value = self._proxy_request(
+        value = self._channel_request(
             "remoteControl/client/revoke",
             {"environmentId": environment_id, "clientId": client_id},
         )
@@ -182,7 +182,7 @@ class RemoteControl:
             raise RuntimeError("Codex remote-control response was invalid")
         return {"revoked": True}
 
-    def _proxy_request(self, method, params=None):
+    def _channel_request(self, method, params=None):
         if self.client_factory is None:
             raise RuntimeError("Codex remote control is unavailable")
         client = self.client_factory()
@@ -190,7 +190,9 @@ class RemoteControl:
             try:
                 client.initialize()
             except (OSError, RuntimeError, TimeoutError):
-                raise _ProxyUnavailable("Codex remote-control proxy is unavailable") from None
+                raise _ControlChannelUnavailable(
+                    "Codex remote-control channel is unavailable"
+                ) from None
             return client.request(method, params)
         finally:
             client.close()

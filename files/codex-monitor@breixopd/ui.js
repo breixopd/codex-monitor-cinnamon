@@ -103,8 +103,12 @@ var Dashboard = class Dashboard {
     this._remoteStatus = null;
     this._pairing = null;
     this._pairingStatusSupported = true;
+    this._pairingStatusAvailable = true;
     this._remoteClients = [];
     this._remoteClientsSupported = true;
+    this._remoteClientsAvailable = true;
+    this._remoteClientsLoaded = false;
+    this._remoteClientsLoading = false;
     this._remoteError = '';
     this._sessions = { active: [], recent: [] };
     this._sessionsError = false;
@@ -342,12 +346,22 @@ var Dashboard = class Dashboard {
     this._remoteSection.add_child(this._pairingManualLabel);
     this._remoteSection.add_child(this._pairingQrFallback);
     this._remoteSection.add_child(this._pairingState);
+    const clientsHeading = new St.BoxLayout({
+      style_class: 'codex-monitor-section-heading',
+    });
     this._remoteClientsHeading = new St.Label({
       text: this._('Paired devices'),
       style_class: 'codex-monitor-session-group-title',
+      x_expand: true,
+    });
+    this._remoteClientsState = new St.Label({
+      text: '',
+      style_class: 'codex-monitor-device-state',
     });
     this._remoteClientList = new St.BoxLayout({ vertical: true });
-    this._remoteSection.add_child(this._remoteClientsHeading);
+    clientsHeading.add_child(this._remoteClientsHeading);
+    clientsHeading.add_child(this._remoteClientsState);
+    this._remoteSection.add_child(clientsHeading);
     this._remoteSection.add_child(this._remoteClientList);
     this.actor.add_child(this._remoteSection);
   }
@@ -472,12 +486,15 @@ var Dashboard = class Dashboard {
   setPairing(pairing) {
     this._pairing = pairing;
     this._pairingStatusSupported = true;
+    this._pairingStatusAvailable = true;
     this._renderRemote();
   }
 
   setPairingStatus(status) {
     this._pairingStatusSupported = !status || status.supported !== false;
-    if (this._pairing && this._pairingStatusSupported) {
+    this._pairingStatusAvailable = !status || status.available !== false;
+    if (this._pairing && this._pairingStatusSupported &&
+        this._pairingStatusAvailable) {
       if (status && status.claimed)
         this._pairing = { claimed: true };
       else
@@ -487,9 +504,20 @@ var Dashboard = class Dashboard {
   }
 
   setRemoteClients(value) {
-    this._remoteClients = value && value.clients || [];
+    this._remoteClientsLoading = false;
     this._remoteClientsSupported = !value || value.supported !== false;
+    this._remoteClientsAvailable = !value || value.available !== false;
+    if (this._remoteClientsSupported && this._remoteClientsAvailable) {
+      this._remoteClients = value && Array.isArray(value.clients)
+        ? value.clients : [];
+      this._remoteClientsLoaded = true;
+    }
     this._remoteError = '';
+    this._renderRemote();
+  }
+
+  setRemoteClientsLoading(loading) {
+    this._remoteClientsLoading = Boolean(loading);
     this._renderRemote();
   }
 
@@ -807,9 +835,11 @@ var Dashboard = class Dashboard {
       this._pairingState.set_text(
         `${this._('Waiting for device')} · ${this._('expires in')} ` +
         this._model.formatDuration(this._pairing.expiresAt - now) +
-        (this._pairingStatusSupported
-          ? ''
-          : ` · ${this._('claim detection requires a newer Codex version')}`)
+        (!this._pairingStatusSupported
+          ? ` · ${this._('claim detection is not exposed by this Codex build')}`
+          : !this._pairingStatusAvailable
+            ? ` · ${this._('claim status temporarily unavailable; retrying')}`
+            : '')
       );
     } else {
       this._pairing = null;
@@ -826,6 +856,21 @@ var Dashboard = class Dashboard {
     this._remoteClientsHeading.set_text(
       `${this._('Paired devices')} (${this._remoteClients.length})`
     );
+    let clientsState = '';
+    if (status === 'connected') {
+      if (this._remoteClientsLoading)
+        clientsState = this._('Checking');
+      else if (!this._remoteClientsSupported)
+        clientsState = this._('Unsupported');
+      else if (!this._remoteClientsAvailable)
+        clientsState = this._('Unavailable');
+      else if (this._remoteClientsLoaded)
+        clientsState = this._('Live');
+      else
+        clientsState = this._('Not checked');
+    }
+    this._remoteClientsState.set_text(clientsState);
+    this._remoteClientsState.visible = Boolean(clientsState);
     if (status === 'running') {
       this._remoteClientList.add_child(new St.Label({
         text: this._('Refresh to confirm the connection before managing devices'),
@@ -836,23 +881,43 @@ var Dashboard = class Dashboard {
         text: this._('Start Remote Control to manage paired devices'),
         style_class: 'codex-monitor-secondary',
       }));
-    } else if (!this._remoteClientsSupported) {
+    } else if (this._remoteClientsLoading && !this._remoteClientsLoaded) {
       this._remoteClientList.add_child(new St.Label({
-        text: this._('Device listing requires a newer Codex version'),
+        text: this._('Checking paired devices…'),
         style_class: 'codex-monitor-secondary',
       }));
-    } else if (this._remoteClients.length === 0) {
+    } else if (!this._remoteClientsSupported) {
       this._remoteClientList.add_child(new St.Label({
-        text: this._('No paired devices'),
+        text: this._('This Codex build does not expose device management'),
         style_class: 'codex-monitor-secondary',
       }));
     } else {
-      for (const client of this._remoteClients.slice(0, 50))
-        this._remoteClientList.add_child(this._remoteClientRow(client));
+      if (!this._remoteClientsAvailable) {
+        this._remoteClientList.add_child(new St.Label({
+          text: this._('Device channel is not responding; retrying automatically'),
+          style_class: 'codex-monitor-secondary codex-monitor-device-warning',
+        }));
+      }
+      if (!this._remoteClientsLoaded && this._remoteClientsAvailable) {
+        this._remoteClientList.add_child(new St.Label({
+          text: this._('Refresh devices to load paired devices'),
+          style_class: 'codex-monitor-secondary',
+        }));
+      } else if (this._remoteClients.length === 0 && this._remoteClientsAvailable) {
+        this._remoteClientList.add_child(new St.Label({
+          text: this._('No paired devices'),
+          style_class: 'codex-monitor-secondary',
+        }));
+      } else {
+        const manageable = this._remoteClientsAvailable &&
+          !this._remoteClientsLoading;
+        for (const client of this._remoteClients.slice(0, 50))
+          this._remoteClientList.add_child(this._remoteClientRow(client, manageable));
+      }
     }
   }
 
-  _remoteClientRow(client) {
+  _remoteClientRow(client, manageable = true) {
     const row = new St.BoxLayout({ style_class: 'codex-monitor-remote-client-row' });
     const details = new St.BoxLayout({ vertical: true, x_expand: true });
     const name = client.displayName || client.deviceModel || this._('Paired device');
@@ -871,10 +936,12 @@ var Dashboard = class Dashboard {
       style_class: 'codex-monitor-secondary',
     }));
     row.add_child(details);
-    row.add_child(_button(
-      this._('Revoke…'),
-      () => this._callbacks.onRemoteRevoke(client)
-    ));
+    if (manageable) {
+      row.add_child(_button(
+        this._('Revoke…'),
+        () => this._callbacks.onRemoteRevoke(client)
+      ));
+    }
     return row;
   }
 };

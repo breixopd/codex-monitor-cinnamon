@@ -159,6 +159,16 @@
   padding-top: 3px;
 }
 
+.codex-monitor-device-state {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.76em;
+  font-weight: 700;
+}
+
+.codex-monitor-device-warning {
+  color: #e8a641;
+}
+
 .codex-monitor-session-filters {
   spacing: 5px;
 }

@@ -393,13 +393,13 @@ def test_remote_pair_status_reports_unsupported_method_without_breaking_pairing(
     }
 
 
-def test_remote_pair_status_reports_temporarily_unavailable_proxy_as_unsupported():
+def test_remote_pair_status_distinguishes_unavailable_channel_from_unsupported_method():
     client = FailingInitializeClient({})
     remote = RemoteControl("codex", client_factory=lambda: client)
 
     assert remote.pair_status("opaque-code") == {
         "claimed": False,
-        "supported": False,
+        "available": False,
     }
 
 
@@ -485,13 +485,13 @@ def test_remote_clients_reports_unsupported_method_without_breaking_remote_statu
     }
 
 
-def test_remote_clients_reports_temporarily_unavailable_proxy_as_unsupported():
+def test_remote_clients_distinguishes_unavailable_channel_from_unsupported_method():
     client = FailingInitializeClient({})
     remote = RemoteControl("codex", client_factory=lambda: client)
 
     assert remote.clients("environment-1") == {
         "clients": [],
-        "supported": False,
+        "available": False,
     }
 
 

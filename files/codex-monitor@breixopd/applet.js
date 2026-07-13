@@ -31,6 +31,8 @@ class CodexMonitorApplet extends Applet.Applet {
     this._remoteTimer = 0;
     this._remoteRefreshing = false;
     this._pairingPolling = false;
+    this._pairingRetryAt = 0;
+    this._pairingRetryAttempt = 0;
     this._clientsLoading = false;
     this._updateState = null;
     this._updateRefreshing = false;
@@ -189,6 +191,8 @@ class CodexMonitorApplet extends Applet.Applet {
     this._refreshing = false;
     this._remoteRefreshing = false;
     this._pairingPolling = false;
+    this._pairingRetryAt = 0;
+    this._pairingRetryAttempt = 0;
     this._clientsLoading = false;
     this._updateRefreshing = false;
     if (previousBridge)
@@ -361,8 +365,12 @@ class CodexMonitorApplet extends Applet.Applet {
         this._pairing.pollingSupported === false)
       return;
     const now = Math.floor(Date.now() / 1000);
+    if (now < this._pairingRetryAt)
+      return;
     if (Number(this._pairing.expiresAt) <= now) {
       this._pairing = null;
+      this._pairingRetryAt = 0;
+      this._pairingRetryAttempt = 0;
       this._dashboard.setPairing(null);
       return;
     }
@@ -372,8 +380,17 @@ class CodexMonitorApplet extends Applet.Applet {
       manualPairingCode: this._pairing.manualPairingCode || null,
     }, (error, status) => {
       this._pairingPolling = false;
-      if (error)
+      if (error || status && status.available === false) {
+        this._pairingRetryAttempt += 1;
+        const delay = Math.min(60, Math.pow(2,
+          Math.min(5, this._pairingRetryAttempt)));
+        this._pairingRetryAt = Math.floor(Date.now() / 1000) + delay;
+        if (status)
+          this._dashboard.setPairingStatus(status);
         return;
+      }
+      this._pairingRetryAt = 0;
+      this._pairingRetryAttempt = 0;
       if (status && status.supported === false)
         this._pairing.pollingSupported = false;
       if (status.claimed) {
@@ -393,10 +410,11 @@ class CodexMonitorApplet extends Applet.Applet {
     if (this._clientsLoading)
       return;
     this._clientsLoading = true;
+    this._dashboard.setRemoteClientsLoading(true);
     this._request('remote_clients', { environmentId }, (error, clients) => {
       this._clientsLoading = false;
       if (error) {
-        this._dashboard.showRemoteError(this._('Paired devices unavailable'));
+        this._dashboard.setRemoteClients({ available: false });
         return;
       }
       this._dashboard.setRemoteClients(clients);
@@ -575,6 +593,8 @@ class CodexMonitorApplet extends Applet.Applet {
         this._dashboard.showRemoteError(this._('Remote Control action failed'));
       } else if (action === 'remote_pair_start') {
         this._pairing = { ...result, claimed: false };
+        this._pairingRetryAt = 0;
+        this._pairingRetryAttempt = 0;
         this._dashboard.setPairing(this._pairing);
       } else if (action === 'remote_stop') {
         this._pairing = null;

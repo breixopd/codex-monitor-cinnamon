@@ -167,7 +167,7 @@ eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-
 remote_before=$(eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; String(x._remoteStatus&&x._remoteStatus.status||"unknown");')
 matrix_js=$(tr '\n' ' ' < "$ROOT/scripts/live-matrix.js")
 matrix=$(eval_cinnamon "$matrix_js")
-for assertion in instance graphMatrix emptyGraph singleGraph gapGraph foreignQuotaFiltered sparseQuotaFullRange denseGraph peakGraph quotaUnavailable quotaNormal quotaWarning quotaCritical staleCritical resetNormal resetWarning resetCritical indicatorRowsWrap indicatorTextComplete remoteDisabled remoteConnecting remoteRunning remoteConnected remoteError qrAvailable qrFallback pairingClaimed pairingExpired updateCurrent updateAvailable updateChecking updateUpdating updateUpdated updateFailed sessionsEmpty sessionsActiveRecent sessionsAttentionFilter sessionsUnavailable; do
+for assertion in instance graphMatrix emptyGraph singleGraph gapGraph foreignQuotaFiltered sparseQuotaFullRange denseGraph peakGraph quotaUnavailable quotaNormal quotaWarning quotaCritical staleCritical resetNormal resetWarning resetCritical indicatorRowsWrap indicatorTextComplete remoteDisabled remoteConnecting remoteRunning remoteConnected remoteError remoteDevicesLoading remoteDevicesUnavailable remoteDevicesUnsupported remoteDevicesEmpty remoteDevicesListed qrAvailable qrFallback pairingClaimed pairingExpired updateCurrent updateAvailable updateChecking updateUpdating updateUpdated updateFailed sessionsEmpty sessionsActiveRecent sessionsAttentionFilter sessionsUnavailable; do
   if ! json_true "$matrix" "$assertion"; then
     printf '%s\n' "Dynamic visual matrix assertion failed ($assertion): $matrix" >&2
     exit 1

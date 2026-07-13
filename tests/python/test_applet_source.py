@@ -119,6 +119,28 @@ def test_remote_stop_is_confirmed_before_the_destructive_bridge_action():
     assert "this._remoteAction('remote_stop', { confirmed: true });" in source
 
 
+def test_remote_device_management_exposes_distinct_live_states_and_retry_backoff():
+    applet = APPLET_SOURCE.read_text(encoding="utf-8")
+    ui = UI_SOURCE.read_text(encoding="utf-8")
+
+    for message in (
+        "Checking paired devices…",
+        "Device channel is not responding; retrying automatically",
+        "This Codex build does not expose device management",
+        "No paired devices",
+    ):
+        assert message in ui
+    assert "setRemoteClientsLoading(loading)" in ui
+    assert "this._remoteClientsAvailable" in ui
+    assert "this._remoteClientsLoaded" in ui
+    assert "this._pairingStatusAvailable" in ui
+    assert "claim status temporarily unavailable; retrying" in ui
+    assert "this._pairingRetryAt" in applet
+    assert "this._pairingRetryAttempt" in applet
+    assert "Math.min(60, Math.pow(2" in applet
+    assert "Device listing requires a newer Codex version" not in ui
+
+
 def test_graph_renderer_has_separate_step_bar_and_reset_paths():
     source = GRAPH_SOURCE.read_text(encoding="utf-8")
 
