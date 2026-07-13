@@ -169,8 +169,9 @@ def test_run_probe_retries_pair_start_during_proxy_readiness_race():
     assert result["remoteLeftRunning"] is True
 
 
-def test_run_probe_completes_start_from_connecting_socket_fallback():
-    session = FakeSession(initial_status="connecting")
+@pytest.mark.parametrize("initial_status", ["connecting", "running"])
+def test_run_probe_completes_start_from_unconfirmed_running_state(initial_status):
+    session = FakeSession(initial_status=initial_status)
 
     result = run_probe(session, output=io.StringIO(), sleeper=lambda _seconds: None)
 
