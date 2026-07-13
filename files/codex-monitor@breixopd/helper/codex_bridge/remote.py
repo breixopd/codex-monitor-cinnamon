@@ -36,16 +36,26 @@ class RemoteControl:
         return {"status": "disabled"}
 
     def pair_start(self):
-        value = self._proxy_request(
-            "remoteControl/pairing/start", {"manualCode": True}
-        )
+        try:
+            value = self._proxy_request(
+                "remoteControl/pairing/start", {"manualCode": True}
+            )
+        except RuntimeError:
+            # The pairing proxy method is newer than the Remote CLI surface and
+            # is not available in every app-server build. The fixed CLI command
+            # provides the same bounded JSON contract.
+            value = self._run_json("pair")
+        return self._normalize_pairing(value)
+
+    @classmethod
+    def _normalize_pairing(cls, value):
         if not isinstance(value, dict):
             raise RuntimeError("Codex remote-control response was invalid")
-        pairing_code = self._bounded_string(value.get("pairingCode"), maximum=4096)
-        manual_code = self._bounded_string(
+        pairing_code = cls._bounded_string(value.get("pairingCode"), maximum=4096)
+        manual_code = cls._bounded_string(
             value.get("manualPairingCode"), maximum=256, optional=True
         )
-        environment_id = self._bounded_string(value.get("environmentId"))
+        environment_id = cls._bounded_string(value.get("environmentId"))
         expires_at = value.get("expiresAt")
         if (
             pairing_code is None

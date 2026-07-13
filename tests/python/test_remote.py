@@ -28,6 +28,12 @@ class FailingInitializeClient(FakeStatusClient):
         raise RuntimeError("proxy daemon is not running")
 
 
+class FailingRequestClient(FakeStatusClient):
+    def request(self, method, params=None):
+        self.calls.append((method, params))
+        raise RuntimeError("method is unavailable in this app-server build")
+
+
 def test_remote_status_reads_running_daemon_through_proxy():
     client = FakeStatusClient(
         {
@@ -119,6 +125,36 @@ def test_remote_pair_start_uses_proxy_and_normalizes_code_without_persisting_it(
         ("initialize", None),
         ("remoteControl/pairing/start", {"manualCode": True}),
     ]
+    assert client.closed is True
+
+
+def test_remote_pair_start_falls_back_to_fixed_cli_when_proxy_method_fails():
+    client = FailingRequestClient({})
+    calls = []
+
+    def runner(command, **kwargs):
+        calls.append((command, kwargs))
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=json.dumps(
+                {
+                    "pairingCode": "opaque-code",
+                    "manualPairingCode": "ABCD-EFGH",
+                    "environmentId": "environment-1",
+                    "expiresAt": 1_800_000_000,
+                }
+            ),
+            stderr="",
+        )
+
+    remote = RemoteControl(
+        "/usr/bin/codex", runner=runner, client_factory=lambda: client
+    )
+
+    assert remote.pair_start()["manualPairingCode"] == "ABCD-EFGH"
+    assert calls[0][0] == ["/usr/bin/codex", "remote-control", "pair", "--json"]
+    assert calls[0][1]["shell"] is False
     assert client.closed is True
 
 
