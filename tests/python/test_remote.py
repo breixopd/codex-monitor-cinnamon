@@ -41,6 +41,17 @@ class BrokenRequestClient(FakeStatusClient):
         raise RuntimeError("remote backend failed")
 
 
+class FakeClock:
+    def __init__(self):
+        self.value = 0
+
+    def __call__(self):
+        return self.value
+
+    def advance(self, seconds):
+        self.value += seconds
+
+
 def test_remote_status_reads_running_daemon_through_proxy():
     client = FakeStatusClient(
         {
@@ -122,6 +133,72 @@ def test_remote_status_reports_running_when_existing_daemon_probe_fails():
     )
 
     assert remote.status() == {"status": "running"}
+
+
+def test_remote_status_backs_off_unavailable_proxy_without_blocking_every_poll():
+    clock = FakeClock()
+    clients = []
+
+    def client_factory():
+        client = FailingInitializeClient({})
+        clients.append(client)
+        return client
+
+    remote = RemoteControl(
+        "codex",
+        client_factory=client_factory,
+        daemon_running=lambda: True,
+        clock=clock,
+        runner=lambda command, **kwargs: subprocess.CompletedProcess(
+            command,
+            0,
+            stdout='{"status":"connected","serverName":"mint-workstation"}',
+            stderr="",
+        ),
+    )
+
+    assert remote.status()["status"] == "connected"
+    assert remote.status()["status"] == "connected"
+    assert len(clients) == 1
+
+    clock.advance(60)
+
+    assert remote.status()["status"] == "connected"
+    assert len(clients) == 2
+
+
+def test_remote_status_retries_transient_existing_daemon_probe_failure():
+    clock = FakeClock()
+    probe_count = 0
+
+    def runner(command, **kwargs):
+        nonlocal probe_count
+        probe_count += 1
+        if probe_count == 1:
+            return subprocess.CompletedProcess(command, 1, stdout="", stderr="private")
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout='{"status":"connected","serverName":"mint-workstation"}',
+            stderr="",
+        )
+
+    remote = RemoteControl(
+        "codex",
+        runner=runner,
+        client_factory=lambda: FailingInitializeClient({}),
+        daemon_running=lambda: True,
+        clock=clock,
+    )
+
+    assert remote.status() == {"status": "running"}
+    assert remote.status() == {"status": "running"}
+    assert probe_count == 1
+
+    clock.advance(60)
+
+    assert remote.status()["status"] == "connected"
+    assert probe_count == 2
 
 
 def test_remote_status_invalidates_cached_connection_when_daemon_disappears():

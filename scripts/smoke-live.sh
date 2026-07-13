@@ -186,7 +186,7 @@ if [ "$remoteStatePreserved" != true ]; then
   exit 1
 fi
 
-settled_js='var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; var quotaReady=x._dashboard._fiveHourCard._percent.get_text().indexOf("%")>=0||x._dashboard._weeklyCard._percent.get_text().indexOf("%")>=0; JSON.stringify({settledQuota:Boolean(x._snapshot&&x._dashboard._snapshot===x._snapshot&&quotaReady),settledSessions:Boolean(x._sessions&&x._dashboard._sessions===x._sessions),settledRemote:Boolean(x._remoteStatus&&["disabled","connecting","connected"].indexOf(x._remoteStatus.status)>=0)});'
+settled_js='var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; var quotaReady=x._dashboard._fiveHourCard._percent.get_text().indexOf("%")>=0||x._dashboard._weeklyCard._percent.get_text().indexOf("%")>=0; JSON.stringify({settledQuota:Boolean(x._snapshot&&x._dashboard._snapshot===x._snapshot&&quotaReady),settledSessions:Boolean(x._sessions&&x._dashboard._sessions===x._sessions),settledRemote:Boolean(x._remoteStatus&&["disabled","connecting","running","connected"].indexOf(x._remoteStatus.status)>=0)});'
 settled=''
 attempt=0
 while [ "$attempt" -lt 20 ]; do

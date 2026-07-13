@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import time
 
 from .rpc import RpcError
 from .qr import encode_qr_svg
@@ -15,6 +16,8 @@ class _ProxyUnavailable(RuntimeError):
 
 
 class RemoteControl:
+    STATUS_RETRY_SECONDS = 60
+
     def __init__(
         self,
         executable,
@@ -25,37 +28,52 @@ class RemoteControl:
         daemon_running=None,
         qr_encoder=None,
         proc_root="/proc",
+        clock=None,
     ):
         self.executable = executable
         self.runner = runner or subprocess.run
         self.client_factory = client_factory
         self.environment = environment
         self.proc_root = proc_root
+        self.clock = clock or time.monotonic
         self.daemon_running = daemon_running or self._remote_process_running
         self.qr_encoder = qr_encoder or encode_qr_svg
         self._last_status = None
+        self._status_proxy_retry_at = 0
+        self._status_cli_retry_at = 0
 
     def status(self):
         if self.client_factory is None:
             return {"status": "disabled"}
+        now = self.clock()
+        if now < self._status_proxy_retry_at:
+            return self._fallback_status()
         try:
             value = self._proxy_request("remoteControl/status/read")
         except _ProxyUnavailable:
+            self._status_proxy_retry_at = now + self.STATUS_RETRY_SECONDS
             return self._fallback_status()
         except RpcError as error:
             if error.code != -32601:
                 raise
+            self._status_proxy_retry_at = now + self.STATUS_RETRY_SECONDS
             return self._fallback_status()
+        self._status_proxy_retry_at = 0
+        self._status_cli_retry_at = 0
         self._last_status = self._normalize_status(value)
         return dict(self._last_status)
 
     def start(self):
         status = self._compact_status(self._normalize_status(self._run_json("start")))
+        self._status_proxy_retry_at = 0
+        self._status_cli_retry_at = 0
         self._last_status = status
         return dict(status)
 
     def stop(self):
         self._run_json("stop")
+        self._status_proxy_retry_at = 0
+        self._status_cli_retry_at = 0
         self._last_status = {"status": "disabled"}
         return dict(self._last_status)
 
@@ -212,13 +230,20 @@ class RemoteControl:
     def _fallback_status(self):
         if not self._daemon_is_running():
             self._last_status = None
+            self._status_cli_retry_at = 0
             return {"status": "disabled"}
-        if self._last_status is not None:
+        if self._last_status is not None and self._last_status.get("status") != "running":
+            return dict(self._last_status)
+        now = self.clock()
+        if now < self._status_cli_retry_at:
             return dict(self._last_status)
         try:
             status = self._compact_status(self._normalize_status(self._run_json("start")))
         except (RuntimeError, TimeoutError):
             status = {"status": "running"}
+            self._status_cli_retry_at = now + self.STATUS_RETRY_SECONDS
+        else:
+            self._status_cli_retry_at = 0
         self._last_status = status
         return dict(status)
 
