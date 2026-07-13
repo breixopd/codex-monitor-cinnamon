@@ -8,6 +8,7 @@ import stat
 import subprocess
 
 from .rpc import RpcError
+from .qr import encode_qr
 
 
 class _ProxyUnavailable(RuntimeError):
@@ -23,12 +24,14 @@ class RemoteControl:
         client_factory=None,
         environment=None,
         daemon_running=None,
+        qr_encoder=None,
     ):
         self.executable = executable
         self.runner = runner or subprocess.run
         self.client_factory = client_factory
         self.environment = environment
         self.daemon_running = daemon_running or self._control_socket_running
+        self.qr_encoder = qr_encoder or encode_qr
         self._last_status = None
 
     def status(self):
@@ -71,15 +74,14 @@ class RemoteControl:
             value = self._run_json("pair")
         return self._normalize_pairing(value)
 
-    @classmethod
-    def _normalize_pairing(cls, value):
+    def _normalize_pairing(self, value):
         if not isinstance(value, dict):
             raise RuntimeError("Codex remote-control response was invalid")
-        pairing_code = cls._bounded_string(value.get("pairingCode"), maximum=4096)
-        manual_code = cls._bounded_string(
+        pairing_code = self._bounded_string(value.get("pairingCode"), maximum=4096)
+        manual_code = self._bounded_string(
             value.get("manualPairingCode"), maximum=256, optional=True
         )
-        environment_id = cls._bounded_string(value.get("environmentId"))
+        environment_id = self._bounded_string(value.get("environmentId"))
         expires_at = value.get("expiresAt")
         if (
             pairing_code is None
@@ -93,6 +95,7 @@ class RemoteControl:
             "manualPairingCode": manual_code,
             "environmentId": environment_id,
             "expiresAt": expires_at,
+            "qrMatrix": self.qr_encoder(pairing_code),
         }
 
     def pair(self):

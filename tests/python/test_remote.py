@@ -137,7 +137,11 @@ def test_remote_pair_start_uses_proxy_and_normalizes_code_without_persisting_it(
             "unexpectedSecret": "discard me",
         }
     )
-    remote = RemoteControl("/usr/bin/codex", client_factory=lambda: client)
+    remote = RemoteControl(
+        "/usr/bin/codex",
+        client_factory=lambda: client,
+        qr_encoder=lambda value: ["101", "010", "101"],
+    )
 
     result = remote.pair_start()
 
@@ -146,6 +150,7 @@ def test_remote_pair_start_uses_proxy_and_normalizes_code_without_persisting_it(
         "manualPairingCode": "ABCD-EFGH",
         "environmentId": "environment-1",
         "expiresAt": 1_800_000_000,
+        "qrMatrix": ["101", "010", "101"],
     }
     assert "unexpectedSecret" not in repr(result)
     assert client.calls == [

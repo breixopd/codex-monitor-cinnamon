@@ -63,6 +63,7 @@ var Dashboard = class Dashboard {
     this._ = options.translate;
     this._model = options.model;
     this._graph = options.graph;
+    this._qr = options.qr;
     this._callbacks = options.callbacks;
     this._snapshot = null;
     this._remoteStatus = null;
@@ -221,22 +222,23 @@ var Dashboard = class Dashboard {
     this._remoteSection.add_child(heading);
     this._remoteSection.add_child(this._remoteIdentity);
     this._remoteSection.add_child(this._remoteButtons);
+    this._pairingQr = this._qr.createQrCode();
+    this._pairingQr.visible = false;
     this._pairingManualLabel = new St.Label({
       text: '',
       style_class: 'codex-monitor-pairing-code',
     });
-    this._pairingAutomaticLabel = new St.Label({
+    this._pairingQrFallback = new St.Label({
       text: '',
-      style_class: 'codex-monitor-secondary codex-monitor-pairing-automatic',
+      style_class: 'codex-monitor-secondary',
     });
-    this._pairingAutomaticLabel.clutter_text.set_ellipsize(Pango.EllipsizeMode.END);
-    this._pairingAutomaticLabel.clutter_text.set_single_line_mode(true);
     this._pairingState = new St.Label({
       text: '',
       style_class: 'codex-monitor-secondary',
     });
+    this._remoteSection.add_child(this._pairingQr);
     this._remoteSection.add_child(this._pairingManualLabel);
-    this._remoteSection.add_child(this._pairingAutomaticLabel);
+    this._remoteSection.add_child(this._pairingQrFallback);
     this._remoteSection.add_child(this._pairingState);
     this._remoteClientsHeading = new St.Label({
       text: this._('Paired devices'),
@@ -564,16 +566,18 @@ var Dashboard = class Dashboard {
     }
     const now = Math.floor(Date.now() / 1000);
     if (this._pairing && this._pairing.claimed) {
+      this._qr.updateQrCode(this._pairingQr, null);
       this._pairingManualLabel.set_text('');
-      this._pairingAutomaticLabel.set_text('');
+      this._pairingQrFallback.set_text('');
       this._pairingState.set_text(this._('Pairing complete'));
     } else if (this._pairing && this._pairing.expiresAt > now) {
+      const qrReady = this._qr.updateQrCode(this._pairingQr, this._pairing.qrMatrix);
       this._pairingManualLabel.set_text(this._pairing.manualPairingCode
         ? `${this._('Manual code')}: ${this._pairing.manualPairingCode}`
         : '');
-      this._pairingAutomaticLabel.set_text(this._pairing.pairingCode
-        ? `${this._('Automatic code')}: ${this._pairing.pairingCode}`
-        : '');
+      this._pairingQrFallback.set_text(qrReady
+        ? ''
+        : this._('QR unavailable; use the manual code'));
       this._pairingState.set_text(
         `${this._('Waiting for device')} · ${this._('expires in')} ` +
         this._model.formatDuration(this._pairing.expiresAt - now) +
@@ -582,12 +586,13 @@ var Dashboard = class Dashboard {
           : ` · ${this._('claim detection requires a newer Codex version')}`)
       );
     } else {
+      this._qr.updateQrCode(this._pairingQr, null);
       this._pairingManualLabel.set_text('');
-      this._pairingAutomaticLabel.set_text('');
+      this._pairingQrFallback.set_text('');
       this._pairingState.set_text('');
     }
     this._pairingManualLabel.visible = Boolean(this._pairingManualLabel.get_text());
-    this._pairingAutomaticLabel.visible = Boolean(this._pairingAutomaticLabel.get_text());
+    this._pairingQrFallback.visible = Boolean(this._pairingQrFallback.get_text());
     this._pairingState.visible = Boolean(this._pairingState.get_text());
 
     _clear(this._remoteClientList);

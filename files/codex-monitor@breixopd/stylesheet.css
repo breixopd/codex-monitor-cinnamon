@@ -258,11 +258,13 @@
   padding: 7px;
   border-radius: 5px;
   background-color: rgba(90, 169, 230, 0.14);
+  text-align: center;
 }
 
-.codex-monitor-pairing-automatic {
-  max-width: 520px;
-  font-family: monospace;
+.codex-monitor-qr {
+  width: 196px;
+  height: 196px;
+  margin: 5px 0;
 }
 
 .codex-monitor-remote-client-row {

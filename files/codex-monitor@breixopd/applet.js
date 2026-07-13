@@ -18,6 +18,7 @@ const BridgeClient = Modules.bridgeClient.BridgeClient;
 const Dashboard = Modules.ui.Dashboard;
 const Graph = Modules.graph;
 const Model = Modules.model;
+const Qr = Modules.qr;
 
 class CodexMonitorApplet extends Applet.Applet {
   constructor(metadata, orientation, panelHeight, instanceId) {
@@ -133,6 +134,7 @@ class CodexMonitorApplet extends Applet.Applet {
       translate: this._,
       model: Model,
       graph: Graph,
+      qr: Qr,
       callbacks: {
         onRefresh: this._refresh.bind(this),
         onGraphMode: mode => {

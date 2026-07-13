@@ -17,6 +17,7 @@ REQUIRED_FILES = {
     "helper/bridge.py",
     "metadata.json",
     "model.js",
+    "qr.js",
     "settings-schema.json",
     "stylesheet.css",
     "ui.js",
