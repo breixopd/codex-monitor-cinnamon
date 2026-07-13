@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[2]
 UUID = "codex-monitor@breixopd"
 
 
-def test_installer_keeps_one_discoverable_copy_and_externalizes_backup(tmp_path):
+def test_installer_keeps_one_copy_and_removes_all_install_backups(tmp_path):
     data_home = tmp_path / "share"
     applets = data_home / "cinnamon" / "applets"
     target = applets / UUID
@@ -19,6 +19,10 @@ def test_installer_keeps_one_discoverable_copy_and_externalizes_backup(tmp_path)
         (stale / "metadata.json").write_text("{}", encoding="utf-8")
     unrelated = applets / "unrelated@example"
     unrelated.mkdir()
+    backup_root = data_home / UUID / "install-backups"
+    retained = backup_root / "old-retained-copy"
+    retained.mkdir(parents=True)
+    (retained / "old-marker").write_text("old", encoding="utf-8")
 
     completed = subprocess.run(
         ["sh", str(ROOT / "scripts" / "install.sh")],
@@ -34,8 +38,5 @@ def test_installer_keeps_one_discoverable_copy_and_externalizes_backup(tmp_path)
     assert matching == [UUID]
     assert (target / "metadata.json").is_file()
     assert unrelated.is_dir()
-    backup_root = data_home / UUID / "install-backups"
-    backups = list(backup_root.iterdir())
-    assert len(backups) == 1
-    assert (backups[0] / "old-marker").read_text(encoding="utf-8") == "old"
-    assert backup_root.stat().st_mode & 0o077 == 0
+    assert not backup_root.exists()
+    assert not any(path.name.startswith(".codex-monitor.previous.") for path in applets.iterdir())
