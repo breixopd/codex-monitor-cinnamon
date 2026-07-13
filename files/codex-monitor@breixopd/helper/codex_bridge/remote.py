@@ -85,12 +85,14 @@ class RemoteControl:
         )
         if pairing_code is None and manual_pairing_code is None:
             raise RuntimeError("Codex remote-control pairing code was invalid")
+        params = (
+            {"pairingCode": pairing_code}
+            if pairing_code is not None
+            else {"manualPairingCode": manual_pairing_code}
+        )
         value = self._proxy_request(
             "remoteControl/pairing/status",
-            {
-                "pairingCode": pairing_code,
-                "manualPairingCode": manual_pairing_code,
-            },
+            params,
         )
         if not isinstance(value, dict) or not isinstance(value.get("claimed"), bool):
             raise RuntimeError("Codex remote-control response was invalid")

@@ -167,7 +167,18 @@ def test_remote_pair_status_uses_in_memory_pairing_codes():
     assert result == {"claimed": True}
     assert client.calls[1] == (
         "remoteControl/pairing/status",
-        {"pairingCode": "opaque-code", "manualPairingCode": "ABCD-EFGH"},
+        {"pairingCode": "opaque-code"},
+    )
+
+
+def test_remote_pair_status_uses_manual_code_only_when_opaque_code_is_missing():
+    client = FakeStatusClient({"claimed": False})
+    remote = RemoteControl("codex", client_factory=lambda: client)
+
+    assert remote.pair_status(None, "ABCD-EFGH") == {"claimed": False}
+    assert client.calls[1] == (
+        "remoteControl/pairing/status",
+        {"manualPairingCode": "ABCD-EFGH"},
     )
 
 
