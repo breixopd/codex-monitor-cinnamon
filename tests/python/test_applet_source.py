@@ -148,6 +148,16 @@ def test_dashboard_sends_semantic_graph_payload():
     assert "axes," in source
 
 
+def test_session_dashboard_has_keyboard_filters_and_project_groups():
+    source = UI_SOURCE.read_text(encoding="utf-8")
+
+    for label in ("All", "Active", "Attention", "Recent"):
+        assert f"this._('{label}')" in source
+    assert "this._model.sessionView" in source
+    assert "codex-monitor-session-project" in source
+    assert "add_style_pseudo_class('checked')" in source
+
+
 def test_pairing_qr_uses_only_bounded_native_svg_rendering():
     applet = APPLET_SOURCE.read_text(encoding="utf-8")
     ui = UI_SOURCE.read_text(encoding="utf-8")

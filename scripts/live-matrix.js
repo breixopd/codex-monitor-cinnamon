@@ -13,6 +13,7 @@
     pairing: x._pairing,
     graphMode: x.graphMode,
     graphRangeHours: x.graphRangeHours,
+    sessionFilter: dashboard._sessionFilter,
   };
   var results = { instance: true };
   var now = Math.floor(Date.now() / 1000);
@@ -242,24 +243,31 @@
       dashboard._updateButton.label === "Retry";
 
     dashboard.setSessions({ active: [], recent: [] });
-    results.sessionsEmpty = dashboard._activeSessionList.get_children().length === 1 &&
-      dashboard._recentSessionList.get_children().length === 1;
+    results.sessionsEmpty = dashboard._sessionList.get_children().length === 1 &&
+      Object.keys(dashboard._sessionFilterButtons).length === 4;
     dashboard.setSessions({
       active: [{
         id: "019c0000-0000-7000-8000-000000000001",
         title: "Active", project: "Widgets", sourceLabel: "CLI",
         statusLabel: "Active", updatedAt: now,
+        attention: ["waitingOnUserInput"],
       }],
       recent: [{
         id: "019c0000-0000-7000-8000-000000000002",
-        title: "Finished", project: "Widgets", sourceLabel: "CLI",
+        title: "Finished", project: "Skynet", sourceLabel: "CLI",
         statusLabel: "Finished", updatedAt: now - 60,
+        attention: [],
       }],
     });
-    results.sessionsActiveRecent = dashboard._activeSessionList.get_children().length === 1 &&
-      dashboard._recentSessionList.get_children().length === 1;
+    results.sessionsActiveRecent = dashboard._sessionList.get_children().length === 2;
+    dashboard._sessionFilter = "attention";
+    dashboard._renderSessions();
+    results.sessionsAttentionFilter = dashboard._sessionList.get_children().length === 1 &&
+      dashboard._sessionFilterButtons.attention.has_style_pseudo_class("checked");
+    dashboard._sessionFilter = "all";
+    dashboard._renderSessions();
     dashboard.showSessionsError();
-    results.sessionsUnavailable = dashboard._activeSessionList.get_children()[0]
+    results.sessionsUnavailable = dashboard._sessionList.get_children()[0]
       .get_text().indexOf("unavailable") >= 0;
   } catch (error) {
     results.matrixException = true;
@@ -271,6 +279,7 @@
     x._pairing = saved.pairing;
     x.graphMode = saved.graphMode;
     x.graphRangeHours = saved.graphRangeHours;
+    dashboard._sessionFilter = saved.sessionFilter;
     dashboard.setSessions(saved.sessions || { active: [], recent: [] });
     dashboard.setRemoteStatus(saved.remoteStatus || { status: "disabled" });
     dashboard.setPairing(saved.pairing || null);

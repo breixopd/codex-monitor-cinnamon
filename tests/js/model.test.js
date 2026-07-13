@@ -468,6 +468,49 @@ test('nearest graph values select one point from every available series', () => 
   ], 300, 50), []);
 });
 
+test('session view filters attention and groups visible rows by project', () => {
+  const sessions = {
+    active: [
+      { id: '1', project: 'Widgets', updatedAt: 300, attention: [] },
+      {
+        id: '2', project: 'Skynet', updatedAt: 400,
+        attention: ['waitingOnUserInput'],
+      },
+    ],
+    recent: [
+      { id: '3', project: 'Widgets', updatedAt: 200, attention: [] },
+      { id: '4', project: 'Skynet', updatedAt: 100, attention: [] },
+    ],
+  };
+
+  const all = model.sessionView(sessions, 'all', 12);
+  assert.deepEqual(all.counts, { all: 4, active: 2, attention: 1, recent: 2 });
+  assert.deepEqual(all.groups.map(group => [
+    group.project, group.sessions.map(session => session.id),
+  ]), [
+    ['Skynet', ['2', '4']],
+    ['Widgets', ['1', '3']],
+  ]);
+
+  const attention = model.sessionView(sessions, 'attention', 12);
+  assert.equal(attention.filter, 'attention');
+  assert.deepEqual(attention.groups[0].sessions.map(session => session.id), ['2']);
+
+  const recent = model.sessionView(sessions, 'recent', 1);
+  assert.equal(recent.visibleCount, 1);
+  assert.deepEqual(recent.groups[0].sessions.map(session => session.id), ['3']);
+});
+
+test('session view normalizes invalid filters and missing project names', () => {
+  const view = model.sessionView({
+    active: [],
+    recent: [{ id: '1', project: '', updatedAt: null }],
+  }, 'invalid', 12);
+
+  assert.equal(view.filter, 'all');
+  assert.equal(view.groups[0].project, 'Unknown project');
+});
+
 test('graph summary reports empty and insufficient history states', () => {
   assert.equal(model.graphSummary({ label: '5h', points: [] }).state, 'empty');
   assert.equal(model.graphSummary({

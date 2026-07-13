@@ -441,6 +441,45 @@ function nearestGraphValues(series, timestamp, maximumDistance = null) {
       Math.abs(Number(point.timestamp) - target) <= Number(maximumDistance));
 }
 
+function sessionView(sessions, selectedFilter = 'all', limit = 12) {
+  const source = sessions && typeof sessions === 'object' ? sessions : {};
+  const active = Array.isArray(source.active) ? source.active : [];
+  const recent = Array.isArray(source.recent) ? source.recent : [];
+  const all = active.concat(recent).slice().sort((left, right) =>
+    (Number(right.updatedAt) || 0) - (Number(left.updatedAt) || 0));
+  const attention = all.filter(session =>
+    Array.isArray(session.attention) && session.attention.length > 0);
+  const filters = { all, active, attention, recent };
+  const filter = Object.prototype.hasOwnProperty.call(filters, selectedFilter)
+    ? selectedFilter : 'all';
+  const maximum = Math.max(1, Math.min(50, Math.floor(Number(limit) || 12)));
+  const visible = filters[filter].slice(0, maximum);
+  const groups = [];
+  const byProject = new Map();
+  for (const session of visible) {
+    const project = typeof session.project === 'string' && session.project.trim()
+      ? session.project.trim() : 'Unknown project';
+    let group = byProject.get(project);
+    if (!group) {
+      group = { project, sessions: [] };
+      byProject.set(project, group);
+      groups.push(group);
+    }
+    group.sessions.push(session);
+  }
+  return {
+    filter,
+    counts: {
+      all: all.length,
+      active: active.length,
+      attention: attention.length,
+      recent: recent.length,
+    },
+    groups,
+    visibleCount: visible.length,
+  };
+}
+
 function isUsableRemoteStatus(remoteStatus) {
   const status = remoteStatus && remoteStatus.status;
   return status === 'connecting' || status === 'connected' || status === 'running';
@@ -503,6 +542,7 @@ const CodexModel = {
   graphDomain,
   graphAxes,
   nearestGraphValues,
+  sessionView,
   isUsableRemoteStatus,
   normalizeUpdateState,
 };

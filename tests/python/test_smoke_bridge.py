@@ -139,6 +139,7 @@ def test_live_smoke_preserves_remote_and_runs_full_visual_matrix():
         "updateUpdating",
         "updateFailed",
         "sessionsEmpty",
+        "sessionsAttentionFilter",
         "sessionsUnavailable",
     ):
         assert state in matrix

@@ -108,6 +108,8 @@ var Dashboard = class Dashboard {
     this._remoteError = '';
     this._sessions = { active: [], recent: [] };
     this._sessionsError = false;
+    this._sessionFilter = 'all';
+    this._sessionFilterButtons = {};
     this._updateState = null;
     this._settings = {};
 
@@ -254,18 +256,29 @@ var Dashboard = class Dashboard {
     heading.add_child(_button(this._('Open Codex'), this._callbacks.onOpenCodex));
     section.add_child(heading);
 
-    section.add_child(new St.Label({
-      text: this._('Active now'),
-      style_class: 'codex-monitor-session-group-title',
-    }));
-    this._activeSessionList = new St.BoxLayout({ vertical: true });
-    section.add_child(this._activeSessionList);
-    section.add_child(new St.Label({
-      text: this._('Recent / finished'),
-      style_class: 'codex-monitor-session-group-title',
-    }));
-    this._recentSessionList = new St.BoxLayout({ vertical: true });
-    section.add_child(this._recentSessionList);
+    this._sessionFilters = new St.BoxLayout({
+      style_class: 'codex-monitor-session-filters',
+    });
+    for (const [key, label] of [
+      ['all', this._('All')],
+      ['active', this._('Active')],
+      ['attention', this._('Attention')],
+      ['recent', this._('Recent')],
+    ]) {
+      const button = _button(label, () => {
+        this._sessionFilter = key;
+        this._renderSessions();
+      }, 'codex-monitor-session-filter');
+      button._baseLabel = label;
+      this._sessionFilterButtons[key] = button;
+      this._sessionFilters.add_child(button);
+    }
+    section.add_child(this._sessionFilters);
+    this._sessionList = new St.BoxLayout({
+      vertical: true,
+      style_class: 'codex-monitor-session-list',
+    });
+    section.add_child(this._sessionList);
     this.actor.add_child(section);
     this._renderSessions();
   }
@@ -625,38 +638,54 @@ var Dashboard = class Dashboard {
   }
 
   _renderSessions() {
-    if (!this._activeSessionList || !this._recentSessionList)
+    if (!this._sessionList)
       return;
-    _clear(this._activeSessionList);
-    _clear(this._recentSessionList);
-    const active = (this._sessions.active || []).slice(0, 12);
-    const recent = (this._sessions.recent || []).slice(0, Math.max(0, 12 - active.length));
+    _clear(this._sessionList);
+    const view = this._model.sessionView(this._sessions, this._sessionFilter, 12);
+    this._sessionFilter = view.filter;
     this._sessionHeading.set_text(
-      `${this._('Codex sessions')} (${active.length + recent.length})`
+      `${this._('Codex sessions')} (${view.counts.all})`
     );
+    for (const [key, button] of Object.entries(this._sessionFilterButtons)) {
+      button.set_label(`${button._baseLabel} ${view.counts[key]}`);
+      if (key === view.filter)
+        button.add_style_pseudo_class('checked');
+      else
+        button.remove_style_pseudo_class('checked');
+    }
     if (this._sessionsError) {
-      this._activeSessionList.add_child(new St.Label({
+      this._sessionList.add_child(new St.Label({
         text: this._('Session list unavailable; quota monitoring is still live'),
         style_class: 'codex-monitor-secondary',
       }));
-    } else if (active.length === 0) {
-      this._activeSessionList.add_child(new St.Label({
-        text: this._('No sessions reported as active'),
-        style_class: 'codex-monitor-secondary',
-      }));
-    } else {
-      for (const session of active)
-        this._activeSessionList.add_child(this._sessionRow(session));
+      return;
     }
-
-    if (recent.length === 0) {
-      this._recentSessionList.add_child(new St.Label({
-        text: this._('No recent sessions'),
+    if (view.groups.length === 0) {
+      const emptyLabels = {
+        all: this._('No sessions reported'),
+        active: this._('No active sessions'),
+        attention: this._('No sessions need attention'),
+        recent: this._('No recent sessions'),
+      };
+      this._sessionList.add_child(new St.Label({
+        text: emptyLabels[view.filter],
         style_class: 'codex-monitor-secondary',
       }));
-    } else {
-      for (const session of recent)
-        this._recentSessionList.add_child(this._sessionRow(session));
+      return;
+    }
+    for (const group of view.groups) {
+      const actor = new St.BoxLayout({
+        vertical: true,
+        style_class: 'codex-monitor-session-project-group',
+      });
+      actor.add_child(new St.Label({
+        text: group.project === 'Unknown project'
+          ? this._('Unknown project') : group.project,
+        style_class: 'codex-monitor-session-project',
+      }));
+      for (const session of group.sessions)
+        actor.add_child(this._sessionRow(session));
+      this._sessionList.add_child(actor);
     }
   }
 
@@ -685,8 +714,7 @@ var Dashboard = class Dashboard {
       )} ${this._('ago')}`
       : this._('update time unavailable');
     const meta = new St.Label({
-      text: `${session.project || this._('Unknown project')} · ` +
-        `${session.sourceLabel || this._('Unknown source')} · ${status} · ${updated}`,
+      text: `${session.sourceLabel || this._('Unknown source')} · ${status} · ${updated}`,
       style_class: 'codex-monitor-secondary',
       x_expand: true,
     });
@@ -703,7 +731,8 @@ var Dashboard = class Dashboard {
       can_focus: true,
       track_hover: true,
       x_expand: true,
-      accessible_name: `${session.title || this._('Untitled session')} · ${status}`,
+      accessible_name: `${session.project || this._('Unknown project')} · ` +
+        `${session.title || this._('Untitled session')} · ${status}`,
     });
     row.connect('clicked', () => this._callbacks.onOpenSession(session));
     return row;

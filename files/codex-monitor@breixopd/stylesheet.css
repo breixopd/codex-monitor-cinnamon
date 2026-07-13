@@ -153,6 +153,40 @@
   padding-top: 3px;
 }
 
+.codex-monitor-session-filters {
+  spacing: 5px;
+}
+
+.codex-monitor-session-filter {
+  padding: 4px 7px;
+  border-radius: 4px;
+  background-color: rgba(255, 255, 255, 0.055);
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.codex-monitor-session-filter:hover,
+.codex-monitor-session-filter:focus {
+  background-color: rgba(90, 169, 230, 0.18);
+}
+
+.codex-monitor-session-filter:checked {
+  background-color: rgba(90, 169, 230, 0.32);
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.codex-monitor-session-list,
+.codex-monitor-session-project-group {
+  spacing: 4px;
+}
+
+.codex-monitor-session-project {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.78em;
+  font-weight: 700;
+  padding-top: 4px;
+}
+
 .codex-monitor-session-row {
   padding: 6px 7px;
   border-radius: 5px;
