@@ -22,7 +22,7 @@ jobs:
         with:
           node-version: "20"
       - name: Install test runner
-        run: python -m pip install pytest
+        run: python -m pip install pytest pillow
       - name: Validate source and shell syntax
         run: |
           python scripts/validate.py
@@ -33,6 +33,19 @@ jobs:
         run: npm test
       - name: Build distributable
         run: sh scripts/package.sh
+      - name: Check out the pinned official Cinnamon validator
+        uses: actions/checkout@v4
+        with:
+          repository: linuxmint/cinnamon-spices-applets
+          ref: 5b4240a93b32b2171e672ae3e86e4649a447d4cf
+          path: .official-spices
+          sparse-checkout: validate-spice
+          sparse-checkout-cone-mode: false
+      - name: Run official Cinnamon Spices validation
+        run: |
+          cp -a dist/spices/codex-monitor@breixopd .official-spices/
+          cd .official-spices
+          ./validate-spice codex-monitor@breixopd
       - name: Verify archive contains no private or generated files
         run: |
           unzip -Z1 dist/codex-monitor@breixopd.zip > archive-files.txt

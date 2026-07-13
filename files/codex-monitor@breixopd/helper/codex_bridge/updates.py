@@ -13,12 +13,13 @@ import threading
 import time
 from urllib import request as urllib_request
 
+from . import __version__
+
 
 _CHECK_INTERVAL_SECONDS = 12 * 3600
 _MAX_RESPONSE_BYTES = 1_000_000
 _RELEASE_URL = "https://api.github.com/repos/openai/codex/releases/latest"
-_INSTALLER_URL = "https://chatgpt.com/codex/install.sh"
-_USER_AGENT = "Codex-Monitor-Cinnamon/0.1"
+_USER_AGENT = f"Codex-Monitor-Cinnamon/{__version__}"
 _VERSION_RE = re.compile(
     r"^(?:rust-v|codex-cli\s+)?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$"
 )
@@ -143,8 +144,6 @@ class UpdateManager:
 
     def _update_worker(self):
         success = self._run_update_command()
-        if not success:
-            success = self._run_official_installer()
         installed = self._installed_version() if success else None
         with self._lock:
             if installed is not None and not is_newer_version(
@@ -163,7 +162,9 @@ class UpdateManager:
                 current = self._state.get("installedVersion") or "the current version"
                 self._state["status"] = "failed"
                 self._state["message"] = (
-                    f"Update failed; Codex {current} is still installed"
+                    f"Automatic update failed; Codex {current} is still installed. "
+                    "Use the official Codex installation instructions to update "
+                    "manually."
                 )
             self._recalculate_availability()
             self._worker = None
@@ -296,52 +297,6 @@ class UpdateManager:
         except (OSError, subprocess.TimeoutExpired):
             return False
         return completed.returncode == 0
-
-    def _run_official_installer(self):
-        temporary_path = None
-        try:
-            request = urllib_request.Request(
-                _INSTALLER_URL,
-                headers={"User-Agent": _USER_AGENT, "Accept": "text/plain"},
-                method="GET",
-            )
-            with self.urlopen(request, timeout=10) as response:
-                payload = response.read(_MAX_RESPONSE_BYTES + 1)
-            if (
-                not isinstance(payload, bytes)
-                or len(payload) == 0
-                or len(payload) > _MAX_RESPONSE_BYTES
-                or b"\x00" in payload
-            ):
-                return False
-            self.data_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
-            descriptor, raw_path = tempfile.mkstemp(
-                prefix=".codex-installer-", suffix=".sh", dir=self.data_dir
-            )
-            temporary_path = Path(raw_path)
-            os.fchmod(descriptor, 0o600)
-            with os.fdopen(descriptor, "wb") as handle:
-                handle.write(payload)
-                handle.flush()
-                os.fsync(handle.fileno())
-            completed = self.runner(
-                ["/bin/sh", str(temporary_path)],
-                shell=False,
-                check=False,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                timeout=1800,
-                env=self._update_environment(),
-            )
-            return completed.returncode == 0
-        except (OSError, RuntimeError, TimeoutError, ValueError, subprocess.TimeoutExpired):
-            return False
-        finally:
-            if temporary_path is not None:
-                try:
-                    temporary_path.unlink()
-                except OSError:
-                    pass
 
     def _update_environment(self):
         environment = dict(os.environ)

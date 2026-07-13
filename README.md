@@ -1,6 +1,10 @@
 # Codex Monitor for Cinnamon
 
+[![CI](https://github.com/breixopd/codex-monitor-cinnamon/actions/workflows/ci.yml/badge.svg)](https://github.com/breixopd/codex-monitor-cinnamon/actions/workflows/ci.yml)
+
 Codex Monitor is a Linux Mint Cinnamon panel applet for checking Codex quota usage without opening a terminal. Its compact panel view shows centered 5-hour and weekly meters plus explicit quota, reset, freshness, and Remote Control indicators. The popup adds countdowns, semantic history graphs, recent sessions, banked resets, Remote Control management, and safe Codex update discovery.
+
+![Codex Monitor dashboard](store/screenshot.png)
 
 ## Features
 
@@ -13,7 +17,7 @@ Codex Monitor is a Linux Mint Cinnamon panel applet for checking Codex quota usa
 - Open Codex action using `x-terminal-emulator`
 - Confirmed Remote Control start, stop, native SVG/manual pairing, device listing, and revocation
 - Automatic 12-hour Codex update checks with a button shown only when a newer release is available
-- Confirmed background update using `codex update`, with the official standalone installer as a safe fallback
+- Confirmed background update using the installed CLI's fixed-argument `codex update` command
 - Theme-integrated Cinnamon popup, keyboard-focusable controls, and vertical-panel fallback
 - Local-only quota history with configurable 7–90 day retention, five-minute coalescing, and bounded graph rendering
 
@@ -60,7 +64,7 @@ Right-click the applet and choose **Configure**. Available options cover refresh
 
 Remote Control is managed directly in the dashboard. Starting it and revoking a paired device require confirmation because paired clients can control Codex on this computer. The applet confirms an existing Linux Remote process before probing its connection, so it does not silently enable Remote. Pairing uses one bounded SVG implementation with a manual-code fallback.
 
-Update discovery starts only after the first quota snapshot. It reads Codex's fresh local version cache first and otherwise checks the official OpenAI GitHub release endpoint every 12 hours. A current installation shows only its version; **Update Codex…** appears only when a newer stable release is known. Installing always requires confirmation and runs in the background without restarting Cinnamon, Remote Control, the bridge, or existing Codex sessions.
+Update discovery starts only after the first quota snapshot. It reads Codex's fresh local version cache first and otherwise checks the official OpenAI GitHub release endpoint every 12 hours. A current installation shows only its version; **Update Codex…** appears only when a newer stable release is known. Installing always requires confirmation and runs the installed CLI's `codex update` command in the background without restarting Cinnamon, Remote Control, the bridge, or existing Codex sessions. The applet never downloads or executes an installer script; if the installed CLI cannot update itself, it directs the user to the official manual installation instructions.
 
 ## Privacy and security
 

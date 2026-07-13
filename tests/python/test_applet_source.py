@@ -218,6 +218,25 @@ def test_update_ui_is_conditional_confirmed_and_has_no_panel_badge():
     assert "updateBadge" not in applet + ui
 
 
+def test_bridge_queues_async_writes_and_closes_without_sync_io():
+    source = APPLET_SOURCE.with_name("bridgeClient.js").read_text(encoding="utf-8")
+
+    assert "ByteArray.fromString" in source
+    assert "GLib.Bytes.new" in source
+    assert "write_bytes_async" in source
+    assert "write_bytes_finish" in source
+    assert "close_async" in source
+    assert "close_finish" in source
+    assert "state.queue.push" in source
+    assert "state.writing" in source
+    assert "state.current = item" in source
+    assert "state.current = null" in source
+    assert "state.currentChunk" in source
+    assert "write_all_async" not in source
+    assert ".put_string(" not in source
+    assert ".close(null)" not in source
+
+
 def test_applet_uses_cinnamons_reloadable_commonjs_module_loader():
     source = APPLET_SOURCE.read_text(encoding="utf-8")
 

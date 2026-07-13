@@ -1,0 +1,603 @@
+# CODEX MONITOR
+# This file is put in the public domain.
+# breixopd, 2026
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: codex-monitor@breixopd 1.0.0\n"
+"Report-Msgid-Bugs-To: https://github.com/linuxmint/cinnamon-spices-applets/"
+"issues\n"
+"POT-Creation-Date: 2026-07-13 23:00+0200\n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#. applet.js:50 applet.js:434
+msgid "Codex usage monitor"
+msgstr ""
+
+#. applet.js:226
+msgid "Refreshing…"
+msgstr ""
+
+#. applet.js:318
+msgid "Remote Control status unavailable"
+msgstr ""
+
+#. applet.js:399
+msgid "Paired devices unavailable"
+msgstr ""
+
+#. applet.js:409
+msgid "Unable to refresh Codex; showing last data"
+msgstr ""
+
+#. applet.js:428
+msgid "Codex Monitor · connecting"
+msgstr ""
+
+#. applet.js:468 ui.js:628
+msgid "no expiry"
+msgstr ""
+
+#. applet.js:469
+msgid "Apply this banked reset?"
+msgstr ""
+
+#. applet.js:470 ui.js:631
+msgid "Codex limit reset"
+msgstr ""
+
+#. applet.js:478
+msgid "Reset could not be applied"
+msgstr ""
+
+#. applet.js:479
+msgid "Reset result"
+msgstr ""
+
+#. applet.js:488 applet.js:501
+msgid "Could not open the default terminal"
+msgstr ""
+
+#. applet.js:510
+msgid ""
+"Start Codex Remote Control? This allows paired mobile clients to control "
+"this machine."
+msgstr ""
+
+#. applet.js:519
+msgid ""
+"Stop Codex Remote Control? This disconnects paired devices and may end "
+"active Remote sessions."
+msgstr ""
+
+#. applet.js:527
+msgid "this device"
+msgstr ""
+
+#. applet.js:528
+msgid "Revoke Remote Control access for"
+msgstr ""
+
+#. applet.js:545
+msgid "Update Codex?"
+msgstr ""
+
+#. applet.js:547
+msgid "Existing Codex and Remote sessions will keep running."
+msgstr ""
+
+#. applet.js:570
+msgid "Updating Remote Control…"
+msgstr ""
+
+#. applet.js:573 applet.js:575
+msgid "Remote Control action failed"
+msgstr ""
+
+#. ui.js:71
+msgid "Waiting for Codex…"
+msgstr ""
+
+#. ui.js:81
+msgid "Not available"
+msgstr ""
+
+#. ui.js:82
+msgid "No limit reported for the current model"
+msgstr ""
+
+#. ui.js:86
+msgid "used"
+msgstr ""
+
+#. ui.js:88
+msgid "Reset time unavailable"
+msgstr ""
+
+#. ui.js:92
+msgid "Resets in"
+msgstr ""
+
+#. metadata.json->name
+#. ui.js:132
+msgid "Codex Monitor"
+msgstr ""
+
+#. ui.js:137 ui.js:746
+msgid "Connecting…"
+msgstr ""
+
+#. ui.js:148
+msgid "Current indicators"
+msgstr ""
+
+#. ui.js:166
+msgid "Usage data current"
+msgstr ""
+
+#. ui.js:184
+msgid "5-HOUR"
+msgstr ""
+
+#. ui.js:185
+msgid "WEEKLY"
+msgstr ""
+
+#. ui.js:198
+msgid "Usage trend"
+msgstr ""
+
+#. ui.js:204
+msgid "Quota"
+msgstr ""
+
+#. ui.js:205 ui.js:543
+msgid "Activity"
+msgstr ""
+
+#. settings-schema.json->graph-mode->options
+#. ui.js:206
+msgid "Both"
+msgstr ""
+
+#. ui.js:235 ui.js:614
+msgid "Banked resets"
+msgstr ""
+
+#. ui.js:251 ui.js:648
+msgid "Codex sessions"
+msgstr ""
+
+#. ui.js:256
+msgid "Open Codex"
+msgstr ""
+
+#. ui.js:263
+msgid "All"
+msgstr ""
+
+#. ui.js:264
+msgid "Active"
+msgstr ""
+
+#. ui.js:265
+msgid "Attention"
+msgstr ""
+
+#. ui.js:266
+msgid "Recent"
+msgstr ""
+
+#. ui.js:293
+msgid "Remote Control"
+msgstr ""
+
+#. ui.js:298 ui.js:745
+msgid "Disabled"
+msgstr ""
+
+#. ui.js:333 ui.js:814
+msgid "Paired devices"
+msgstr ""
+
+#. ui.js:351 ui.js:374
+msgid "Update Codex…"
+msgstr ""
+
+#. ui.js:360
+msgid "No data yet"
+msgstr ""
+
+#. ui.js:365 ui.js:772 ui.js:777
+msgid "Refresh"
+msgstr ""
+
+#. ui.js:377 ui.js:395 ui.js:399
+msgid "Codex"
+msgstr ""
+
+#. ui.js:377
+msgid "Checking for updates…"
+msgstr ""
+
+#. ui.js:378
+msgid "Checking for Codex updates…"
+msgstr ""
+
+#. ui.js:381
+msgid "Updating Codex…"
+msgstr ""
+
+#. ui.js:385
+msgid "Updated to Codex"
+msgstr ""
+
+#. ui.js:386
+msgid "New Codex launches use this version."
+msgstr ""
+
+#. ui.js:390
+msgid "Update failed; Codex"
+msgstr ""
+
+#. ui.js:391
+msgid "is still installed"
+msgstr ""
+
+#. ui.js:392
+msgid "Retry"
+msgstr ""
+
+#. ui.js:411
+msgid "Automatic update failed; Codex"
+msgstr ""
+
+#. ui.js:412
+msgid ""
+"is still installed. Use the official Codex installation instructions to "
+"update manually."
+msgstr ""
+
+#. ui.js:413
+msgid ""
+"Automatic Codex update failed. Use the official Codex installation "
+"instructions to update manually."
+msgstr ""
+
+#. ui.js:437
+msgid "Unknown plan"
+msgstr ""
+
+#. ui.js:438
+msgid "Live"
+msgstr ""
+
+#. ui.js:442
+msgid "Updated"
+msgstr ""
+
+#. ui.js:442 ui.js:715 ui.js:854
+msgid "ago"
+msgstr ""
+
+#. ui.js:449
+msgid "Stale · retrying"
+msgstr ""
+
+#. ui.js:450
+msgid "Unable to refresh Codex"
+msgstr ""
+
+#. ui.js:484
+msgid "Remote Control is unavailable"
+msgstr ""
+
+#. ui.js:515
+msgid "Weekly"
+msgstr ""
+
+#. ui.js:555
+msgid "tokens"
+msgstr ""
+
+#. ui.js:580
+msgid "No sample near this time"
+msgstr ""
+
+#. ui.js:592
+msgid "History starts"
+msgstr ""
+
+#. ui.js:594
+msgid "collected of"
+msgstr ""
+
+#. ui.js:606
+msgid "Hover for timestamp and exact values"
+msgstr ""
+
+#. ui.js:607
+msgid "No samples yet"
+msgstr ""
+
+#. ui.js:618
+msgid "No available reset credits"
+msgstr ""
+
+#. ui.js:627 ui.js:795
+msgid "expires in"
+msgstr ""
+
+#. ui.js:636
+msgid "Apply…"
+msgstr ""
+
+#. ui.js:659
+msgid "Session list unavailable; quota monitoring is still live"
+msgstr ""
+
+#. ui.js:666
+msgid "No sessions reported"
+msgstr ""
+
+#. ui.js:667
+msgid "No active sessions"
+msgstr ""
+
+#. ui.js:668
+msgid "No sessions need attention"
+msgstr ""
+
+#. ui.js:669
+msgid "No recent sessions"
+msgstr ""
+
+#. ui.js:684 ui.js:735
+msgid "Unknown project"
+msgstr ""
+
+#. ui.js:700 ui.js:736
+msgid "Untitled session"
+msgstr ""
+
+#. ui.js:707
+msgid "Unavailable"
+msgstr ""
+
+#. ui.js:709
+msgid "Waiting for approval"
+msgstr ""
+
+#. ui.js:711
+msgid "Waiting for you"
+msgstr ""
+
+#. ui.js:713
+msgid "updated"
+msgstr ""
+
+#. ui.js:716
+msgid "update time unavailable"
+msgstr ""
+
+#. ui.js:718
+msgid "Unknown source"
+msgstr ""
+
+#. ui.js:747
+msgid "Running"
+msgstr ""
+
+#. ui.js:748
+msgid "Connected"
+msgstr ""
+
+#. ui.js:749
+msgid "Error"
+msgstr ""
+
+#. ui.js:751
+msgid "Unknown"
+msgstr ""
+
+#. ui.js:757
+msgid "environment"
+msgstr ""
+
+#. ui.js:759
+msgid "Connection state unavailable; Remote is still running"
+msgstr ""
+
+#. ui.js:764 ui.js:770
+msgid "Stop"
+msgstr ""
+
+#. ui.js:765
+msgid "Pair device"
+msgstr ""
+
+#. ui.js:767
+msgid "Refresh devices"
+msgstr ""
+
+#. ui.js:775
+msgid "Start"
+msgstr ""
+
+#. ui.js:785
+msgid "Pairing complete"
+msgstr ""
+
+#. ui.js:789
+msgid "Manual code"
+msgstr ""
+
+#. ui.js:793
+msgid "QR unavailable; use the manual code"
+msgstr ""
+
+#. ui.js:795
+msgid "Waiting for device"
+msgstr ""
+
+#. ui.js:799
+msgid "claim detection requires a newer Codex version"
+msgstr ""
+
+#. ui.js:818
+msgid "Refresh to confirm the connection before managing devices"
+msgstr ""
+
+#. ui.js:823
+msgid "Start Remote Control to manage paired devices"
+msgstr ""
+
+#. ui.js:828
+msgid "Device listing requires a newer Codex version"
+msgstr ""
+
+#. ui.js:833
+msgid "No paired devices"
+msgstr ""
+
+#. ui.js:845
+msgid "Paired device"
+msgstr ""
+
+#. ui.js:850
+msgid "app"
+msgstr ""
+
+#. ui.js:852
+msgid "seen"
+msgstr ""
+
+#. ui.js:857
+msgid "Device details unavailable"
+msgstr ""
+
+#. ui.js:862
+msgid "Revoke…"
+msgstr ""
+
+#. metadata.json->description
+msgid ""
+"Monitor Codex usage, sessions, reset windows, banked resets, and Remote "
+"Control from the Cinnamon panel."
+msgstr ""
+
+#. settings-schema.json->appearance->title
+msgid "Appearance"
+msgstr ""
+
+#. settings-schema.json->data->title
+msgid "Data"
+msgstr ""
+
+#. settings-schema.json->panel-section->title
+msgid "Panel preview"
+msgstr ""
+
+#. settings-schema.json->graph-section->title
+msgid "Dashboard graph"
+msgstr ""
+
+#. settings-schema.json->threshold-section->title
+msgid "Visual thresholds"
+msgstr ""
+
+#. settings-schema.json->refresh-section->title
+msgid "Refresh and history"
+msgstr ""
+
+#. settings-schema.json->codex-section->title
+msgid "Codex installation"
+msgstr ""
+
+#. settings-schema.json->show-reset-badge->description
+msgid "Show available banked resets in the panel"
+msgstr ""
+
+#. settings-schema.json->show-remote-badge->description
+msgid "Show Remote Control status when enabled"
+msgstr ""
+
+#. settings-schema.json->graph-mode->description
+msgid "Default graph mode"
+msgstr ""
+
+#. settings-schema.json->graph-mode->options
+msgid "Quota history"
+msgstr ""
+
+#. settings-schema.json->graph-mode->options
+msgid "Token activity"
+msgstr ""
+
+#. settings-schema.json->graph-range-hours->description
+msgid "Default graph range"
+msgstr ""
+
+#. settings-schema.json->graph-range-hours->options
+msgid "24 hours"
+msgstr ""
+
+#. settings-schema.json->graph-range-hours->options
+msgid "7 days"
+msgstr ""
+
+#. settings-schema.json->graph-range-hours->options
+msgid "30 days"
+msgstr ""
+
+#. settings-schema.json->warning-threshold->units
+#. settings-schema.json->critical-threshold->units
+msgid "% used"
+msgstr ""
+
+#. settings-schema.json->warning-threshold->description
+msgid "Warning threshold"
+msgstr ""
+
+#. settings-schema.json->critical-threshold->description
+msgid "Critical threshold"
+msgstr ""
+
+#. settings-schema.json->reset-expiry-warning-hours->units
+msgid "hours"
+msgstr ""
+
+#. settings-schema.json->reset-expiry-warning-hours->description
+msgid "Warn visually before a banked reset expires"
+msgstr ""
+
+#. settings-schema.json->refresh-interval->units
+msgid "seconds"
+msgstr ""
+
+#. settings-schema.json->refresh-interval->description
+msgid "Refresh interval"
+msgstr ""
+
+#. settings-schema.json->history-days->units
+msgid "days"
+msgstr ""
+
+#. settings-schema.json->history-days->description
+msgid "Quota history retention"
+msgstr ""
+
+#. settings-schema.json->codex-binary->description
+msgid "Codex executable name or absolute path"
+msgstr ""
+
+#. settings-schema.json->codex-home->description
+msgid "Custom CODEX_HOME (leave empty for the default)"
+msgstr ""

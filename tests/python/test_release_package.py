@@ -1,0 +1,76 @@
+import json
+from pathlib import Path
+import struct
+
+from scripts.package_spice import build_spice
+
+
+ROOT = Path(__file__).resolve().parents[2]
+UUID = "codex-monitor@breixopd"
+VERSION = "1.0.0"
+
+
+def _png_size(path):
+    data = path.read_bytes()
+    assert data[:8] == b"\x89PNG\r\n\x1a\n"
+    return struct.unpack(">II", data[16:24])
+
+
+def test_release_versions_and_store_metadata_are_consistent():
+    runtime = json.loads((ROOT / "files" / UUID / "metadata.json").read_text())
+    package = json.loads((ROOT / "package.json").read_text())
+    info = json.loads((ROOT / "store" / "info.json").read_text())
+    pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    rpc = (ROOT / "files" / UUID / "helper" / "codex_bridge" / "rpc.py").read_text()
+
+    assert runtime["version"] == package["version"] == VERSION
+    assert f'version = "{VERSION}"' in pyproject
+    assert f'__version__ = "{VERSION}"' in (
+        ROOT / "files" / UUID / "helper" / "codex_bridge" / "__init__.py"
+    ).read_text()
+    assert "from . import __version__" in rpc
+    assert runtime["uuid"] == UUID
+    assert runtime["author"] == info["author"] == "breixopd"
+    assert info["license"] == "MIT"
+    assert "icon" not in runtime
+
+
+def test_runtime_store_icon_is_a_nonempty_square_png():
+    icon = ROOT / "files" / UUID / "icon.png"
+
+    width, height = _png_size(icon)
+
+    assert width == height
+    assert width >= 64
+    assert icon.stat().st_size > 500
+
+
+def test_translation_template_is_source_only_and_covers_the_dashboard():
+    runtime = ROOT / "files" / UUID
+    template = runtime / "po" / f"{UUID}.pot"
+    content = template.read_text(encoding="utf-8")
+
+    assert content.count('\nmsgid "') >= 100
+    assert 'msgid "Codex sessions"' in content
+    assert 'msgid "Remote Control"' in content
+    assert 'msgid "Update Codex…"' in content
+    assert not any(runtime.rglob("*.mo"))
+
+
+def test_spices_builder_outputs_only_the_official_submission_layout(tmp_path):
+    destination = build_spice(tmp_path)
+
+    assert destination == tmp_path / UUID
+    assert sorted(path.name for path in destination.iterdir()) == [
+        "README.md",
+        "files",
+        "info.json",
+        "screenshot.png",
+    ]
+    runtime = destination / "files" / UUID
+    assert (runtime / "applet.js").is_file()
+    assert (runtime / "metadata.json").is_file()
+    assert (runtime / "icon.png").is_file()
+    assert (runtime / "po" / f"{UUID}.pot").is_file()
+    assert not any(path.suffix in {".pyc", ".pyo"} for path in runtime.rglob("*"))
+    assert not any(path.name == "__pycache__" for path in runtime.rglob("*"))

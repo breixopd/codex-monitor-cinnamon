@@ -1,6 +1,5 @@
 import json
 import os
-from pathlib import Path
 from types import SimpleNamespace
 from urllib.error import URLError
 
@@ -125,7 +124,7 @@ def test_stale_cache_fetches_bounded_official_release_with_fixed_headers(tmp_pat
 
     request, timeout = calls[0]
     assert request.full_url == "https://api.github.com/repos/openai/codex/releases/latest"
-    assert request.get_header("User-agent") == "Codex-Monitor-Cinnamon/0.1"
+    assert request.get_header("User-agent") == "Codex-Monitor-Cinnamon/1.0.0"
     assert timeout == 10
     assert result["latestVersion"] == "0.145.0"
     assert result["updateAvailable"] is True
@@ -264,33 +263,26 @@ def test_background_update_prefers_codex_self_update_and_rereads_version(tmp_pat
     )
 
 
-def test_update_falls_back_to_private_official_installer_without_a_pipeline(tmp_path):
+def test_update_never_downloads_or_executes_an_installer_when_self_update_fails(
+    tmp_path,
+):
     commands = []
-    installer_observation = {}
-    versions = iter(["0.144.3", "0.145.0"])
 
     def runner(command, **kwargs):
         commands.append(command)
         if command[-1] == "--version":
             return SimpleNamespace(
-                returncode=0, stdout=f"codex-cli {next(versions)}\n", stderr=""
+                returncode=0, stdout="codex-cli 0.144.3\n", stderr=""
             )
-        if command[-1] == "update":
-            return SimpleNamespace(returncode=2)
-        assert command[0] == "/bin/sh"
-        assert len(command) == 2
-        installer_path = Path(command[1])
-        installer_observation["mode"] = os.stat(installer_path).st_mode & 0o777
-        installer_observation["body"] = installer_path.read_text(encoding="utf-8")
-        installer_observation["environment"] = kwargs["env"]
+        assert command == ["/opt/codex/bin/codex", "update"]
         assert kwargs["shell"] is False
-        return SimpleNamespace(returncode=0)
+        return SimpleNamespace(returncode=2)
 
     network_calls = []
 
-    def urlopen(request, *, timeout):
-        network_calls.append((request.full_url, timeout))
-        return FakeResponse(b"#!/bin/sh\nexit 0\n")
+    def urlopen(*args, **kwargs):
+        network_calls.append((args, kwargs))
+        raise AssertionError("updating must not download executable code")
 
     updates = manager(
         tmp_path,
@@ -301,12 +293,16 @@ def test_update_falls_back_to_private_official_installer_without_a_pipeline(tmp_
 
     result = updates.start()
 
-    assert result["status"] == "updated"
-    assert network_calls == [("https://chatgpt.com/codex/install.sh", 10)]
-    assert installer_observation["mode"] == 0o600
-    assert installer_observation["body"] == "#!/bin/sh\nexit 0\n"
-    assert installer_observation["environment"]["CODEX_NON_INTERACTIVE"] == "true"
-    assert not Path(commands[-2][1]).exists()
+    assert commands == [
+        ["/opt/codex/bin/codex", "--version"],
+        ["/opt/codex/bin/codex", "update"],
+    ]
+    assert network_calls == []
+    assert result["status"] == "failed"
+    assert result["message"] == (
+        "Automatic update failed; Codex 0.144.3 is still installed. "
+        "Use the official Codex installation instructions to update manually."
+    )
 
 
 def test_update_failure_is_sanitized_and_keeps_installed_version(tmp_path):
@@ -319,14 +315,19 @@ def test_update_failure_is_sanitized_and_keeps_installed_version(tmp_path):
         tmp_path,
         data_dir=_available_cache(tmp_path),
         runner=runner,
-        urlopen=lambda *_args, **_kwargs: FakeResponse(b"#!/bin/sh\nexit 7\n"),
+        urlopen=lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("updating must not download executable code")
+        ),
     )
 
     result = updates.start()
 
     assert result["status"] == "failed"
     assert result["installedVersion"] == "0.144.3"
-    assert result["message"] == "Update failed; Codex 0.144.3 is still installed"
+    assert result["message"] == (
+        "Automatic update failed; Codex 0.144.3 is still installed. "
+        "Use the official Codex installation instructions to update manually."
+    )
     assert "private" not in repr(result)
     assert "stack" not in repr(result)
 

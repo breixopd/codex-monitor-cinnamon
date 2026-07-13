@@ -3,6 +3,7 @@
 const Gio = imports.gi.Gio;
 const GLib = imports.gi.GLib;
 const Mainloop = imports.mainloop;
+const ByteArray = imports.byteArray;
 
 var BridgeClient = class BridgeClient {
   constructor(options) {
@@ -13,6 +14,7 @@ var BridgeClient = class BridgeClient {
     this._running = false;
     this._reader = null;
     this._writer = null;
+    this._writeState = null;
   }
 
   start() {
@@ -40,6 +42,16 @@ var BridgeClient = class BridgeClient {
     this._writer = new Gio.DataOutputStream({
       base_stream: this._process.get_stdin_pipe(),
     });
+    this._writeState = {
+      writer: this._writer,
+      cancellable: new Gio.Cancellable(),
+      queue: [],
+      current: null,
+      currentChunk: null,
+      writing: false,
+      stopping: false,
+      closing: false,
+    };
     this._readNextLine();
   }
 
@@ -60,8 +72,15 @@ var BridgeClient = class BridgeClient {
     });
     this._pending.set(id, { callback, timeoutId });
 
+    const state = this._writeState;
     try {
-      this._writer.put_string(JSON.stringify({ id, action, params: params || {} }) + '\n', null);
+      const payload = JSON.stringify({ id, action, params: params || {} }) + '\n';
+      state.queue.push({
+        id,
+        bytes: GLib.Bytes.new(ByteArray.fromString(payload)),
+        offset: 0,
+      });
+      this._writeNext(state);
     } catch (error) {
       Mainloop.source_remove(timeoutId);
       this._pending.delete(id);
@@ -71,17 +90,18 @@ var BridgeClient = class BridgeClient {
 
   stop() {
     const process = this._process;
+    const writeState = this._writeState;
     for (const pending of this._pending.values()) {
       Mainloop.source_remove(pending.timeoutId);
       pending.callback(new Error('Codex bridge stopped'));
     }
     this._pending.clear();
-    if (this._writer) {
-      try {
-        this._writer.close(null);
-      } catch (error) {
-        // The helper may already have closed its pipe.
-      }
+    if (writeState) {
+      writeState.stopping = true;
+      writeState.queue.length = 0;
+      writeState.cancellable.cancel();
+      if (!writeState.writing)
+        this._closeWriter(writeState);
     }
     if (process)
       this._waitForExit(process);
@@ -89,6 +109,90 @@ var BridgeClient = class BridgeClient {
     this._process = null;
     this._reader = null;
     this._writer = null;
+    this._writeState = null;
+  }
+
+  _writeNext(state) {
+    if (state.stopping || state.writing)
+      return;
+    while (state.queue.length && !this._pending.has(state.queue[0].id))
+      state.queue.shift();
+    if (!state.queue.length)
+      return;
+
+    const item = state.queue.shift();
+    state.current = item;
+    state.writing = true;
+    this._writeCurrent(state);
+  }
+
+  _writeCurrent(state) {
+    const item = state.current;
+    const total = item.bytes.get_size();
+    const remaining = total - item.offset;
+    state.currentChunk = item.offset === 0
+      ? item.bytes
+      : GLib.Bytes.new(item.bytes.get_data().slice(item.offset));
+    try {
+      state.writer.write_bytes_async(
+        state.currentChunk,
+        GLib.PRIORITY_DEFAULT,
+        state.cancellable,
+        (stream, result) => {
+          let written = 0;
+          try {
+            written = stream.write_bytes_finish(result);
+          } catch (error) {
+            written = 0;
+          }
+          state.currentChunk = null;
+          if (state.stopping) {
+            state.current = null;
+            state.writing = false;
+            this._closeWriter(state);
+            return;
+          }
+          if (!Number.isInteger(written) || written <= 0 || written > remaining) {
+            state.current = null;
+            state.writing = false;
+            this._failPending('Unable to write to Codex bridge');
+            this.stop();
+            return;
+          }
+          item.offset += written;
+          if (item.offset < total) {
+            this._writeCurrent(state);
+            return;
+          }
+          state.current = null;
+          state.writing = false;
+          this._writeNext(state);
+        }
+      );
+    } catch (error) {
+      state.currentChunk = null;
+      state.current = null;
+      state.writing = false;
+      this._failPending('Unable to write to Codex bridge');
+      this.stop();
+    }
+  }
+
+  _closeWriter(state) {
+    if (state.closing)
+      return;
+    state.closing = true;
+    try {
+      state.writer.close_async(GLib.PRIORITY_DEFAULT, null, (stream, result) => {
+        try {
+          stream.close_finish(result);
+        } catch (error) {
+          // The helper may already have closed its pipe.
+        }
+      });
+    } catch (error) {
+      // The helper may already have closed its pipe.
+    }
   }
 
   _waitForExit(process) {

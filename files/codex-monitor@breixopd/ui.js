@@ -408,8 +408,9 @@ var Dashboard = class Dashboard {
       updateAvailable: Boolean(this._updateState && this._updateState.updateAvailable),
       status: 'failed',
       message: installed
-        ? `${this._('Update failed; Codex')} ${installed} ${this._('is still installed')}`
-        : this._('Codex update failed'),
+        ? `${this._('Automatic update failed; Codex')} ${installed} ` +
+          this._('is still installed. Use the official Codex installation instructions to update manually.')
+        : this._('Automatic Codex update failed. Use the official Codex installation instructions to update manually.'),
     });
   }
 

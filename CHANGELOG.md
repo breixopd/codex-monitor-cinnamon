@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-07-13
+
 ### Added
 
 - Stepped quota segments, activity bars, dual percentage/token axes, reset markers, hover values, and explicit graph empty states
@@ -33,6 +35,9 @@
 - Reserved scrollbar space so it cannot cover dashboard labels or controls
 - Ignored callbacks from retired helpers, prevented post-removal bridge restarts, and force-closed unresponsive app-server helpers
 - Required explicit confirmation before stopping Remote Control and potentially disconnecting active sessions
+- Replaced synchronous Cinnamon bridge writes and shutdown with ordered asynchronous Gio operations
+- Removed the downloaded installer-script fallback; updates now use only the installed CLI's fixed `codex update` command
+- Added Cinnamon Spices metadata, assets, packaging, and validation support
 
 ## [0.1.0] - 2026-07-13
 

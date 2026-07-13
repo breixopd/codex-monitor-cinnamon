@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import struct
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,12 +16,14 @@ REQUIRED_FILES = {
     "bridgeClient.js",
     "graph.js",
     "helper/bridge.py",
+    "icon.png",
     "metadata.json",
     "model.js",
     "settings-schema.json",
     "stylesheet.css",
     "ui.js",
 }
+STORE = ROOT / "store"
 
 
 def read_json(path: Path):
@@ -41,6 +44,13 @@ def validate_settings(schema):
         raise ValueError(f"settings layout references missing keys: {missing}")
 
 
+def png_size(path):
+    data = path.read_bytes()
+    if len(data) < 24 or data[:8] != b"\x89PNG\r\n\x1a\n":
+        raise ValueError(f"{path} is not a valid PNG")
+    return struct.unpack(">II", data[16:24])
+
+
 def validate_sources():
     missing = sorted(path for path in REQUIRED_FILES if not (APPLET / path).is_file())
     if missing:
@@ -49,10 +59,24 @@ def validate_sources():
     metadata = read_json(APPLET / "metadata.json")
     if metadata.get("uuid") != UUID:
         raise ValueError("metadata UUID does not match the package directory")
+    if metadata.get("author") != "breixopd":
+        raise ValueError("metadata author is missing or unexpected")
+    forbidden = {"icon", "dangerous", "last-edited"}.intersection(metadata)
+    if forbidden:
+        raise ValueError(f"metadata contains forbidden Cinnamon fields: {forbidden}")
     supported = set(metadata.get("cinnamon-version", []))
     if not {"6.0", "6.2", "6.4", "6.6"}.issubset(supported):
         raise ValueError("metadata must cover Cinnamon 6.0 through 6.6")
     validate_settings(read_json(APPLET / "settings-schema.json"))
+    width, height = png_size(APPLET / "icon.png")
+    if width != height or width < 64:
+        raise ValueError("runtime icon.png must be a square of at least 64 pixels")
+    for name in ("info.json", "README.md", "screenshot.png"):
+        if not (STORE / name).is_file():
+            raise ValueError(f"missing Cinnamon Spices store asset: {name}")
+    info = read_json(STORE / "info.json")
+    if info != {"author": "breixopd", "license": "MIT"}:
+        raise ValueError("Cinnamon Spices info.json is invalid")
 
     applet_source = (APPLET / "applet.js").read_text(encoding="utf-8")
     ui_source = (APPLET / "ui.js").read_text(encoding="utf-8")

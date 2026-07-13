@@ -42,7 +42,9 @@ class CodexMonitorApplet extends Applet.Applet {
     this._pairing = null;
     this._destroyed = false;
 
-    Gettext.bindtextdomain(UUID, GLib.build_filenamev([metadata.path, 'locale']));
+    Gettext.bindtextdomain(UUID, GLib.build_filenamev([
+      GLib.get_home_dir(), '.local', 'share', 'locale',
+    ]));
     this._ = text => Gettext.dgettext(UUID, text);
     this.setAllowedLayout(Applet.AllowedLayout.BOTH);
     this.actor.set_accessible_name(this._('Codex usage monitor'));

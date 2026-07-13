@@ -8,6 +8,8 @@ import threading
 import time
 from typing import Any
 
+from . import __version__
+
 
 class RpcError(RuntimeError):
     """Sanitized app-server failure with a machine-readable JSON-RPC code."""
@@ -35,7 +37,7 @@ class AppServerClient:
                 "clientInfo": {
                     "name": "codex-monitor-cinnamon",
                     "title": "Codex Monitor",
-                    "version": "0.1.0",
+                    "version": __version__,
                 },
                 "capabilities": {
                     "experimentalApi": True,

@@ -238,10 +238,11 @@
     dashboard.setUpdateState({
       installedVersion: "0.144.3", latestVersion: "0.145.0",
       updateAvailable: true, status: "failed", checkedAt: now,
-      message: "Update failed; Codex 0.144.3 is still installed",
+      message: "Automatic update failed; Codex 0.144.3 is still installed. Use the official Codex installation instructions to update manually.",
     });
     results.updateFailed = dashboard._updateButton.visible &&
-      dashboard._updateButton.label === "Retry";
+      dashboard._updateButton.label === "Retry" &&
+      dashboard._versionLabel.get_text().indexOf("official Codex installation instructions") >= 0;
 
     dashboard.setSessions({ active: [], recent: [] });
     results.sessionsEmpty = dashboard._sessionList.get_children().length === 1 &&

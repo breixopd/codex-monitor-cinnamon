@@ -1,6 +1,6 @@
 [project]
 name = "codex-monitor-cinnamon"
-version = "0.1.0"
+version = "1.0.0"
 description = "Cinnamon panel applet for Codex usage, resets, and remote control"
 requires-python = ">=3.10"
 
