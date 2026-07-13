@@ -82,6 +82,15 @@ def test_remote_status_reports_running_daemon_as_connecting_when_proxy_is_unavai
     assert remote.status() == {"status": "connecting"}
 
 
+def test_remote_status_reports_running_daemon_when_status_method_is_unavailable():
+    client = FailingRequestClient({})
+    remote = RemoteControl(
+        "codex", client_factory=lambda: client, daemon_running=lambda: True
+    )
+
+    assert remote.status() == {"status": "connecting"}
+
+
 def test_remote_status_discards_invalid_or_oversized_metadata():
     client = FakeStatusClient(
         {
@@ -414,6 +423,35 @@ def test_remote_start_caches_connected_status_when_proxy_is_temporarily_unavaila
         "serverName": "mint-workstation",
         "environmentId": "environment-1",
     }
+
+
+def test_remote_start_cache_survives_unavailable_status_method():
+    client = FailingRequestClient({})
+
+    def runner(command, **kwargs):
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=json.dumps(
+                {
+                    "status": "connected",
+                    "serverName": "mint-workstation",
+                    "environmentId": "environment-1",
+                }
+            ),
+            stderr="",
+        )
+
+    remote = RemoteControl(
+        "codex",
+        runner=runner,
+        client_factory=lambda: client,
+        daemon_running=lambda: True,
+    )
+
+    remote.start()
+
+    assert remote.status()["status"] == "connected"
 
 
 def test_remote_command_errors_do_not_expose_stderr():

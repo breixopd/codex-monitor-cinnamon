@@ -37,11 +37,11 @@ class RemoteControl:
         try:
             value = self._proxy_request("remoteControl/status/read")
         except _ProxyUnavailable:
-            if self._last_status is not None:
-                return dict(self._last_status)
-            return {
-                "status": "connecting" if self._daemon_is_running() else "disabled"
-            }
+            return self._fallback_status()
+        except RpcError as error:
+            if error.code != -32601:
+                raise
+            return self._fallback_status()
         self._last_status = self._normalize_status(value)
         return dict(self._last_status)
 
@@ -199,6 +199,13 @@ class RemoteControl:
             return bool(self.daemon_running())
         except (OSError, RuntimeError):
             return False
+
+    def _fallback_status(self):
+        if self._last_status is not None:
+            return dict(self._last_status)
+        return {
+            "status": "connecting" if self._daemon_is_running() else "disabled"
+        }
 
     def _control_socket_running(self):
         environment = self.environment or os.environ
