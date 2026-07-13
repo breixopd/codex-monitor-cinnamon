@@ -53,6 +53,10 @@ class QuotaCard {
     const percentage = Math.max(0, Math.min(100, Number(window.usedPercent)));
     this._percent.set_text(`${Math.round(percentage)}% ${this._('used')}`);
     this._bar.value = percentage / 100;
+    if (window.resetsAt == null) {
+      this._reset.set_text(this._('Reset time unavailable'));
+      return;
+    }
     const countdown = model.formatDuration(Number(window.resetsAt) - now);
     const exact = new Date(Number(window.resetsAt) * 1000).toLocaleString();
     this._reset.set_text(`${this._('Resets in')} ${countdown} · ${exact}`);
@@ -264,7 +268,8 @@ var Dashboard = class Dashboard {
         const points = this._model.quotaSeries(
           this._snapshot.history, windowName, cutoff, now
         ).map(point => {
-          markers.add(point.resetsAt);
+          if (point.resetsAt != null)
+            markers.add(point.resetsAt);
           return { timestamp: point.timestamp, value: point.usedPercent };
         });
         series.push({ label, points, colorIndex });

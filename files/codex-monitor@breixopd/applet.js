@@ -1,7 +1,6 @@
 'use strict';
 
 const Applet = imports.ui.applet;
-const Gio = imports.gi.Gio;
 const GLib = imports.gi.GLib;
 const Gettext = imports.gettext;
 const Main = imports.ui.main;
@@ -67,27 +66,37 @@ class CodexMonitorApplet extends Applet.Applet {
       style_class: 'codex-monitor-panel',
       reactive: false,
     });
-    const iconPath = GLib.build_filenamev([this._metadata.path, 'icons', 'codex-monitor-symbolic.svg']);
-    this._panelIcon = new St.Icon({
-      gicon: Gio.icon_new_for_string(iconPath),
-      icon_type: St.IconType.SYMBOLIC,
-      style_class: 'system-status-icon codex-monitor-panel-icon',
+    this._panelUsage = new St.BoxLayout({
+      vertical: true,
+      style_class: 'codex-monitor-panel-usage',
     });
-    this._panelMeter = Graph.createPanelMeter();
-    this._panelLabel = new St.Label({
-      text: '5h — · W —',
-      style_class: 'codex-monitor-panel-label',
-      y_align: St.Align.MIDDLE,
-    });
+    [this._fiveHourLabel, this._fiveHourBar] = this._createPanelUsageRow(
+      '5h', 'codex-monitor-five-hour-bar'
+    );
+    [this._weeklyLabel, this._weeklyBar] = this._createPanelUsageRow(
+      'W', 'codex-monitor-weekly-bar'
+    );
     this._resetBadge = new St.Label({ text: '', style_class: 'codex-monitor-badge' });
     this._remoteBadge = new St.Label({ text: '', style_class: 'codex-monitor-remote-badge' });
-    this._panelBox.add_child(this._panelIcon);
-    this._panelBox.add_child(this._panelMeter);
-    this._panelBox.add_child(this._panelLabel);
+    this._panelBox.add_child(this._panelUsage);
     this._panelBox.add_child(this._resetBadge);
     this._panelBox.add_child(this._remoteBadge);
     this.actor.add_child(this._panelBox);
     this.on_orientation_changed(this._orientation);
+  }
+
+  _createPanelUsageRow(label, barStyleClass) {
+    const row = new St.BoxLayout({ style_class: 'codex-monitor-panel-usage-row' });
+    const rowLabel = new St.Label({
+      text: label,
+      style_class: 'codex-monitor-panel-window-label',
+      y_align: St.Align.MIDDLE,
+    });
+    const bar = Graph.createPanelBar(barStyleClass);
+    row.add_child(rowLabel);
+    row.add_child(bar);
+    this._panelUsage.add_child(row);
+    return [rowLabel, bar];
   }
 
   _buildMenu() {
@@ -116,7 +125,6 @@ class CodexMonitorApplet extends Applet.Applet {
     });
     this._menuItem = new PopupMenu.PopupBaseMenuItem({
       reactive: false,
-      can_focus: false,
     });
     this._menuItem.addActor(this._dashboard.actor);
     this.menu.addMenuItem(this._menuItem);
@@ -205,16 +213,13 @@ class CodexMonitorApplet extends Applet.Applet {
     }
     const now = Math.floor(Date.now() / 1000);
     const state = Model.panelState(this._snapshot, settings, now, this._remoteStatus);
-    this._panelLabel.set_text(state.label);
+    this.actor.set_accessible_name(`${this._('Codex usage monitor')} · ${state.label}`);
     this._resetBadge.set_text(state.resetBadge);
     this._resetBadge.visible = Boolean(state.resetBadge);
     this._remoteBadge.set_text(state.remoteBadge);
     this._remoteBadge.visible = Boolean(state.remoteBadge) && this.enableRemote;
-    Graph.updatePanelMeter(
-      this._panelMeter,
-      this._snapshot.windows.fiveHour,
-      this._snapshot.windows.weekly
-    );
+    Graph.updatePanelBar(this._fiveHourBar, this._snapshot.windows.fiveHour);
+    Graph.updatePanelBar(this._weeklyBar, this._snapshot.windows.weekly);
     for (const style of ['normal', 'warning', 'critical', 'stale'])
       this._panelBox.remove_style_class_name(`codex-monitor-${style}`);
     this._panelBox.add_style_class_name(`codex-monitor-${state.level}`);
@@ -303,10 +308,11 @@ class CodexMonitorApplet extends Applet.Applet {
 
   on_orientation_changed(orientation) {
     this._orientation = orientation;
-    if (!this._panelLabel)
+    if (!this._panelUsage)
       return;
     const vertical = orientation === St.Side.LEFT || orientation === St.Side.RIGHT;
-    this._panelLabel.visible = !vertical;
+    this._fiveHourLabel.visible = !vertical;
+    this._weeklyLabel.visible = !vertical;
     this._resetBadge.visible = !vertical && Boolean(this._resetBadge.get_text());
     this._remoteBadge.visible = !vertical && this.enableRemote && Boolean(this._remoteBadge.get_text());
   }

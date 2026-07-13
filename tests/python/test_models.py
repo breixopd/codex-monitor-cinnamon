@@ -74,3 +74,25 @@ def test_normalize_snapshot_preserves_unknown_windows_without_mislabeling():
             "resetsAt": 1_800_000_000,
         }
     ]
+
+
+def test_normalize_snapshot_accepts_a_known_window_without_a_reset_time():
+    payload = {
+        "rateLimits": {
+            "primary": {
+                "usedPercent": 18,
+                "windowDurationMins": 10080,
+                "resetsAt": None,
+            }
+        }
+    }
+
+    snapshot = normalize_snapshot(payload, captured_at=1_799_100_000)
+
+    assert snapshot["windows"]["weekly"] == {
+        "limitId": None,
+        "limitName": None,
+        "usedPercent": 18.0,
+        "windowDurationMins": 10080,
+        "resetsAt": None,
+    }

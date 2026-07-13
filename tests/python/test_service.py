@@ -3,8 +3,9 @@ from codex_bridge.service import CodexService
 
 
 class FakeClient:
-    def __init__(self, responses):
+    def __init__(self, responses, notifications=None):
         self.responses = responses
+        self.notifications = notifications or {}
         self.calls = []
 
     def request(self, method, params=None):
@@ -13,6 +14,9 @@ class FakeClient:
         if isinstance(value, Exception):
             raise value
         return value
+
+    def wait_for_notification(self, method, *, timeout_seconds):
+        return self.notifications.get(method)
 
 
 def _rate_limits():
@@ -87,6 +91,36 @@ def test_snapshot_treats_account_usage_as_optional_for_older_codex(tmp_path):
     assert snapshot["tokenUsage"] is None
     assert snapshot["capabilities"]["activity"] is False
     assert snapshot["capabilities"]["resetCredits"] is True
+
+
+def test_snapshot_merges_the_latest_sparse_rate_limit_update(tmp_path):
+    initial = _rate_limits()
+    initial["rateLimits"]["secondary"]["usedPercent"] = 0
+    client = FakeClient(
+        {
+            "account/read": {"account": {"type": "chatgpt", "planType": "prolite"}},
+            "account/rateLimits/read": initial,
+            "account/usage/read": {"summary": {}, "dailyUsageBuckets": []},
+        },
+        notifications={
+            "account/rateLimits/updated": {
+                "rateLimits": {
+                    "limitId": "codex",
+                    "secondary": {"usedPercent": 37},
+                }
+            }
+        },
+    )
+    service = CodexService(
+        client,
+        QuotaHistory(tmp_path / "history.jsonl", retention_days=30),
+        clock=lambda: 1_799_100_000,
+    )
+
+    snapshot = service.snapshot()
+
+    assert snapshot["windows"]["weekly"]["usedPercent"] == 37.0
+    assert snapshot["windows"]["weekly"]["resetsAt"] == 1_800_500_000
 
 
 def test_consume_reset_sends_credit_and_idempotency_key():

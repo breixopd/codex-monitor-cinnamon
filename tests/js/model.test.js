@@ -33,7 +33,7 @@ test('panel state uses explicit used percentages and conditional badges', () => 
     showRemoteBadge: true,
   }, 1_799_100_100, { status: 'connected' });
 
-  assert.equal(state.label, '5h — · W 32%');
+  assert.equal(state.label, '5h —  W 32%');
   assert.equal(state.level, 'normal');
   assert.equal(state.resetBadge, '↻2');
   assert.equal(state.resetExpiring, true);
@@ -82,6 +82,15 @@ test('tooltip summarizes limits, reset bank, remote state, and freshness', () =>
   assert.match(text, /Remote: connected/);
   assert.match(text, /Updated: 1m ago/);
   assert.doesNotMatch(text, /developer@example.com/);
+});
+
+test('tooltip does not invent a countdown when a reset time is unavailable', () => {
+  const value = snapshot();
+  value.windows.weekly.resetsAt = null;
+
+  const text = model.tooltipText(value, 1_799_100_100, null);
+
+  assert.match(text, /Weekly: 32% used · reset time unavailable/);
 });
 
 test('activity series normalizes daily token buckets for shared graph scale', () => {

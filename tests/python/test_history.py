@@ -37,7 +37,12 @@ def test_history_appends_minimal_samples_and_prunes_expired_rows(tmp_path):
 
 def test_history_ignores_corrupt_and_incomplete_rows(tmp_path):
     path = tmp_path / "history.jsonl"
-    path.write_text('{"capturedAt": 50}\nnot-json\n')
+    path.write_text(
+        '{"capturedAt": 50}\nnot-json\n'
+        '{"capturedAt":"invalid","fiveHourUsedPercent":null,'
+        '"fiveHourResetsAt":null,"weeklyUsedPercent":20,'
+        '"weeklyResetsAt":700}\n'
+    )
 
     rows = QuotaHistory(path, retention_days=30).load(now=100)
 
@@ -66,3 +71,19 @@ def test_history_persists_a_snapshot_when_only_one_quota_window_is_available(tmp
             "weeklyResetsAt": 700,
         }
     ]
+
+
+def test_history_keeps_usage_when_the_reset_time_is_unknown(tmp_path):
+    history = QuotaHistory(tmp_path / "history.jsonl", retention_days=30)
+    snapshot = {
+        "capturedAt": 100,
+        "windows": {
+            "fiveHour": None,
+            "weekly": {"usedPercent": 18, "resetsAt": None},
+        },
+    }
+
+    history.append(snapshot, now=100)
+
+    assert history.load(now=100)[0]["weeklyUsedPercent"] == 18.0
+    assert history.load(now=100)[0]["weeklyResetsAt"] is None

@@ -1,22 +1,39 @@
 .codex-monitor-panel {
+  spacing: 7px;
+}
+
+.codex-monitor-panel-usage {
+  spacing: 1px;
+}
+
+.codex-monitor-panel-usage-row {
   spacing: 5px;
 }
 
-.codex-monitor-panel-icon {
-  icon-size: 16px;
+.codex-monitor-panel-window-label {
+  width: 19px;
+  font-size: 0.76em;
+  font-weight: 600;
+  text-align: right;
 }
 
-.codex-monitor-panel-meter {
-  width: 30px;
-  height: 14px;
-  -meter-active-color: #5aa9e6;
-  -meter-track-color: #ffffff;
+.codex-monitor-panel-bar {
+  width: 44px;
+  height: 5px;
+  -usage-track-color: rgba(255, 255, 255, 0.85);
 }
 
-.codex-monitor-panel-label,
+.codex-monitor-five-hour-bar {
+  -usage-bar-color: #5aa9e6;
+}
+
+.codex-monitor-weekly-bar {
+  -usage-bar-color: #79c98c;
+}
+
 .codex-monitor-badge,
 .codex-monitor-remote-badge {
-  font-size: 0.9em;
+  font-size: 0.88em;
   font-weight: 600;
 }
 
@@ -25,16 +42,16 @@
   padding: 0 3px;
 }
 
-.codex-monitor-warning .codex-monitor-panel-meter,
+.codex-monitor-warning .codex-monitor-panel-bar,
 .codex-monitor-warning .codex-monitor-badge {
   color: #e8a641;
-  -meter-active-color: #e8a641;
+  -usage-bar-color: #e8a641;
 }
 
-.codex-monitor-critical .codex-monitor-panel-meter,
+.codex-monitor-critical .codex-monitor-panel-bar,
 .codex-monitor-critical .codex-monitor-badge {
   color: #e05a62;
-  -meter-active-color: #e05a62;
+  -usage-bar-color: #e05a62;
 }
 
 .codex-monitor-stale {

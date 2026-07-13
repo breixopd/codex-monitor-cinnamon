@@ -20,10 +20,11 @@ class FakeProcess:
         return self.returncode
 
 
-def test_client_initializes_and_skips_notifications_while_waiting_for_response():
+def test_client_initializes_and_retains_notifications_while_waiting_for_response():
+    update = {"rateLimits": {"primary": {"usedPercent": 37}}}
     process = FakeProcess(
         [
-            {"method": "account/rateLimits/updated", "params": {}},
+            {"method": "account/rateLimits/updated", "params": update},
             {"id": 1, "result": {"userAgent": "codex"}},
             {"id": 2, "result": {"rateLimits": {"primary": None}}},
         ]
@@ -52,6 +53,12 @@ def test_client_initializes_and_skips_notifications_while_waiting_for_response()
     assert sent[1] == {"method": "initialized"}
     assert sent[2] == {"id": 2, "method": "account/rateLimits/read"}
     assert result == {"rateLimits": {"primary": None}}
+    assert client.wait_for_notification(
+        "account/rateLimits/updated", timeout_seconds=0
+    ) == update
+    assert client.wait_for_notification(
+        "account/rateLimits/updated", timeout_seconds=0
+    ) is None
 
 
 def test_client_raises_sanitized_error_for_rpc_failure():

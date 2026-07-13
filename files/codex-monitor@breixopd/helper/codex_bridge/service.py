@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import time
 
 from .models import normalize_snapshot
@@ -13,11 +14,13 @@ class CodexService:
         self.history = history
         self.remote = remote
         self.clock = clock
+        self._notification_probe_complete = False
 
     def snapshot(self):
         captured_at = int(self.clock())
         account_response = self.client.request("account/read", {"refreshToken": False})
         limits_response = self.client.request("account/rateLimits/read")
+        limits_response = self._merge_latest_rate_limits(limits_response)
         snapshot = normalize_snapshot(limits_response, captured_at=captured_at)
         snapshot["account"] = self._normalize_account(account_response.get("account"))
 
@@ -66,6 +69,43 @@ class CodexService:
         if self.remote is None:
             raise RuntimeError("Codex remote control is unavailable")
         return self.remote
+
+    def _merge_latest_rate_limits(self, response):
+        wait = getattr(self.client, "wait_for_notification", None)
+        if wait is None:
+            return response
+        timeout = 0 if self._notification_probe_complete else 1.0
+        self._notification_probe_complete = True
+        params = wait("account/rateLimits/updated", timeout_seconds=timeout)
+        update = params.get("rateLimits") if isinstance(params, dict) else None
+        if not isinstance(update, dict):
+            return response
+
+        merged = copy.deepcopy(response)
+        merged["rateLimits"] = self._merge_non_null(
+            merged.get("rateLimits"), update
+        )
+        buckets = merged.get("rateLimitsByLimitId")
+        update_id = update.get("limitId")
+        if isinstance(buckets, dict) and isinstance(update_id, str):
+            for key, bucket in buckets.items():
+                if key == update_id or (
+                    isinstance(bucket, dict) and bucket.get("limitId") == update_id
+                ):
+                    buckets[key] = self._merge_non_null(bucket, update)
+        return merged
+
+    @classmethod
+    def _merge_non_null(cls, base, update):
+        result = copy.deepcopy(base) if isinstance(base, dict) else {}
+        for key, value in update.items():
+            if value is None:
+                continue
+            if isinstance(value, dict) and isinstance(result.get(key), dict):
+                result[key] = cls._merge_non_null(result[key], value)
+            else:
+                result[key] = copy.deepcopy(value)
+        return result
 
     @staticmethod
     def _normalize_account(account):

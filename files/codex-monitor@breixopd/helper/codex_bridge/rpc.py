@@ -14,6 +14,7 @@ class AppServerClient:
         self.timeout_seconds = timeout_seconds
         self._next_id = 1
         self._responses: dict[int, dict[str, Any]] = {}
+        self._notifications: dict[str, Any] = {}
         self._condition = threading.Condition()
         self._reader = threading.Thread(target=self._read_responses, daemon=True)
         self._reader.start()
@@ -64,6 +65,16 @@ class AppServerClient:
             self.process.terminate()
             self.process.wait(timeout=2)
 
+    def wait_for_notification(self, method, *, timeout_seconds):
+        deadline = time.monotonic() + max(0.0, float(timeout_seconds))
+        with self._condition:
+            while method not in self._notifications:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return None
+                self._condition.wait(timeout=remaining)
+            return self._notifications.pop(method)
+
     def _send(self, message: dict[str, Any]):
         self.process.stdin.write(json.dumps(message, separators=(",", ":")) + "\n")
         flush = getattr(self.process.stdin, "flush", None)
@@ -77,6 +88,12 @@ class AppServerClient:
             except (json.JSONDecodeError, TypeError):
                 continue
             request_id = message.get("id")
+            method = message.get("method")
+            if isinstance(method, str):
+                with self._condition:
+                    self._notifications[method] = message.get("params")
+                    self._condition.notify_all()
+                continue
             if not isinstance(request_id, int):
                 continue
             with self._condition:

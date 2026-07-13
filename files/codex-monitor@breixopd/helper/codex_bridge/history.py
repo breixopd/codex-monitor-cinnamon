@@ -46,7 +46,18 @@ class QuotaHistory:
                 continue
             if not isinstance(row, dict) or not REQUIRED_KEYS.issubset(row):
                 continue
-            if int(row["capturedAt"]) < cutoff:
+            try:
+                captured_at = int(row["capturedAt"])
+                for key in ("fiveHourUsedPercent", "weeklyUsedPercent"):
+                    row[key] = float(row[key]) if row[key] is not None else None
+                for key in ("fiveHourResetsAt", "weeklyResetsAt"):
+                    row[key] = int(row[key]) if row[key] is not None else None
+            except (TypeError, ValueError):
+                continue
+            if row["fiveHourUsedPercent"] is None and row["weeklyUsedPercent"] is None:
+                continue
+            row["capturedAt"] = captured_at
+            if captured_at < cutoff:
                 continue
             rows.append(row)
         return rows
@@ -62,7 +73,11 @@ class QuotaHistory:
         def values(window):
             if not isinstance(window, dict):
                 return None, None
-            return float(window["usedPercent"]), int(window["resetsAt"])
+            reset_time = window.get("resetsAt")
+            return (
+                float(window["usedPercent"]),
+                int(reset_time) if reset_time is not None else None,
+            )
 
         five_hour_percent, five_hour_reset = values(five_hour)
         weekly_percent, weekly_reset = values(weekly)

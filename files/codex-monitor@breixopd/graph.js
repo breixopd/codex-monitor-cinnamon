@@ -1,6 +1,7 @@
 'use strict';
 
 const Cairo = imports.cairo;
+const Clutter = imports.gi.Clutter;
 const St = imports.gi.St;
 
 function _rgba(color, alpha) {
@@ -15,37 +16,40 @@ function _themeColor(area, property, fallback) {
   }
 }
 
-var createPanelMeter = function() {
-  const area = new St.DrawingArea({ style_class: 'codex-monitor-panel-meter' });
-  area._values = [0, 0];
-  area._available = [false, false];
-  area.connect('repaint', _drawPanelMeter);
+var createPanelBar = function(styleClass) {
+  const area = new St.DrawingArea({
+    style_class: `codex-monitor-panel-bar ${styleClass}`,
+    x_expand: false,
+    y_expand: false,
+    y_align: Clutter.ActorAlign.CENTER,
+  });
+  area._value = 0;
+  area._available = false;
+  area.connect('repaint', _drawPanelBar);
   return area;
 };
 
-var updatePanelMeter = function(area, fiveHour, weekly) {
-  area._values = [fiveHour, weekly].map(window => window ? Number(window.usedPercent) : 0);
-  area._available = [Boolean(fiveHour), Boolean(weekly)];
+var updatePanelBar = function(area, window) {
+  area._value = window ? Number(window.usedPercent) : 0;
+  area._available = Boolean(window);
   area.queue_repaint();
 };
 
-function _drawPanelMeter(area) {
+function _drawPanelBar(area) {
   const context = area.get_context();
   const [width, height] = area.get_surface_size();
-  const foreground = _themeColor(area, '-meter-active-color');
-  const muted = _themeColor(area, '-meter-track-color', foreground);
-  const rowHeight = Math.max(2, Math.floor(height / 5));
-  const gap = Math.max(2, Math.floor(height / 4));
-  for (let index = 0; index < 2; index += 1) {
-    const y = index * (rowHeight + gap) + rowHeight;
-    context.setSourceRGBA(..._rgba(muted, 0.25));
-    context.rectangle(0, y, width, rowHeight);
+  const foreground = area.get_theme_node().get_foreground_color();
+  const active = _themeColor(area, '-usage-bar-color', foreground);
+  const muted = _themeColor(area, '-usage-track-color', foreground);
+  const barHeight = Math.max(2, Math.min(4, height));
+  const y = Math.max(0, Math.floor((height - barHeight) / 2));
+  context.setSourceRGBA(..._rgba(muted, 0.25));
+  context.rectangle(0, y, width, barHeight);
+  context.fill();
+  if (area._available) {
+    context.setSourceRGBA(..._rgba(active, 0.95));
+    context.rectangle(0, y, width * Math.min(100, Math.max(0, area._value)) / 100, barHeight);
     context.fill();
-    if (area._available[index]) {
-      context.setSourceRGBA(..._rgba(foreground, 0.95));
-      context.rectangle(0, y, width * Math.min(100, area._values[index]) / 100, rowHeight);
-      context.fill();
-    }
   }
   context.$dispose();
 }

@@ -49,7 +49,7 @@ function panelState(snapshot, settings, now, remoteStatus) {
   };
 
   return {
-    label: `5h ${formatPercent(fiveHour)} · W ${formatPercent(weekly)}`,
+    label: `5h ${formatPercent(fiveHour)}  W ${formatPercent(weekly)}`,
     level,
     stale: now - Number(snapshot.capturedAt || 0) > Number(settings.staleSeconds || 300),
     resetBadge: settings.showResetBadge !== false && resetCredits.availableCount > 0
@@ -68,11 +68,11 @@ function quotaSeries(history, windowName, cutoff, now) {
   const resetKey = `${prefix}ResetsAt`;
   return (history || [])
     .filter(row => Number(row.capturedAt) >= cutoff && Number(row.capturedAt) <= now)
-    .filter(row => row[usedKey] != null && row[resetKey] != null)
+    .filter(row => row[usedKey] != null)
     .map(row => ({
       timestamp: Number(row.capturedAt),
       usedPercent: Number(row[usedKey]),
-      resetsAt: Number(row[resetKey]),
+      resetsAt: row[resetKey] != null ? Number(row[resetKey]) : null,
     }));
 }
 
@@ -87,8 +87,10 @@ function tooltipText(snapshot, now, remoteStatus) {
   const lineForWindow = (name, window) => {
     if (!window)
       return `${name}: unavailable`;
-    const resetIn = formatDuration(Number(window.resetsAt) - now);
-    return `${name}: ${Math.round(Number(window.usedPercent))}% used · resets in ${resetIn}`;
+    const reset = window.resetsAt != null
+      ? `resets in ${formatDuration(Number(window.resetsAt) - now)}`
+      : 'reset time unavailable';
+    return `${name}: ${Math.round(Number(window.usedPercent))}% used · ${reset}`;
   };
   const capturedAge = formatDuration(now - Number(snapshot.capturedAt || now));
   const resetCount = Number((snapshot.resetCredits || {}).availableCount || 0);

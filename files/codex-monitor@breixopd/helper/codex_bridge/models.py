@@ -13,12 +13,14 @@ def _normalize_window(
     window: dict[str, Any], *, limit_id: str | None, limit_name: str | None
 ) -> dict[str, Any]:
     used_percent = max(0.0, min(100.0, float(window.get("usedPercent", 0))))
+    duration = window.get("windowDurationMins")
+    reset_time = window.get("resetsAt")
     return {
         "limitId": limit_id,
         "limitName": limit_name,
         "usedPercent": used_percent,
-        "windowDurationMins": int(window["windowDurationMins"]),
-        "resetsAt": int(window["resetsAt"]),
+        "windowDurationMins": int(duration) if duration is not None else None,
+        "resetsAt": int(reset_time) if reset_time is not None else None,
     }
 
 
