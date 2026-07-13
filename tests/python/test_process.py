@@ -1,7 +1,8 @@
 import io
 import json
+import subprocess
 
-from codex_bridge.process import serve, spawn_app_server
+from codex_bridge.process import control_socket_path, serve, spawn_app_server
 
 
 class FakePopen:
@@ -40,12 +41,58 @@ def test_spawn_app_server_uses_fixed_arguments_and_scoped_codex_home():
     }
 
 
-def test_spawn_proxy_uses_control_socket_transport_arguments():
-    popen = FakePopen()
+def test_control_socket_path_uses_daemon_advertisement_and_scoped_environment(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    calls = []
 
-    spawn_app_server("codex", proxy=True, popen=popen, base_env={})
+    def runner(command, **kwargs):
+        calls.append((command, kwargs))
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=json.dumps(
+                {"status": "running", "socketPath": "~/.codex/control.sock"}
+            ),
+            stderr="private",
+        )
 
-    assert popen.calls[0][0] == ["codex", "app-server", "proxy"]
+    path = control_socket_path(
+        "/opt/codex/bin/codex",
+        codex_home="/home/user/.codex-work",
+        runner=runner,
+        base_env={"PATH": "/usr/bin"},
+    )
+
+    assert path == str(tmp_path / ".codex" / "control.sock")
+    assert calls[0][0] == [
+        "/opt/codex/bin/codex",
+        "app-server",
+        "daemon",
+        "version",
+    ]
+    assert calls[0][1] == {
+        "shell": False,
+        "check": False,
+        "capture_output": True,
+        "text": True,
+        "timeout": 5,
+        "env": {"PATH": "/usr/bin", "CODEX_HOME": "/home/user/.codex-work"},
+    }
+
+
+def test_control_socket_path_falls_back_to_codex_home_without_exposing_errors():
+    def runner(command, **kwargs):
+        return subprocess.CompletedProcess(
+            command, 1, stdout="", stderr="private diagnostic"
+        )
+
+    path = control_socket_path(
+        "codex", codex_home="/home/user/.codex-work", runner=runner, base_env={}
+    )
+
+    assert path == "/home/user/.codex-work/app-server-control/app-server-control.sock"
 
 
 def test_serve_keeps_protocol_jsonl_and_survives_malformed_input():

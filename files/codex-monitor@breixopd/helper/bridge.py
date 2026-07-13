@@ -5,18 +5,20 @@ from __future__ import annotations
 
 import argparse
 import os
+import subprocess
 import sys
 from pathlib import Path
 from types import SimpleNamespace
 
 from codex_bridge.history import QuotaHistory
 from codex_bridge.launcher import TerminalLauncher
-from codex_bridge.process import serve, spawn_app_server
+from codex_bridge.process import control_socket_path, serve, spawn_app_server
 from codex_bridge.protocol import CommandRouter
 from codex_bridge.remote import RemoteControl
 from codex_bridge.rpc import AppServerClient
 from codex_bridge.service import CodexService
 from codex_bridge.updates import UpdateManager
+from codex_bridge.websocket_rpc import UnixSocketAppServerClient
 
 
 UUID = "codex-monitor@breixopd"
@@ -27,17 +29,22 @@ def create_runtime(
     *,
     spawn=None,
     client_factory=None,
+    remote_client_factory=None,
+    socket_resolver=None,
     remote_runner=None,
     terminal_popen=None,
     update_manager_factory=None,
 ):
     spawn = spawn or spawn_app_server
     client_factory = client_factory or (lambda process: AppServerClient(process=process))
+    remote_client_factory = remote_client_factory or (
+        lambda socket_path: UnixSocketAppServerClient(socket_path=socket_path)
+    )
+    socket_resolver = socket_resolver or control_socket_path
 
     process = spawn(
         options.codex,
         codex_home=options.codex_home,
-        proxy=False,
     )
     client = client_factory(process)
     client.initialize()
@@ -47,23 +54,28 @@ def create_runtime(
         retention_days=options.history_days,
     )
 
-    def create_proxy_client():
-        proxy_process = spawn(
-            options.codex,
-            codex_home=options.codex_home,
-            proxy=True,
-        )
-        return client_factory(proxy_process)
-
     remote_environment = dict(os.environ)
     if options.codex_home:
         remote_environment["CODEX_HOME"] = options.codex_home
+    effective_remote_runner = remote_runner or subprocess.run
+    remote_socket_path = None
+
+    def create_remote_client():
+        nonlocal remote_socket_path
+        if remote_socket_path is None:
+            remote_socket_path = socket_resolver(
+                options.codex,
+                codex_home=options.codex_home,
+                runner=effective_remote_runner,
+                base_env=remote_environment,
+            )
+        return remote_client_factory(remote_socket_path)
+
     remote_kwargs = {
-        "client_factory": create_proxy_client,
+        "client_factory": create_remote_client,
         "environment": remote_environment,
+        "runner": effective_remote_runner,
     }
-    if remote_runner is not None:
-        remote_kwargs["runner"] = remote_runner
     remote = RemoteControl(options.codex, **remote_kwargs)
     launcher_kwargs = {}
     if terminal_popen is not None:

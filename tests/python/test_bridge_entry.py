@@ -16,7 +16,7 @@ class FakeClient:
         self.closed = True
 
 
-def test_create_runtime_wires_main_client_history_and_proxy_factory(tmp_path):
+def test_create_runtime_wires_main_client_history_and_unix_socket_factory(tmp_path):
     processes = []
 
     def spawn(executable, **kwargs):
@@ -38,18 +38,48 @@ def test_create_runtime_wires_main_client_history_and_proxy_factory(tmp_path):
         history_days=30,
     )
 
+    remote_clients = []
+
+    def remote_client_factory(socket_path):
+        remote_client = SimpleNamespace(socket_path=socket_path)
+        remote_clients.append(remote_client)
+        return remote_client
+
+    socket_resolver_calls = []
+
+    def socket_resolver(executable, **kwargs):
+        socket_resolver_calls.append((executable, kwargs))
+        return "/home/user/.codex/app-server-control/control.sock"
+
     runtime = create_runtime(
-        options, spawn=spawn, client_factory=client_factory, remote_runner=lambda *a, **k: None
+        options,
+        spawn=spawn,
+        client_factory=client_factory,
+        remote_client_factory=remote_client_factory,
+        socket_resolver=socket_resolver,
+        remote_runner=lambda *a, **k: None,
     )
 
     assert clients[0].initialized is True
-    assert processes[0]["proxy"] is False
+    assert len(processes) == 1
     assert runtime.history.path == tmp_path / "history.jsonl"
     assert runtime.remote.environment["CODEX_HOME"] == "/home/user/.codex"
 
-    proxy_client = runtime.remote.client_factory()
-    assert processes[1]["proxy"] is True
-    assert proxy_client.process == processes[1]
+    control_client = runtime.remote.client_factory()
+    assert control_client.socket_path == (
+        "/home/user/.codex/app-server-control/control.sock"
+    )
+    assert remote_clients == [control_client]
+    assert socket_resolver_calls == [
+        (
+            "codex",
+            {
+                "codex_home": "/home/user/.codex",
+                "runner": runtime.remote.runner,
+                "base_env": runtime.remote.environment,
+            },
+        )
+    ]
 
 
 def test_create_runtime_wires_one_update_manager_without_starting_a_check(tmp_path):
