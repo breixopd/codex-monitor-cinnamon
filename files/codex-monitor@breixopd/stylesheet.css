@@ -76,7 +76,7 @@
 
 .codex-monitor-scroll {
   max-height: 752px;
-  padding: 16px;
+  padding: 16px 0 16px 16px;
 }
 
 .codex-monitor-scroll StScrollBar {
