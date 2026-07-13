@@ -3,9 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "check": "python3 scripts/validate.py && sh -n scripts/install.sh && sh -n scripts/package.sh",
+    "check": "python3 scripts/validate.py && sh -n scripts/install.sh && sh -n scripts/package.sh && sh -n scripts/smoke-live.sh",
     "package": "sh scripts/package.sh",
     "test:js": "node --test tests/js/*.test.js",
-    "test": "pytest -q && npm run test:js"
+    "test": "pytest -q && npm run test:js",
+    "smoke:live": "sh scripts/smoke-live.sh"
   }
 }

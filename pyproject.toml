@@ -6,5 +6,5 @@ requires-python = ">=3.10"
 
 [tool.pytest.ini_options]
 addopts = "-q"
-pythonpath = ["files/codex-monitor@breixopd/helper"]
+pythonpath = [".", "files/codex-monitor@breixopd/helper"]
 testpaths = ["tests/python"]

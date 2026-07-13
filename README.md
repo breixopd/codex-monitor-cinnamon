@@ -1,15 +1,17 @@
 # Codex Monitor for Cinnamon
 
-Codex Monitor is a Linux Mint Cinnamon panel applet for checking Codex quota usage without opening a terminal. Its compact panel view shows the 5-hour and weekly windows; the popup adds countdowns, local history, token activity when available, banked reset credits, and opt-in Remote Control management.
+Codex Monitor is a Linux Mint Cinnamon panel applet for checking Codex quota usage without opening a terminal. Its compact panel view shows centered 5-hour and weekly meters plus actionable reset, freshness, and Remote Control states. The popup adds countdowns, detailed history, recent sessions, banked resets, and complete Remote Control management.
 
 ## Features
 
 - Dual panel meter and percentages for 5-hour and weekly usage
 - Exact reset time plus a live compact countdown
-- 24-hour, 7-day, and 30-day quota/activity graphs
+- 24-hour, 7-day, and 30-day quota/activity graphs with axes, legend statistics, reset markers, and hover details
 - Banked reset count, expiry, and confirmed one-click redemption
 - Visual warning, critical, expiring-credit, stale, and Remote Control states
-- Optional confirmed start/stop/pair controls for Codex Remote Control
+- Active and recent Codex sessions that resume in Linux Mint's default terminal
+- Open Codex action using `x-terminal-emulator`
+- Confirmed Remote Control start, stop, pairing, device listing, and revocation
 - Theme-integrated Cinnamon popup, keyboard-focusable controls, and vertical-panel fallback
 - Local-only quota history with configurable 7–90 day retention
 
@@ -31,7 +33,7 @@ sh scripts/install.sh
 
 Then open **System Settings → Applets**, find **Codex Monitor**, and add it to a panel. If Cinnamon has cached an older copy, restart Cinnamon with <kbd>Alt</kbd>+<kbd>F2</kbd>, `r`, <kbd>Enter</kbd> on X11, or log out and back in on Wayland.
 
-The installer preserves an existing installation as a timestamped sibling backup. It does not add, remove, or rearrange panel applets automatically.
+The installer preserves an existing installation under `${XDG_DATA_HOME:-$HOME/.local/share}/codex-monitor@breixopd/install-backups/`. Backups stay outside Cinnamon's applet-discovery directory, and stale sibling backups from older development installs are removed. The installer does not add, remove, or rearrange panel applets automatically.
 
 ## Install from the archive
 
@@ -51,15 +53,15 @@ To uninstall, remove that applet from the panel in System Settings, then delete 
 
 ## Configuration
 
-Right-click the applet and choose **Configure**, or use the Settings button in its popup. Available options cover refresh interval, history retention, graph mode/range, warning thresholds, reset badges, the Codex executable, a custom `CODEX_HOME`, and the experimental Remote Control section.
+Right-click the applet and choose **Configure**, or use the Settings button in its popup. Available options cover refresh interval, history retention, graph mode/range, warning thresholds, panel indicators, the Codex executable, and a custom `CODEX_HOME`.
 
-Remote Control is off by default. Starting it requires confirmation because paired mobile clients can control Codex on this computer. Pairing codes are shown only in the popup and are not persisted by Codex Monitor.
+Remote Control is managed directly in the dashboard. Starting it and revoking a paired device require confirmation because paired clients can control Codex on this computer. Pairing codes are shown only in the popup and are not persisted by Codex Monitor. Codex CLI 0.144.3 still labels its underlying `remote-control` command experimental; the applet therefore reports unsupported methods without disrupting quota monitoring.
 
 ## Privacy and security
 
 The applet starts the official local `codex app-server` process and asks it for account limits. It does not scrape terminal output, read authentication files, copy API keys, or open a network port. Account email is discarded by the bridge and never sent to the UI.
 
-Only graph samples—capture time, used percentage, and reset time—are written to disk. The file is replaced atomically with user-only mode `0600`. Token activity, account identity, and pairing codes are not stored. Reset redemption is confirmed and uses an idempotency key. Child commands use argument arrays rather than a shell.
+Only graph samples—capture time, used percentage, and reset time—are written to disk. The file is replaced atomically with user-only mode `0600`. Token activity, account identity, session previews, paired-client details, and pairing codes are not stored. Reset redemption is confirmed and uses an idempotency key. Session launches validate the thread UUID and use fixed argument arrays rather than a shell.
 
 See [ADR-001](docs/decisions/001-use-codex-app-server.md) and [ADR-002](docs/decisions/002-local-history-and-remote-control.md) for the design rationale.
 
@@ -70,9 +72,10 @@ pytest -q
 npm run test:js
 python3 scripts/validate.py
 sh scripts/package.sh
+npm run smoke:live
 ```
 
-JavaScript model tests run under Node; Cinnamon-specific modules are syntax-checked and then smoke-tested in a real Cinnamon session. Python tests cover response normalization, JSON-RPC behavior, persistence, command validation, reset redemption, and Remote Control wrappers.
+JavaScript model tests run under Node; Cinnamon-specific modules are syntax-checked and then smoke-tested in a real Cinnamon session. Python tests cover response normalization, JSON-RPC behavior, persistence, command validation, terminal launching, installer isolation, reset redemption, and the full Remote Control lifecycle. The live smoke command requires the applet to already be enabled on a Cinnamon panel; it reloads the installed source, captures screenshots under `/tmp/codex-monitor-smoke`, and restores an initially disabled Remote Control state.
 
 Project layout:
 
@@ -83,7 +86,7 @@ Project layout:
 
 ## Compatibility behavior
 
-Codex 0.144.3 supports the full baseline used by this release. When `account/usage/read` is unavailable, activity graphs are empty while quota monitoring continues. Unknown quota-window durations are preserved by the bridge but are not mislabeled as 5-hour or weekly windows. Bridge failures leave the last snapshot visible and retry with bounded exponential backoff.
+Codex 0.144.3 supports the full baseline used by this release. When `account/usage/read`, `thread/list`, or a Remote Control method is unavailable, its section shows an explicit unavailable state while quota monitoring continues. A monitor-owned app-server can report sessions owned by another Codex process as `notLoaded`; those rows are labeled **Ready to resume**, not falsely reported as active or finished. Unknown quota-window durations are preserved but not mislabeled. Bridge failures leave the last snapshot visible and retry with bounded exponential backoff.
 
 ## License
 
