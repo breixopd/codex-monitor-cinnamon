@@ -1,0 +1,9 @@
+{
+  "name": "codex-monitor-cinnamon",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "test:js": "node --test tests/js/*.test.js",
+    "test": "pytest -q && npm run test:js"
+  }
+}

@@ -1,0 +1,145 @@
+.codex-monitor-panel {
+  spacing: 5px;
+}
+
+.codex-monitor-panel-icon {
+  icon-size: 16px;
+}
+
+.codex-monitor-panel-meter {
+  width: 30px;
+  height: 14px;
+  -meter-active-color: #5aa9e6;
+  -meter-track-color: #ffffff;
+}
+
+.codex-monitor-panel-label,
+.codex-monitor-badge,
+.codex-monitor-remote-badge {
+  font-size: 0.9em;
+  font-weight: 600;
+}
+
+.codex-monitor-badge,
+.codex-monitor-remote-badge {
+  padding: 0 3px;
+}
+
+.codex-monitor-warning .codex-monitor-panel-meter,
+.codex-monitor-warning .codex-monitor-badge {
+  color: #e8a641;
+  -meter-active-color: #e8a641;
+}
+
+.codex-monitor-critical .codex-monitor-panel-meter,
+.codex-monitor-critical .codex-monitor-badge {
+  color: #e05a62;
+  -meter-active-color: #e05a62;
+}
+
+.codex-monitor-stale {
+  opacity: 150;
+}
+
+.codex-monitor-dashboard {
+  width: 480px;
+  spacing: 14px;
+  padding: 14px;
+}
+
+.codex-monitor-header,
+.codex-monitor-section-heading,
+.codex-monitor-footer,
+.codex-monitor-action-row,
+.codex-monitor-range-row {
+  spacing: 8px;
+}
+
+.codex-monitor-title {
+  font-size: 1.35em;
+  font-weight: 700;
+}
+
+.codex-monitor-status,
+.codex-monitor-secondary {
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.9em;
+}
+
+.codex-monitor-card-row {
+  spacing: 10px;
+}
+
+.codex-monitor-quota-card,
+.codex-monitor-section {
+  spacing: 7px;
+  padding: 11px;
+  border-radius: 8px;
+  background-color: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.codex-monitor-card-kicker {
+  font-size: 0.78em;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.codex-monitor-percent {
+  font-size: 1.35em;
+  font-weight: 700;
+}
+
+.codex-monitor-bar {
+  height: 8px;
+  -barlevel-height: 6px;
+  -barlevel-background-color: rgba(255, 255, 255, 0.14);
+  -barlevel-active-background-color: #5aa9e6;
+  -barlevel-amplify-color: #e05a62;
+  -barlevel-amplify-separator-width: 0px;
+}
+
+.codex-monitor-section-title,
+.codex-monitor-row-title {
+  font-weight: 600;
+}
+
+.codex-monitor-graph {
+  height: 150px;
+  -graph-five-hour-color: #5aa9e6;
+  -graph-weekly-color: #79c98c;
+  -graph-activity-color: #d7a85c;
+}
+
+.codex-monitor-button,
+.codex-monitor-tab,
+.codex-monitor-range {
+  padding: 5px 9px;
+  border-radius: 5px;
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.codex-monitor-button:hover,
+.codex-monitor-button:focus,
+.codex-monitor-tab:hover,
+.codex-monitor-tab:focus,
+.codex-monitor-range:hover,
+.codex-monitor-range:focus,
+.codex-monitor-tab:checked,
+.codex-monitor-range:checked {
+  background-color: rgba(90, 169, 230, 0.28);
+}
+
+.codex-monitor-reset-row {
+  spacing: 10px;
+  padding: 4px 0;
+}
+
+.codex-monitor-pairing-code {
+  font-family: monospace;
+  font-size: 1.05em;
+  font-weight: 700;
+  padding: 7px;
+  border-radius: 5px;
+  background-color: rgba(90, 169, 230, 0.14);
+}
