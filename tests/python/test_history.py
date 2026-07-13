@@ -42,3 +42,27 @@ def test_history_ignores_corrupt_and_incomplete_rows(tmp_path):
     rows = QuotaHistory(path, retention_days=30).load(now=100)
 
     assert rows == []
+
+
+def test_history_persists_a_snapshot_when_only_one_quota_window_is_available(tmp_path):
+    path = tmp_path / "history.jsonl"
+    history = QuotaHistory(path, retention_days=30)
+    snapshot = {
+        "capturedAt": 100,
+        "windows": {
+            "fiveHour": None,
+            "weekly": {"usedPercent": 42, "resetsAt": 700},
+        },
+    }
+
+    history.append(snapshot, now=100)
+
+    assert history.load(now=100) == [
+        {
+            "capturedAt": 100,
+            "fiveHourUsedPercent": None,
+            "fiveHourResetsAt": None,
+            "weeklyUsedPercent": 42.0,
+            "weeklyResetsAt": 700,
+        }
+    ]

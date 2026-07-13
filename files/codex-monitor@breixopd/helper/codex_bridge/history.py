@@ -56,14 +56,22 @@ class QuotaHistory:
         windows = snapshot.get("windows") or {}
         five_hour = windows.get("fiveHour")
         weekly = windows.get("weekly")
-        if not isinstance(five_hour, dict) or not isinstance(weekly, dict):
+        if not isinstance(five_hour, dict) and not isinstance(weekly, dict):
             return None
+
+        def values(window):
+            if not isinstance(window, dict):
+                return None, None
+            return float(window["usedPercent"]), int(window["resetsAt"])
+
+        five_hour_percent, five_hour_reset = values(five_hour)
+        weekly_percent, weekly_reset = values(weekly)
         return {
             "capturedAt": int(snapshot["capturedAt"]),
-            "fiveHourUsedPercent": float(five_hour["usedPercent"]),
-            "fiveHourResetsAt": int(five_hour["resetsAt"]),
-            "weeklyUsedPercent": float(weekly["usedPercent"]),
-            "weeklyResetsAt": int(weekly["resetsAt"]),
+            "fiveHourUsedPercent": five_hour_percent,
+            "fiveHourResetsAt": five_hour_reset,
+            "weeklyUsedPercent": weekly_percent,
+            "weeklyResetsAt": weekly_reset,
         }
 
     def _write(self, rows):
