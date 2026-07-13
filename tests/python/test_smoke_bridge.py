@@ -59,10 +59,10 @@ class FakeSession:
             raise RuntimeError("client list failed")
         if action == "remote_pair_start" and self.pair_start_failures > 0:
             self.pair_start_failures -= 1
-            raise RuntimeError("proxy is restarting")
+            raise RuntimeError("control channel is reconnecting")
         if action == "remote_pair_status" and self.pair_status_failures > 0:
             self.pair_status_failures -= 1
-            raise RuntimeError("proxy is restarting")
+            raise RuntimeError("control channel is reconnecting")
         return responses[action]
 
 
@@ -99,9 +99,28 @@ def test_run_probe_never_stops_live_remote_when_lifecycle_step_fails():
     assert all(action != "remote_stop" for action, _params in session.actions)
 
 
+def test_run_probe_can_skip_socket_operations_in_a_restricted_shell():
+    session = FakeSession(fail_clients=True)
+
+    result = run_probe(
+        session,
+        output=io.StringIO(),
+        sleeper=lambda _seconds: None,
+        check_remote=False,
+    )
+
+    assert result["snapshot"] is True
+    assert result["remoteLifecycle"] is None
+    assert result["clientListSupported"] is None
+    assert all(
+        not action.startswith("remote_") for action, _params in session.actions
+    )
+
+
 def test_live_smoke_preserves_remote_and_runs_full_visual_matrix():
     script = Path("scripts/smoke-live.sh").read_text(encoding="utf-8")
     matrix = Path("scripts/live-matrix.js").read_text(encoding="utf-8")
+    remote_probe = Path("scripts/live-remote-probe.js").read_text(encoding="utf-8")
 
     assert "remote_stop" not in script
     assert 'x._remoteAction("remote_start"' not in script
@@ -109,6 +128,13 @@ def test_live_smoke_preserves_remote_and_runs_full_visual_matrix():
     assert script.index('python3 "$ROOT/scripts/smoke_bridge.py"') < script.index(
         '"$SCREENSHOT_DIR/dashboard.png"'
     )
+    assert '"--skip-remote"' in script
+    assert "_codexMonitorDeviceProbe" in script
+    assert "remoteDeviceBridge" in script
+    assert "live-remote-probe.js" in script
+    assert "clientCount" in remote_probe
+    assert "clientId" not in remote_probe
+    assert "displayName" not in remote_probe
     assert "remoteStatePreserved" in script
     assert "lifecycleRemovalClean" in script
     assert "lifecycleRestartClean" in script
@@ -137,6 +163,7 @@ def test_live_smoke_preserves_remote_and_runs_full_visual_matrix():
         "remoteDevicesUnsupported",
         "remoteDevicesEmpty",
         "remoteDevicesListed",
+        "qrScrollOverflow",
         "qrFallback",
         "pairingClaimed",
         "updateCurrent",
@@ -150,7 +177,7 @@ def test_live_smoke_preserves_remote_and_runs_full_visual_matrix():
         assert state in matrix
 
 
-def test_run_probe_retries_pair_status_during_proxy_readiness_race():
+def test_run_probe_retries_pair_status_during_channel_readiness_race():
     session = FakeSession(pair_status_failures=2)
 
     result = run_probe(session, output=io.StringIO(), sleeper=lambda _seconds: None)
@@ -162,7 +189,7 @@ def test_run_probe_retries_pair_status_during_proxy_readiness_race():
     assert result["remoteLeftRunning"] is True
 
 
-def test_run_probe_retries_pair_start_during_proxy_readiness_race():
+def test_run_probe_retries_pair_start_during_channel_readiness_race():
     session = FakeSession(pair_start_failures=2)
 
     result = run_probe(session, output=io.StringIO(), sleeper=lambda _seconds: None)

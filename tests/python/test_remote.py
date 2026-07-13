@@ -26,7 +26,7 @@ class FakeStatusClient:
 
 class FailingInitializeClient(FakeStatusClient):
     def initialize(self):
-        raise RuntimeError("proxy daemon is not running")
+        raise RuntimeError("control channel is not responding")
 
 
 class FailingRequestClient(FakeStatusClient):
@@ -52,7 +52,7 @@ class FakeClock:
         self.value += seconds
 
 
-def test_remote_status_reads_running_daemon_through_proxy():
+def test_remote_status_reads_running_daemon_through_control_channel():
     client = FakeStatusClient(
         {
             "status": "connected",
@@ -74,7 +74,7 @@ def test_remote_status_reads_running_daemon_through_proxy():
     assert client.closed is True
 
 
-def test_remote_status_treats_unavailable_proxy_daemon_as_disabled():
+def test_remote_status_treats_unavailable_control_channel_as_disabled():
     client = FailingInitializeClient({})
     remote = RemoteControl(
         "codex", client_factory=lambda: client, daemon_running=lambda: False
@@ -84,7 +84,7 @@ def test_remote_status_treats_unavailable_proxy_daemon_as_disabled():
     assert client.closed is True
 
 
-def test_remote_status_probes_confirmed_existing_daemon_when_proxy_is_unavailable():
+def test_remote_status_probes_existing_daemon_when_control_channel_is_unavailable():
     client = FailingInitializeClient({})
     calls = []
 
@@ -135,7 +135,7 @@ def test_remote_status_reports_running_when_existing_daemon_probe_fails():
     assert remote.status() == {"status": "running"}
 
 
-def test_remote_status_backs_off_unavailable_proxy_without_blocking_every_poll():
+def test_remote_status_backs_off_unavailable_channel_without_blocking_every_poll():
     clock = FakeClock()
     clients = []
 
@@ -278,7 +278,7 @@ def test_remote_display_metadata_is_collapsed_to_single_line_text():
     assert remote.status()["serverName"] == "Mint workstation"
 
 
-def test_remote_pair_start_uses_proxy_and_normalizes_code_without_persisting_it():
+def test_remote_pair_start_uses_control_channel_and_does_not_persist_code():
     client = FakeStatusClient(
         {
             "pairingCode": "opaque-code",
@@ -311,7 +311,7 @@ def test_remote_pair_start_uses_proxy_and_normalizes_code_without_persisting_it(
     assert client.closed is True
 
 
-def test_remote_pair_start_falls_back_to_fixed_cli_when_proxy_method_fails():
+def test_remote_pair_start_falls_back_to_fixed_cli_when_channel_method_fails():
     client = FailingRequestClient({})
     calls = []
 
@@ -341,7 +341,7 @@ def test_remote_pair_start_falls_back_to_fixed_cli_when_proxy_method_fails():
     assert client.closed is True
 
 
-def test_remote_pair_start_does_not_mask_non_capability_proxy_errors():
+def test_remote_pair_start_does_not_mask_non_capability_channel_errors():
     client = BrokenRequestClient({})
     remote = RemoteControl(
         "codex",
@@ -495,7 +495,7 @@ def test_remote_clients_distinguishes_unavailable_channel_from_unsupported_metho
     }
 
 
-def test_remote_revoke_uses_fixed_proxy_method_and_returns_normalized_result():
+def test_remote_revoke_uses_fixed_channel_method_and_returns_normalized_result():
     client = FakeStatusClient({})
     remote = RemoteControl("codex", client_factory=lambda: client)
 
@@ -508,7 +508,7 @@ def test_remote_revoke_uses_fixed_proxy_method_and_returns_normalized_result():
     )
 
 
-def test_remote_proxy_operations_reject_invalid_response_shapes():
+def test_remote_channel_operations_reject_invalid_response_shapes():
     cases = [
         ("pair_start", {"pairingCode": "missing required values"}),
         ("pair_status", {"claimed": "yes"}),
@@ -549,7 +549,7 @@ def test_remote_start_and_stop_use_fixed_argument_lists():
     ]
 
 
-def test_remote_start_caches_connected_status_when_proxy_is_temporarily_unavailable():
+def test_remote_start_caches_status_when_control_channel_is_temporarily_unavailable():
     client = FailingInitializeClient({})
 
     def runner(command, **kwargs):

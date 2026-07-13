@@ -264,6 +264,9 @@
       expiresAt: now + 600,
     });
     results.qrAvailable = dashboard._pairingQr.visible;
+    results.qrScrollOverflow =
+      dashboard.actor.get_preferred_height(dashboard.actor.width)[1] >
+      x._dashboardScroll.height;
     dashboard.setPairing({
       qrSvg: "invalid",
       manualPairingCode: "TEST-ONLY",

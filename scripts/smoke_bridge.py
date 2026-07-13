@@ -100,51 +100,74 @@ def _retry_remote_request(session, action, params, sleeper, *, attempts=3):
     raise RuntimeError("Remote Control request did not complete during smoke test")
 
 
-def run_probe(session, *, output=sys.stdout, sleeper=time.sleep):
+def run_probe(
+    session,
+    *,
+    output=sys.stdout,
+    sleeper=time.sleep,
+    check_remote=True,
+):
     """Run the live bridge contract and emit only non-sensitive assertions."""
 
-    initial = session.request("remote_status")
-    if initial.get("status") not in {"disabled", "connecting", "running", "connected"}:
-        raise RuntimeError("Remote Control initial state was not smoke-testable")
     snapshot = session.request("snapshot")
     sessions = session.request("sessions", {"limit": 12})
     update_status = session.request("update_status")
     update_check = session.request("update_check", {"force": False})
-    status = _connected_status(session, initial, sleeper)
-    pairing = _retry_remote_request(
-        session,
-        "remote_pair_start",
-        {},
-        sleeper,
-    )
-    pairing_status = _retry_remote_request(
-        session,
-        "remote_pair_status",
-        {
-            "pairingCode": pairing.get("pairingCode"),
-            "manualPairingCode": pairing.get("manualPairingCode"),
-        },
-        sleeper,
-    )
-    environment_id = pairing.get("environmentId") or status.get("environmentId")
-    clients = _retry_remote_request(
-        session,
-        "remote_clients",
-        {"environmentId": environment_id},
-        sleeper,
-    )
+    status = pairing = pairing_status = clients = None
+    if check_remote:
+        initial = session.request("remote_status")
+        if initial.get("status") not in {
+            "disabled",
+            "connecting",
+            "running",
+            "connected",
+        }:
+            raise RuntimeError("Remote Control initial state was not smoke-testable")
+        status = _connected_status(session, initial, sleeper)
+        pairing = _retry_remote_request(
+            session,
+            "remote_pair_start",
+            {},
+            sleeper,
+        )
+        pairing_status = _retry_remote_request(
+            session,
+            "remote_pair_status",
+            {
+                "pairingCode": pairing.get("pairingCode"),
+                "manualPairingCode": pairing.get("manualPairingCode"),
+            },
+            sleeper,
+        )
+        environment_id = pairing.get("environmentId") or status.get("environmentId")
+        clients = _retry_remote_request(
+            session,
+            "remote_clients",
+            {"environmentId": environment_id},
+            sleeper,
+        )
     result = {
         "snapshot": isinstance(snapshot, dict) and "capturedAt" in snapshot,
         "sessionCount": len(sessions.get("active") or [])
         + len(sessions.get("recent") or []),
-        "remoteLifecycle": status.get("status") == "connected",
-        "pairClaimed": bool(pairing_status.get("claimed")),
-        "pairStatusSupported": pairing_status.get("supported") is not False,
-        "pairingQrSvg": isinstance(pairing.get("qrSvg"), str)
-        and pairing["qrSvg"].startswith("<svg")
-        and len(pairing["qrSvg"].encode("utf-8")) <= 256 * 1024,
-        "clientCount": len(clients.get("clients") or []),
-        "clientListSupported": clients.get("supported") is not False,
+        "remoteLifecycle": status.get("status") == "connected" if status else None,
+        "pairClaimed": bool(pairing_status.get("claimed"))
+        if pairing_status
+        else None,
+        "pairStatusSupported": pairing_status.get("supported") is not False
+        if pairing_status
+        else None,
+        "pairingQrSvg": (
+            isinstance(pairing.get("qrSvg"), str)
+            and pairing["qrSvg"].startswith("<svg")
+            and len(pairing["qrSvg"].encode("utf-8")) <= 256 * 1024
+        )
+        if pairing
+        else None,
+        "clientCount": len(clients.get("clients") or []) if clients else None,
+        "clientListSupported": clients.get("supported") is not False
+        if clients
+        else None,
         "updateContract": all(
             isinstance(value, dict)
             and value.get("status")
@@ -165,6 +188,11 @@ def parse_args(argv=None):
     parser.add_argument("--helper", type=Path, required=True)
     parser.add_argument("--codex", default="codex")
     parser.add_argument("--codex-home")
+    parser.add_argument(
+        "--skip-remote",
+        action="store_true",
+        help="leave Remote socket checks to the desktop-hosted applet helper",
+    )
     return parser.parse_args(argv)
 
 
@@ -174,10 +202,11 @@ def main(argv=None):
         options.helper, options.codex, codex_home=options.codex_home
     )
     try:
-        result = run_probe(session)
+        result = run_probe(session, check_remote=not options.skip_remote)
     finally:
         session.close()
-    return 0 if result["snapshot"] and result["remoteLifecycle"] else 1
+    remote_ok = options.skip_remote or result["remoteLifecycle"]
+    return 0 if result["snapshot"] and remote_ok else 1
 
 
 if __name__ == "__main__":
