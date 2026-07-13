@@ -35,10 +35,28 @@ test('panel state uses explicit used percentages and conditional badges', () => 
 
   assert.equal(state.label, '5h —  W 32%');
   assert.equal(state.level, 'normal');
-  assert.equal(state.resetBadge, '↻2');
+  assert.equal(state.resetBadge, '⚠2');
   assert.equal(state.resetExpiring, true);
+  assert.match(state.resetExpiryText, /^Reset expires in /);
   assert.equal(state.remoteBadge, '●');
+  assert.equal(state.staleBadge, '');
   assert.equal(state.stale, false);
+});
+
+test('panel state keeps ordinary reset badge and hides disabled remote state', () => {
+  const value = snapshot();
+  value.resetCredits.credits[0].expiresAt = 1_800_000_000;
+
+  const state = model.panelState(value, {
+    resetExpiryWarningHours: 1,
+    showResetBadge: true,
+    showRemoteBadge: true,
+  }, 1_799_100_100, { status: 'disabled' });
+
+  assert.equal(state.resetBadge, '↻2');
+  assert.equal(state.resetExpiring, false);
+  assert.equal(state.resetExpiryText, '');
+  assert.equal(state.remoteBadge, '');
 });
 
 test('panel state marks stale data and highest quota pressure', () => {
@@ -53,6 +71,7 @@ test('panel state marks stale data and highest quota pressure', () => {
 
   assert.equal(state.level, 'critical');
   assert.equal(state.stale, true);
+  assert.equal(state.staleBadge, '!');
 });
 
 test('duration formatting remains compact and never goes negative', () => {
@@ -107,4 +126,65 @@ test('activity series normalizes daily token buckets for shared graph scale', ()
     [25, 250],
     [100, 1000],
   ]);
+});
+
+test('token formatting is compact without losing exact graph values', () => {
+  assert.equal(model.formatTokenCount(999), '999');
+  assert.equal(model.formatTokenCount(1200), '1.2K');
+  assert.equal(model.formatTokenCount(1_234_567), '1.2M');
+  assert.equal(model.formatTokenCount(2_000_000_000), '2B');
+
+  const summary = model.graphSummary({
+    label: 'Activity',
+    kind: 'activity',
+    points: [
+      { timestamp: 100, value: 25, tokens: 250 },
+      { timestamp: 200, value: 100, tokens: 900 },
+    ],
+  });
+
+  assert.equal(summary.current.tokens, 900);
+  assert.equal(summary.minimum.tokens, 250);
+  assert.equal(summary.maximum.tokens, 900);
+});
+
+test('graph axis exposes start midpoint and end labels for the visible range', () => {
+  const axis = model.graphAxis(100, 300, 24);
+
+  assert.deepEqual(axis.map(item => item.timestamp), [100, 200, 300]);
+  assert.equal(axis.length, 3);
+  assert.ok(axis.every(item => typeof item.label === 'string' && item.label.length > 0));
+});
+
+test('nearest graph values select one point from every available series', () => {
+  const values = model.nearestGraphValues([
+    {
+      label: '5h',
+      points: [
+        { timestamp: 100, value: 10 },
+        { timestamp: 200, value: 20 },
+      ],
+    },
+    {
+      label: 'Weekly',
+      points: [
+        { timestamp: 150, value: 30 },
+        { timestamp: 220, value: 40 },
+      ],
+    },
+    { label: 'Empty', points: [] },
+  ], 205);
+
+  assert.deepEqual(values.map(item => [item.label, item.value]), [
+    ['5h', 20],
+    ['Weekly', 40],
+  ]);
+});
+
+test('graph summary reports empty and insufficient history states', () => {
+  assert.equal(model.graphSummary({ label: '5h', points: [] }).state, 'empty');
+  assert.equal(model.graphSummary({
+    label: '5h',
+    points: [{ timestamp: 100, value: 10 }],
+  }).state, 'insufficient');
 });
