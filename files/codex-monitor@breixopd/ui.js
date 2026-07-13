@@ -133,7 +133,9 @@ var Dashboard = class Dashboard {
       heading.add_child(button);
     }
     section.add_child(heading);
-    this._graphActor = this._graph.createQuotaGraph();
+    this._graphActor = this._graph.createQuotaGraph({
+      legendStyleClass: 'codex-monitor-graph-legend',
+    });
     section.add_child(this._graphActor);
 
     const ranges = new St.BoxLayout({ style_class: 'codex-monitor-range-row' });
@@ -169,7 +171,7 @@ var Dashboard = class Dashboard {
     });
     const heading = new St.BoxLayout({ style_class: 'codex-monitor-section-heading' });
     heading.add_child(new St.Label({
-      text: this._('Remote access · Experimental'),
+      text: this._('Remote Control'),
       style_class: 'codex-monitor-section-title',
       x_expand: true,
     }));
@@ -265,22 +267,63 @@ var Dashboard = class Dashboard {
         ['fiveHour', '5h', 0],
         ['weekly', this._('Weekly'), 1],
       ]) {
-        const points = this._model.quotaSeries(
+        const quotaPoints = this._model.quotaSeries(
           this._snapshot.history, windowName, cutoff, now
-        ).map(point => {
-          if (point.resetsAt != null)
-            markers.add(point.resetsAt);
+        );
+        let previousReset = null;
+        const points = quotaPoints.map(point => {
+          if (previousReset != null && point.resetsAt !== previousReset)
+            markers.add(point.timestamp);
+          previousReset = point.resetsAt;
           return { timestamp: point.timestamp, value: point.usedPercent };
         });
-        series.push({ label, points, colorIndex });
+        series.push({ label, kind: 'quota', points, colorIndex });
       }
     }
     if (mode === 'activity' || mode === 'both') {
       const points = this._model.activitySeries(this._snapshot.tokenUsage)
-        .filter(point => point.timestamp >= cutoff);
-      series.push({ label: this._('Activity'), points, colorIndex: 2 });
+        .filter(point => point.timestamp >= cutoff && point.timestamp <= now);
+      series.push({
+        label: this._('Activity'),
+        kind: 'activity',
+        points,
+        colorIndex: 2,
+      });
     }
-    this._graph.updateQuotaGraph(this._graphActor, series, Array.from(markers));
+    const summaries = series.map(item => this._model.graphSummary(item));
+    const valueText = point => {
+      if (!point)
+        return '—';
+      return point.tokens != null
+        ? `${this._model.formatTokenCount(point.tokens)} ${this._('tokens')}`
+        : `${Math.round(Number(point.value))}%`;
+    };
+    const legend = summaries.map((summary, index) => ({
+      colorIndex: series[index].colorIndex,
+      text: `${summary.label}  ${this._('now')} ${valueText(summary.current)} · ` +
+        `${this._('min')} ${valueText(summary.minimum)} · ` +
+        `${this._('max')} ${valueText(summary.maximum)}`,
+    }));
+    const hoverFormatter = timestamp => {
+      const values = this._model.nearestGraphValues(series, timestamp);
+      if (values.length === 0)
+        return this._('No sample at this time');
+      const sampleTime = Math.min(...values.map(value => Number(value.timestamp)));
+      const details = values.map(value => `${value.label} ${valueText(value)}`).join(' · ');
+      return `${new Date(sampleTime * 1000).toLocaleString()} · ${details}`;
+    };
+    const currentDetails = summaries
+      .filter(summary => summary.current)
+      .map(summary => `${summary.label} ${valueText(summary.current)}`)
+      .join(' · ');
+    this._graph.updateQuotaGraph(this._graphActor, {
+      series,
+      resetMarkers: Array.from(markers),
+      axis: this._model.graphAxis(cutoff, now, this._settings.graphRangeHours || 168),
+      legend,
+      hoverFormatter,
+      defaultDetail: currentDetails || this._('No samples yet'),
+    });
   }
 
   _renderResetBank() {

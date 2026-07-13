@@ -54,24 +54,131 @@ function _drawPanelBar(area) {
   context.$dispose();
 }
 
-var createQuotaGraph = function() {
-  const area = new St.DrawingArea({ style_class: 'codex-monitor-graph' });
-  area._series = [];
-  area._resetMarkers = [];
-  area.connect('repaint', _drawQuotaGraph);
-  return area;
+var createQuotaGraph = function(options = {}) {
+  const view = new St.BoxLayout({
+    vertical: true,
+    style_class: 'codex-monitor-graph-view',
+  });
+  const plotRow = new St.BoxLayout({ style_class: 'codex-monitor-graph-plot-row' });
+  view._yAxis = new St.BoxLayout({
+    vertical: true,
+    style_class: 'codex-monitor-graph-y-axis',
+  });
+  for (const label of ['100%', '75%', '50%', '25%', '0%']) {
+    view._yAxis.add_child(new St.Label({
+      text: label,
+      style_class: 'codex-monitor-graph-axis-label',
+      y_expand: true,
+    }));
+  }
+  view._area = new St.DrawingArea({
+    style_class: 'codex-monitor-graph',
+    reactive: true,
+    track_hover: true,
+    x_expand: true,
+  });
+  view._area._series = [];
+  view._area._resetMarkers = [];
+  view._area._minimum = 0;
+  view._area._maximum = 1;
+  view._area.connect('repaint', _drawQuotaGraph);
+  view._area.connect('motion-event', (_actor, event) => {
+    const [stageX, stageY] = event.get_coords();
+    const transformed = view._area.transform_stage_point(stageX, stageY);
+    if (!transformed[0] || !view._hoverFormatter)
+      return Clutter.EVENT_PROPAGATE;
+    const [width] = view._area.get_surface_size();
+    const ratio = Math.max(0, Math.min(1, transformed[1] / Math.max(1, width)));
+    const timestamp = view._area._minimum +
+      ratio * (view._area._maximum - view._area._minimum);
+    view._hover.set_text(view._hoverFormatter(timestamp));
+    return Clutter.EVENT_PROPAGATE;
+  });
+  view._area.connect('leave-event', () => {
+    view._hover.set_text(view._defaultDetail || '');
+    return Clutter.EVENT_PROPAGATE;
+  });
+  plotRow.add_child(view._yAxis);
+  plotRow.add_child(view._area);
+  view.add_child(plotRow);
+
+  view._xAxis = new St.BoxLayout({ style_class: 'codex-monitor-graph-x-axis' });
+  for (let index = 0; index < 3; index += 1) {
+    view._xAxis.add_child(new St.Label({
+      text: '—',
+      style_class: 'codex-monitor-graph-axis-label',
+      x_expand: true,
+      x_align: index === 0
+        ? Clutter.ActorAlign.START
+        : index === 2 ? Clutter.ActorAlign.END : Clutter.ActorAlign.CENTER,
+    }));
+  }
+  view.add_child(view._xAxis);
+  view._legend = new St.BoxLayout({
+    vertical: true,
+    style_class: options.legendStyleClass || 'codex-monitor-graph-legend',
+  });
+  view.add_child(view._legend);
+  view._empty = new St.Label({
+    text: '',
+    style_class: 'codex-monitor-graph-empty',
+    x_align: Clutter.ActorAlign.CENTER,
+  });
+  view.add_child(view._empty);
+  view._hover = new St.Label({
+    text: '',
+    style_class: 'codex-monitor-graph-detail',
+  });
+  view.add_child(view._hover);
+  return view;
 };
 
-var updateQuotaGraph = function(area, series, resetMarkers) {
-  area._series = series || [];
-  area._resetMarkers = resetMarkers || [];
-  area.queue_repaint();
+var updateQuotaGraph = function(view, payload) {
+  const data = payload || {};
+  const series = data.series || [];
+  const axis = data.axis || [];
+  view._area._series = series;
+  view._area._resetMarkers = data.resetMarkers || [];
+  view._area._minimum = axis.length > 0 ? Number(axis[0].timestamp) : 0;
+  view._area._maximum = axis.length > 0
+    ? Math.max(view._area._minimum + 1, Number(axis[axis.length - 1].timestamp))
+    : 1;
+  view._hoverFormatter = data.hoverFormatter || null;
+  view._defaultDetail = data.defaultDetail || '';
+  view._hover.set_text(view._defaultDetail);
+
+  const xLabels = view._xAxis.get_children();
+  xLabels.forEach((label, index) => label.set_text(axis[index] ? axis[index].label : '—'));
+  for (const child of view._legend.get_children())
+    child.destroy();
+  for (const item of data.legend || []) {
+    const label = new St.Label({
+      text: item.text,
+      style_class: `codex-monitor-graph-legend-item codex-monitor-graph-color-${item.colorIndex}`,
+      x_expand: true,
+    });
+    view._legend.add_child(label);
+  }
+  if ((data.resetMarkers || []).length > 0) {
+    view._legend.add_child(new St.Label({
+      text: 'R · reset',
+      style_class: 'codex-monitor-graph-legend-item codex-monitor-graph-reset-key',
+    }));
+  }
+
+  const counts = series.map(item => item.points.length);
+  const total = counts.reduce((sum, count) => sum + count, 0);
+  view._empty.set_text(total === 0
+    ? 'No history in this range'
+    : counts.every(count => count <= 1) ? 'Collecting more history…' : '');
+  view._empty.visible = Boolean(view._empty.get_text());
+  view._area.queue_repaint();
 };
 
 function _drawQuotaGraph(area) {
   const context = area.get_context();
   const [width, height] = area.get_surface_size();
-  const padding = 10;
+  const padding = 6;
   const plotWidth = Math.max(1, width - padding * 2);
   const plotHeight = Math.max(1, height - padding * 2);
   const foreground = area.get_theme_node().get_foreground_color();
@@ -95,8 +202,8 @@ function _drawQuotaGraph(area) {
     context.$dispose();
     return;
   }
-  const minimum = Math.min(...timestamps);
-  const maximum = Math.max(...timestamps, minimum + 1);
+  const minimum = Number(area._minimum);
+  const maximum = Math.max(Number(area._maximum), minimum + 1);
   const xFor = timestamp => padding + ((timestamp - minimum) / (maximum - minimum)) * plotWidth;
 
   context.setDash([4, 4], 0);
@@ -107,6 +214,13 @@ function _drawQuotaGraph(area) {
     const x = xFor(marker);
     context.moveTo(x, padding);
     context.lineTo(x, height - padding);
+    context.stroke();
+    context.setDash([], 0);
+    context.setSourceRGBA(..._rgba(foreground, 0.65));
+    context.setFontSize(9);
+    context.moveTo(Math.min(width - 10, x + 2), padding + 9);
+    context.showText('R');
+    context.setDash([4, 4], 0);
   }
   context.stroke();
   context.setDash([], 0);
@@ -129,6 +243,14 @@ function _drawQuotaGraph(area) {
         context.lineTo(x, y);
     });
     context.stroke();
+    if (series.points.length === 1) {
+      const point = series.points[0];
+      const x = xFor(point.timestamp);
+      const y = padding + plotHeight *
+        (1 - Math.max(0, Math.min(100, Number(point.value))) / 100);
+      context.arc(x, y, 2.5, 0, Math.PI * 2);
+      context.fill();
+    }
   });
   context.$dispose();
 }

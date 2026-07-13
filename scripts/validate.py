@@ -54,6 +54,15 @@ def validate_sources():
         raise ValueError("metadata must cover Cinnamon 6.0 through 6.6")
     validate_settings(read_json(APPLET / "settings-schema.json"))
 
+    applet_source = (APPLET / "applet.js").read_text(encoding="utf-8")
+    ui_source = (APPLET / "ui.js").read_text(encoding="utf-8")
+    if "Clutter.ActorAlign.CENTER" not in applet_source:
+        raise ValueError("panel preview must declare centered actor alignment")
+    if "codex-monitor-graph-legend" not in ui_source:
+        raise ValueError("dashboard graph must expose a legend")
+    if "Remote access · Experimental" in ui_source:
+        raise ValueError("Remote Control must not use experimental dashboard copy")
+
     for path in APPLET.rglob("*.py"):
         compile(path.read_text(encoding="utf-8"), str(path), "exec")
 

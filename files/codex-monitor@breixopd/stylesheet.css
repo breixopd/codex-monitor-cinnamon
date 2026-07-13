@@ -32,14 +32,25 @@
 }
 
 .codex-monitor-badge,
-.codex-monitor-remote-badge {
+.codex-monitor-remote-badge,
+.codex-monitor-stale-badge {
   font-size: 0.88em;
   font-weight: 600;
 }
 
 .codex-monitor-badge,
-.codex-monitor-remote-badge {
+.codex-monitor-remote-badge,
+.codex-monitor-stale-badge {
   padding: 0 3px;
+}
+
+.codex-monitor-expiring,
+.codex-monitor-stale-badge {
+  color: #f0b64d;
+}
+
+.codex-monitor-remote-badge {
+  color: #79c98c;
 }
 
 .codex-monitor-warning .codex-monitor-panel-bar,
@@ -59,7 +70,7 @@
 }
 
 .codex-monitor-dashboard {
-  width: 480px;
+  width: 560px;
   spacing: 14px;
   padding: 14px;
 }
@@ -122,10 +133,71 @@
 }
 
 .codex-monitor-graph {
-  height: 150px;
+  height: 165px;
   -graph-five-hour-color: #5aa9e6;
   -graph-weekly-color: #79c98c;
   -graph-activity-color: #d7a85c;
+}
+
+.codex-monitor-graph-view,
+.codex-monitor-graph-legend {
+  spacing: 5px;
+}
+
+.codex-monitor-graph-plot-row {
+  spacing: 6px;
+}
+
+.codex-monitor-graph-y-axis {
+  width: 34px;
+  height: 165px;
+}
+
+.codex-monitor-graph-axis-label,
+.codex-monitor-graph-legend-item,
+.codex-monitor-graph-detail,
+.codex-monitor-graph-empty {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.78em;
+}
+
+.codex-monitor-graph-y-axis .codex-monitor-graph-axis-label {
+  text-align: right;
+}
+
+.codex-monitor-graph-x-axis {
+  margin-left: 40px;
+}
+
+.codex-monitor-graph-legend-item {
+  padding-left: 10px;
+}
+
+.codex-monitor-graph-color-0 {
+  border-left: 3px solid #5aa9e6;
+}
+
+.codex-monitor-graph-color-1 {
+  border-left: 3px solid #79c98c;
+}
+
+.codex-monitor-graph-color-2 {
+  border-left: 3px solid #d7a85c;
+}
+
+.codex-monitor-graph-reset-key {
+  border-left: 3px dashed rgba(255, 255, 255, 0.45);
+}
+
+.codex-monitor-graph-detail {
+  padding: 5px 7px;
+  border-radius: 4px;
+  background-color: rgba(0, 0, 0, 0.18);
+}
+
+.codex-monitor-graph-empty {
+  text-align: center;
+  font-style: italic;
 }
 
 .codex-monitor-button,

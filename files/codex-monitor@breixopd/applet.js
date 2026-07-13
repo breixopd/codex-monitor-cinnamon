@@ -1,6 +1,7 @@
 'use strict';
 
 const Applet = imports.ui.applet;
+const Clutter = imports.gi.Clutter;
 const GLib = imports.gi.GLib;
 const Gettext = imports.gettext;
 const Main = imports.ui.main;
@@ -65,10 +66,14 @@ class CodexMonitorApplet extends Applet.Applet {
     this._panelBox = new St.BoxLayout({
       style_class: 'codex-monitor-panel',
       reactive: false,
+      y_expand: true,
+      y_align: Clutter.ActorAlign.CENTER,
     });
     this._panelUsage = new St.BoxLayout({
       vertical: true,
       style_class: 'codex-monitor-panel-usage',
+      y_expand: false,
+      y_align: Clutter.ActorAlign.CENTER,
     });
     [this._fiveHourLabel, this._fiveHourBar] = this._createPanelUsageRow(
       '5h', 'codex-monitor-five-hour-bar'
@@ -76,21 +81,38 @@ class CodexMonitorApplet extends Applet.Applet {
     [this._weeklyLabel, this._weeklyBar] = this._createPanelUsageRow(
       'W', 'codex-monitor-weekly-bar'
     );
-    this._resetBadge = new St.Label({ text: '', style_class: 'codex-monitor-badge' });
-    this._remoteBadge = new St.Label({ text: '', style_class: 'codex-monitor-remote-badge' });
+    this._resetBadge = new St.Label({
+      text: '',
+      style_class: 'codex-monitor-badge',
+      y_align: Clutter.ActorAlign.CENTER,
+    });
+    this._remoteBadge = new St.Label({
+      text: '',
+      style_class: 'codex-monitor-remote-badge',
+      y_align: Clutter.ActorAlign.CENTER,
+    });
+    this._staleBadge = new St.Label({
+      text: '',
+      style_class: 'codex-monitor-stale-badge',
+      y_align: Clutter.ActorAlign.CENTER,
+    });
     this._panelBox.add_child(this._panelUsage);
     this._panelBox.add_child(this._resetBadge);
     this._panelBox.add_child(this._remoteBadge);
+    this._panelBox.add_child(this._staleBadge);
     this.actor.add_child(this._panelBox);
     this.on_orientation_changed(this._orientation);
   }
 
   _createPanelUsageRow(label, barStyleClass) {
-    const row = new St.BoxLayout({ style_class: 'codex-monitor-panel-usage-row' });
+    const row = new St.BoxLayout({
+      style_class: 'codex-monitor-panel-usage-row',
+      y_align: Clutter.ActorAlign.CENTER,
+    });
     const rowLabel = new St.Label({
       text: label,
       style_class: 'codex-monitor-panel-window-label',
-      y_align: St.Align.MIDDLE,
+      y_align: Clutter.ActorAlign.CENTER,
     });
     const bar = Graph.createPanelBar(barStyleClass);
     row.add_child(rowLabel);
@@ -216,8 +238,14 @@ class CodexMonitorApplet extends Applet.Applet {
     this.actor.set_accessible_name(`${this._('Codex usage monitor')} · ${state.label}`);
     this._resetBadge.set_text(state.resetBadge);
     this._resetBadge.visible = Boolean(state.resetBadge);
+    if (state.resetExpiring)
+      this._resetBadge.add_style_class_name('codex-monitor-expiring');
+    else
+      this._resetBadge.remove_style_class_name('codex-monitor-expiring');
     this._remoteBadge.set_text(state.remoteBadge);
     this._remoteBadge.visible = Boolean(state.remoteBadge) && this.enableRemote;
+    this._staleBadge.set_text(state.staleBadge);
+    this._staleBadge.visible = Boolean(state.staleBadge);
     Graph.updatePanelBar(this._fiveHourBar, this._snapshot.windows.fiveHour);
     Graph.updatePanelBar(this._weeklyBar, this._snapshot.windows.weekly);
     for (const style of ['normal', 'warning', 'critical', 'stale'])
@@ -315,6 +343,7 @@ class CodexMonitorApplet extends Applet.Applet {
     this._weeklyLabel.visible = !vertical;
     this._resetBadge.visible = !vertical && Boolean(this._resetBadge.get_text());
     this._remoteBadge.visible = !vertical && this.enableRemote && Boolean(this._remoteBadge.get_text());
+    this._staleBadge.visible = !vertical && Boolean(this._staleBadge.get_text());
   }
 
   on_applet_removed_from_panel() {
