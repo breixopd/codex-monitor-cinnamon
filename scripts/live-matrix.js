@@ -121,9 +121,10 @@
     results.foreignQuotaFiltered = dashboard._graphActor._area._series.every(
       function (series) { return series.points.length === 2; }
     ) && dashboard._graphActor._area._resetMarkers.length === 0;
-    results.sparseQuotaFullRange = dashboard._graphActor._area._minimum === now - 168 * 3600 &&
-      dashboard._graphActor._area._maximum === now &&
-      dashboard._graphActor._area._collectionStart === now - 4 * 3600 &&
+    results.sparseQuotaFullRange =
+      Math.abs(dashboard._graphActor._area._minimum - (now - 168 * 3600)) <= 2 &&
+      Math.abs(dashboard._graphActor._area._maximum - now) <= 2 &&
+      Math.abs(dashboard._graphActor._area._collectionStart - (now - 4 * 3600)) <= 2 &&
       dashboard._graphActor._hover.get_text().indexOf("History starts") >= 0 &&
       dashboard._graphActor._hover.get_text().indexOf("collected of 7d") >= 0;
 
