@@ -73,7 +73,9 @@ var Dashboard = class Dashboard {
     this._snapshot = null;
     this._remoteStatus = null;
     this._pairing = null;
+    this._pairingStatusSupported = true;
     this._remoteClients = [];
+    this._remoteClientsSupported = true;
     this._remoteError = '';
     this._sessions = { active: [], recent: [] };
     this._sessionsError = false;
@@ -308,17 +310,20 @@ var Dashboard = class Dashboard {
 
   setPairing(pairing) {
     this._pairing = pairing;
+    this._pairingStatusSupported = true;
     this._renderRemote();
   }
 
   setPairingStatus(status) {
-    if (this._pairing)
+    this._pairingStatusSupported = !status || status.supported !== false;
+    if (this._pairing && this._pairingStatusSupported)
       this._pairing.claimed = Boolean(status && status.claimed);
     this._renderRemote();
   }
 
   setRemoteClients(value) {
     this._remoteClients = value && value.clients || [];
+    this._remoteClientsSupported = !value || value.supported !== false;
     this._remoteError = '';
     this._renderRemote();
   }
@@ -579,7 +584,10 @@ var Dashboard = class Dashboard {
         : '');
       this._pairingState.set_text(
         `${this._('Waiting for device')} · ${this._('expires in')} ` +
-        this._model.formatDuration(this._pairing.expiresAt - now)
+        this._model.formatDuration(this._pairing.expiresAt - now) +
+        (this._pairingStatusSupported
+          ? ''
+          : ` · ${this._('claim detection requires a newer Codex version')}`)
       );
     } else {
       this._pairingManualLabel.set_text('');
@@ -597,6 +605,11 @@ var Dashboard = class Dashboard {
     if (status !== 'connected') {
       this._remoteClientList.add_child(new St.Label({
         text: this._('Start Remote Control to manage paired devices'),
+        style_class: 'codex-monitor-secondary',
+      }));
+    } else if (!this._remoteClientsSupported) {
+      this._remoteClientList.add_child(new St.Label({
+        text: this._('Device listing requires a newer Codex version'),
         style_class: 'codex-monitor-secondary',
       }));
     } else if (this._remoteClients.length === 0) {

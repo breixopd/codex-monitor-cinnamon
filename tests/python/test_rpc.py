@@ -1,7 +1,7 @@
 import io
 import json
 
-from codex_bridge.rpc import AppServerClient
+from codex_bridge.rpc import AppServerClient, RpcError
 
 
 class FakeProcess:
@@ -73,7 +73,8 @@ def test_client_raises_sanitized_error_for_rpc_failure():
 
     try:
         client.request("account/rateLimits/read")
-    except RuntimeError as error:
+    except RpcError as error:
         assert str(error) == "Codex request failed (-32000)"
+        assert error.code == -32000
     else:
         raise AssertionError("expected a sanitized RPC error")

@@ -43,7 +43,9 @@ def test_run_probe_exercises_lifecycle_redacts_codes_and_leaves_remote_running()
     assert result["sessionCount"] == 2
     assert result["remoteLifecycle"] is True
     assert result["pairClaimed"] is False
+    assert result["pairStatusSupported"] is True
     assert result["clientCount"] == 1
+    assert result["clientListSupported"] is True
     assert result["remoteLeftRunning"] is True
     assert all(action != "remote_stop" for action, _params in session.actions)
     rendered = output.getvalue()

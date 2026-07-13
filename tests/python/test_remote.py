@@ -2,6 +2,7 @@ import json
 import subprocess
 
 from codex_bridge.remote import RemoteControl
+from codex_bridge.rpc import RpcError
 
 
 class FakeStatusClient:
@@ -31,7 +32,13 @@ class FailingInitializeClient(FakeStatusClient):
 class FailingRequestClient(FakeStatusClient):
     def request(self, method, params=None):
         self.calls.append((method, params))
-        raise RuntimeError("method is unavailable in this app-server build")
+        raise RpcError(-32601)
+
+
+class BrokenRequestClient(FakeStatusClient):
+    def request(self, method, params=None):
+        self.calls.append((method, params))
+        raise RuntimeError("remote backend failed")
 
 
 def test_remote_status_reads_running_daemon_through_proxy():
@@ -158,6 +165,24 @@ def test_remote_pair_start_falls_back_to_fixed_cli_when_proxy_method_fails():
     assert client.closed is True
 
 
+def test_remote_pair_start_does_not_mask_non_capability_proxy_errors():
+    client = BrokenRequestClient({})
+    remote = RemoteControl(
+        "codex",
+        runner=lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("CLI fallback must not run")
+        ),
+        client_factory=lambda: client,
+    )
+
+    try:
+        remote.pair_start()
+    except RuntimeError as error:
+        assert str(error) == "remote backend failed"
+    else:
+        raise AssertionError("expected backend failure")
+
+
 def test_remote_pair_status_uses_in_memory_pairing_codes():
     client = FakeStatusClient({"claimed": True, "extra": "discard"})
     remote = RemoteControl("codex", client_factory=lambda: client)
@@ -180,6 +205,16 @@ def test_remote_pair_status_uses_manual_code_only_when_opaque_code_is_missing():
         "remoteControl/pairing/status",
         {"manualPairingCode": "ABCD-EFGH"},
     )
+
+
+def test_remote_pair_status_reports_unsupported_method_without_breaking_pairing():
+    client = FailingRequestClient({})
+    remote = RemoteControl("codex", client_factory=lambda: client)
+
+    assert remote.pair_status("opaque-code") == {
+        "claimed": False,
+        "supported": False,
+    }
 
 
 def test_remote_clients_are_allowlisted_bounded_and_sorted_by_last_seen():
@@ -252,6 +287,16 @@ def test_remote_client_display_fields_are_single_line_text():
 
     assert result["clients"][0]["displayName"] == "Personal phone"
     assert result["clients"][0]["platform"] == "android 16"
+
+
+def test_remote_clients_reports_unsupported_method_without_breaking_remote_status():
+    client = FailingRequestClient({})
+    remote = RemoteControl("codex", client_factory=lambda: client)
+
+    assert remote.clients("environment-1") == {
+        "clients": [],
+        "supported": False,
+    }
 
 
 def test_remote_revoke_uses_fixed_proxy_method_and_returns_normalized_result():

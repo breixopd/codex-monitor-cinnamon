@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import subprocess
 
+from .rpc import RpcError
+
 
 class _ProxyUnavailable(RuntimeError):
     pass
@@ -40,10 +42,14 @@ class RemoteControl:
             value = self._proxy_request(
                 "remoteControl/pairing/start", {"manualCode": True}
             )
-        except RuntimeError:
+        except _ProxyUnavailable:
             # The pairing proxy method is newer than the Remote CLI surface and
             # is not available in every app-server build. The fixed CLI command
             # provides the same bounded JSON contract.
+            value = self._run_json("pair")
+        except RpcError as error:
+            if error.code != -32601:
+                raise
             value = self._run_json("pair")
         return self._normalize_pairing(value)
 
@@ -90,20 +96,27 @@ class RemoteControl:
             if pairing_code is not None
             else {"manualPairingCode": manual_pairing_code}
         )
-        value = self._proxy_request(
-            "remoteControl/pairing/status",
-            params,
-        )
+        try:
+            value = self._proxy_request("remoteControl/pairing/status", params)
+        except RpcError as error:
+            if error.code != -32601:
+                raise
+            return {"claimed": False, "supported": False}
         if not isinstance(value, dict) or not isinstance(value.get("claimed"), bool):
             raise RuntimeError("Codex remote-control response was invalid")
         return {"claimed": value["claimed"]}
 
     def clients(self, environment_id):
         environment_id = self._require_identifier(environment_id, "environment")
-        value = self._proxy_request(
-            "remoteControl/client/list",
-            {"environmentId": environment_id, "limit": 50, "order": "desc"},
-        )
+        try:
+            value = self._proxy_request(
+                "remoteControl/client/list",
+                {"environmentId": environment_id, "limit": 50, "order": "desc"},
+            )
+        except RpcError as error:
+            if error.code != -32601:
+                raise
+            return {"clients": [], "supported": False}
         if not isinstance(value, dict) or not isinstance(value.get("data"), list):
             raise RuntimeError("Codex remote-control response was invalid")
         clients = []

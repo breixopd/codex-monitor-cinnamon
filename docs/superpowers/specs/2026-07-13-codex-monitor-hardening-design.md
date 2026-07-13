@@ -97,8 +97,8 @@ The Remote Control section is always present and supports:
 - start after explicit confirmation;
 - stop;
 - begin pairing and show the manual and automatic pairing code, environment, and expiry countdown;
-- poll pairing claim status until claimed or expired;
-- list paired clients for the active environment with device name/type, platform, app version, and last-seen time when supplied;
+- poll pairing claim status until claimed or expired when the installed app-server exposes that method;
+- list paired clients for the active environment with device name/type, platform, app version, and last-seen time when the installed app-server exposes that method;
 - revoke a selected client after explicit confirmation;
 - refresh status and clients after every state-changing action.
 

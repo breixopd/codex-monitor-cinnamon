@@ -86,7 +86,7 @@ Project layout:
 
 ## Compatibility behavior
 
-Codex 0.144.3 supports the full baseline used by this release. When `account/usage/read`, `thread/list`, or a Remote Control method is unavailable, its section shows an explicit unavailable state while quota monitoring continues. A monitor-owned app-server can report sessions owned by another Codex process as `notLoaded`; those rows are labeled **Ready to resume**, not falsely reported as active or finished. Unknown quota-window durations are preserved but not mislabeled. Bridge failures leave the last snapshot visible and retry with bounded exponential backoff.
+Codex 0.144.3 is the tested baseline for quota/session monitoring, the Remote daemon, and CLI pairing. Newer app-server builds add pairing-claim polling and paired-client management methods; Codex Monitor detects those methods independently and labels unavailable controls without calling the whole Remote feature experimental or disrupting quota monitoring. A monitor-owned app-server can report sessions owned by another Codex process as `notLoaded`; those rows are labeled **Ready to resume**, not falsely reported as active or finished. Unknown quota-window durations are preserved but not mislabeled. Bridge failures leave the last snapshot visible and retry with bounded exponential backoff.
 
 ## License
 

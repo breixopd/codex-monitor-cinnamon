@@ -114,7 +114,9 @@ def run_probe(session, *, output=sys.stdout, sleeper=time.sleep):
         + len(sessions.get("recent") or []),
         "remoteLifecycle": status.get("status") == "connected",
         "pairClaimed": bool(pairing_status.get("claimed")),
+        "pairStatusSupported": pairing_status.get("supported") is not False,
         "clientCount": len(clients.get("clients") or []),
+        "clientListSupported": clients.get("supported") is not False,
         # Stopping the live daemon also terminates the Codex session running this
         # smoke test. Stop behavior is covered by isolated command tests instead.
         "remoteLeftRunning": True,

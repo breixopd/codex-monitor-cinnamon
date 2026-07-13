@@ -8,6 +8,14 @@ import time
 from typing import Any
 
 
+class RpcError(RuntimeError):
+    """Sanitized app-server failure with a machine-readable JSON-RPC code."""
+
+    def __init__(self, code):
+        self.code = code if isinstance(code, (int, str)) else "unknown"
+        super().__init__(f"Codex request failed ({self.code})")
+
+
 class AppServerClient:
     def __init__(self, *, process, timeout_seconds=10.0):
         self.process = process
@@ -57,7 +65,7 @@ class AppServerClient:
         if "error" in response:
             error = response.get("error") or {}
             code = error.get("code", "unknown")
-            raise RuntimeError(f"Codex request failed ({code})")
+            raise RpcError(code)
         return response.get("result")
 
     def close(self):

@@ -272,7 +272,7 @@ class CodexMonitorApplet extends Applet.Applet {
   }
 
   _pollPairing() {
-    if (!this._pairing || this._pairing.claimed)
+    if (!this._pairing || this._pairing.claimed || this._pairing.pollingSupported === false)
       return;
     const now = Math.floor(Date.now() / 1000);
     if (Number(this._pairing.expiresAt) <= now) {
@@ -286,6 +286,8 @@ class CodexMonitorApplet extends Applet.Applet {
     }, (error, status) => {
       if (error)
         return;
+      if (status && status.supported === false)
+        this._pairing.pollingSupported = false;
       this._pairing.claimed = Boolean(status.claimed);
       this._dashboard.setPairingStatus(status);
       if (status.claimed && this._pairing.environmentId)
