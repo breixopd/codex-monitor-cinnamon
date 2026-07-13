@@ -12,3 +12,4 @@ build/
 *.pem
 *.key
 .superpowers/
+.worktrees/
