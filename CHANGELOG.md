@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Widened the dashboard, arranged status alerts across readable rows, and added consistent spacing between content and the scrollbar
+- Rewrote the project and Cinnamon store READMEs around installation, everyday use, privacy, and troubleshooting
+
+### Fixed
+
+- Removed the duplicated banked-reset count from dashboard status text while keeping the compact count in the panel badge
+- Made live layout checks measure the mapped popup so Cinnamon theme allocations are verified accurately
+
 ## [1.0.0] - 2026-07-13
 
 ### Added

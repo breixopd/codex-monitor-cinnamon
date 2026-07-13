@@ -143,7 +143,8 @@ test('panel reset indicators distinguish info warning and final six hours', () =
   assert.deepEqual(model.panelState(value, settings, now, null).indicators, [{
     kind: 'reset',
     severity: 'info',
-    symbol: '↻2',
+    symbol: '↻',
+    panelSymbol: '↻2',
     text: '2 banked resets available',
   }]);
 
@@ -151,7 +152,8 @@ test('panel reset indicators distinguish info warning and final six hours', () =
   assert.deepEqual(model.panelState(value, settings, now, null).indicators, [{
     kind: 'reset',
     severity: 'warning',
-    symbol: '⚠2',
+    symbol: '⚠',
+    panelSymbol: '⚠2',
     text: 'Banked reset expires in 2d',
   }]);
 
@@ -159,9 +161,27 @@ test('panel reset indicators distinguish info warning and final six hours', () =
   assert.deepEqual(model.panelState(value, settings, now, null).indicators, [{
     kind: 'reset',
     severity: 'critical',
-    symbol: '⚠2',
+    symbol: '⚠',
+    panelSymbol: '⚠2',
     text: 'Banked reset expires in 4h',
   }]);
+});
+
+test('dashboard reset wording contains the available count only once', () => {
+  const value = snapshot();
+  value.resetCredits = {
+    availableCount: 1,
+    credits: [{ status: 'available', expiresAt: 1_800_000_000 }],
+  };
+
+  const state = model.panelState(value, {
+    resetExpiryWarningHours: 1,
+    showResetBadge: true,
+  }, 1_799_100_100, null);
+  const reset = state.indicators[0];
+
+  assert.equal(reset.panelSymbol, '↻1');
+  assert.equal(`${reset.symbol} ${reset.text}`, '↻ 1 banked reset available');
 });
 
 test('panel indicators explain remote success and stale quota data', () => {

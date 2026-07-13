@@ -70,7 +70,7 @@ case "$running" in
     ;;
 esac
 
-geometry_js='var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; var a=x._fiveHourBar; var b=x._weeklyBar; var g1=a.x-(x._fiveHourLabel.x+x._fiveHourLabel.width); var g2=b.x-(x._weeklyLabel.x+x._weeklyLabel.width); var sn=x._dashboardScroll.get_theme_node(); var dn=x._dashboard.actor.get_theme_node(); JSON.stringify({instance:Boolean(x),snapshot:Boolean(x._snapshot),bridge:Boolean(x._bridge),centered:Math.abs((x._panelUsage.y+x._panelUsage.height/2)-x._panelBox.height/2)<=2,equalBars:a.width===b.width,equalGaps:Math.abs(g1-g2)<=1,viewportClipped:x._dashboardScroll.get_clip_to_allocation(),viewportBounded:x._dashboardScroll.height<=780,naturalContent:x._dashboard.actor.height>x._dashboardScroll.height,viewportPadding:sn.get_padding(imports.gi.St.Side.LEFT)===14&&sn.get_padding(imports.gi.St.Side.RIGHT)===14,contentUnpadded:dn.get_padding(imports.gi.St.Side.LEFT)===0&&dn.get_padding(imports.gi.St.Side.RIGHT)===0,reservedScrollbar:x._dashboardScroll.overlay_scrollbars===false});'
+geometry_js='var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; x.menu.open(); var a=x._fiveHourBar; var b=x._weeklyBar; var g1=a.x-(x._fiveHourLabel.x+x._fiveHourLabel.width); var g2=b.x-(x._weeklyLabel.x+x._weeklyLabel.width); var sn=x._dashboardScroll.get_theme_node(); var dn=x._dashboard.actor.get_theme_node(); var vn=x._dashboardScroll.get_vscroll_bar().get_theme_node(); var preferredHeight=x._dashboard.actor.get_preferred_height(x._dashboard.actor.width)[1]; JSON.stringify({instance:Boolean(x),snapshot:Boolean(x._snapshot),bridge:Boolean(x._bridge),dashboardMapped:Boolean(x.menu.isOpen&&x._dashboardScroll.mapped),centered:Math.abs((x._panelUsage.y+x._panelUsage.height/2)-x._panelBox.height/2)<=2,equalBars:a.width===b.width,equalGaps:Math.abs(g1-g2)<=1,viewportClipped:x._dashboardScroll.get_clip_to_allocation(),viewportBounded:x._dashboardScroll.height<=784,naturalContent:preferredHeight>x._dashboard.actor.height,viewportPadding:sn.get_padding(imports.gi.St.Side.LEFT)===16&&sn.get_padding(imports.gi.St.Side.RIGHT)===16,scrollbarGutter:vn.get_margin(imports.gi.St.Side.LEFT)===12,contentUnpadded:dn.get_padding(imports.gi.St.Side.LEFT)===0&&dn.get_padding(imports.gi.St.Side.RIGHT)===0,reservedScrollbar:x._dashboardScroll.overlay_scrollbars===false});'
 geometry=''
 attempt=0
 while [ "$attempt" -lt 20 ]; do
@@ -81,12 +81,13 @@ while [ "$attempt" -lt 20 ]; do
   attempt=$((attempt + 1))
   sleep 1
 done
-for assertion in instance snapshot bridge centered equalBars equalGaps viewportClipped viewportBounded naturalContent viewportPadding contentUnpadded reservedScrollbar; do
+for assertion in instance snapshot bridge dashboardMapped centered equalBars equalGaps viewportClipped viewportBounded naturalContent viewportPadding scrollbarGutter contentUnpadded reservedScrollbar; do
   if ! json_true "$geometry" "$assertion"; then
     printf '%s\n' "Panel geometry assertion failed: $geometry" >&2
     exit 1
   fi
 done
+eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; x.menu.close(); "closed";' >/dev/null
 
 # Reload the newly installed code once more so this run exercises its own
 # removal callback, not only the previously installed version's callback.
@@ -166,7 +167,7 @@ eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-
 remote_before=$(eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; String(x._remoteStatus&&x._remoteStatus.status||"unknown");')
 matrix_js=$(tr '\n' ' ' < "$ROOT/scripts/live-matrix.js")
 matrix=$(eval_cinnamon "$matrix_js")
-for assertion in instance graphMatrix emptyGraph singleGraph gapGraph foreignQuotaFiltered sparseQuotaFullRange denseGraph peakGraph quotaUnavailable quotaNormal quotaWarning quotaCritical staleCritical resetNormal resetWarning resetCritical remoteDisabled remoteConnecting remoteRunning remoteConnected remoteError qrAvailable qrFallback pairingClaimed pairingExpired updateCurrent updateAvailable updateChecking updateUpdating updateUpdated updateFailed sessionsEmpty sessionsActiveRecent sessionsAttentionFilter sessionsUnavailable; do
+for assertion in instance graphMatrix emptyGraph singleGraph gapGraph foreignQuotaFiltered sparseQuotaFullRange denseGraph peakGraph quotaUnavailable quotaNormal quotaWarning quotaCritical staleCritical resetNormal resetWarning resetCritical indicatorRowsWrap indicatorTextComplete remoteDisabled remoteConnecting remoteRunning remoteConnected remoteError qrAvailable qrFallback pairingClaimed pairingExpired updateCurrent updateAvailable updateChecking updateUpdating updateUpdated updateFailed sessionsEmpty sessionsActiveRecent sessionsAttentionFilter sessionsUnavailable; do
   if ! json_true "$matrix" "$assertion"; then
     printf '%s\n' "Dynamic visual matrix assertion failed ($assertion): $matrix" >&2
     exit 1

@@ -440,7 +440,7 @@ class CodexMonitorApplet extends Applet.Applet {
       child.destroy();
     for (const indicator of state.indicators) {
       this._indicatorBox.add_child(new St.Label({
-        text: indicator.symbol,
+        text: indicator.panelSymbol || indicator.symbol,
         style_class: 'codex-indicator ' +
           `codex-indicator-${indicator.kind} ` +
           `codex-indicator-${indicator.severity}`,

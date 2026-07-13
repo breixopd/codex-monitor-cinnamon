@@ -179,6 +179,26 @@
     reset.resetCredits.credits[0].expiresAt = now + 4 * 3600;
     results.resetCritical = indicatorState(reset, null)[0].severity === "critical";
 
+    var indicatorSample = snapshot([], []);
+    indicatorSample.windows.weekly.usedPercent = 94;
+    indicatorSample.capturedAt = now - 301;
+    indicatorSample.resetCredits = {
+      availableCount: 1,
+      credits: [{ status: "available", expiresAt: now + 100 * 3600 }],
+    };
+    dashboard.setIndicators(indicatorState(indicatorSample, { status: "connected" }));
+    var indicatorRows = dashboard._indicatorList.get_children();
+    var indicatorChips = [];
+    indicatorRows.forEach(function (row) {
+      indicatorChips = indicatorChips.concat(row.get_children());
+    });
+    results.indicatorRowsWrap = indicatorRows.length === 2 &&
+      indicatorRows.every(function (row) { return row.get_children().length === 2; }) &&
+      indicatorChips.every(function (chip) { return chip.clutter_text.get_line_wrap(); });
+    results.indicatorTextComplete = indicatorChips.some(function (chip) {
+      return chip.get_text() === "↻ 1 banked reset available";
+    });
+
     results.remoteDisabled = indicatorState(normal, { status: "disabled" }).length === 0;
     results.remoteConnecting = indicatorState(normal, { status: "connecting" })[0]
       .severity === "warning";

@@ -41,6 +41,20 @@ def test_dashboard_explains_current_indicators_in_plain_language():
     assert "Current indicators" in source
     assert "Usage data current" in source
     assert "setIndicators(indicators)" in source
+    assert "set_line_wrap(true)" in source
+    assert "Pango.EllipsizeMode.NONE" in source
+    assert "codex-monitor-indicator-row" in source
+
+
+def test_dashboard_is_wider_and_keeps_a_gutter_before_the_scrollbar():
+    stylesheet = STYLESHEET_SOURCE.read_text(encoding="utf-8")
+    dashboard_rule = _css_rule(stylesheet, ".codex-monitor-dashboard")
+    scrollbar_rule = _css_rule(
+        stylesheet, ".codex-monitor-scroll StScrollBar"
+    )
+
+    assert "width: 640px" in dashboard_rule
+    assert "margin-left: 12px" in scrollbar_rule
 
 
 def test_indicator_severities_have_distinct_semantic_styles():
@@ -64,7 +78,7 @@ def test_scroll_viewport_owns_padding_and_clips_the_moving_dashboard():
     )
 
     assert "padding" not in dashboard_rule
-    assert "padding: 14px" in scroll_rule
+    assert "padding: 16px" in scroll_rule
     assert "max-height: 752px" in scroll_rule
     assert "set_clip_to_allocation(true)" in applet
     assert "overlay_scrollbars: false" in applet

@@ -68,7 +68,8 @@ function panelState(snapshot, settings, now, remoteStatus) {
       severity: resetExpiring
         ? secondsUntilExpiry <= 6 * 3600 ? 'critical' : 'warning'
         : 'info',
-      symbol: `${resetExpiring ? '⚠' : '↻'}${resetCount}`,
+      symbol: resetExpiring ? '⚠' : '↻',
+      panelSymbol: `${resetExpiring ? '⚠' : '↻'}${resetCount}`,
       text: resetExpiring
         ? `Banked reset expires in ${formatDuration(secondsUntilExpiry)}`
         : `${resetCount} banked reset${resetCount === 1 ? '' : 's'} available`,
@@ -113,7 +114,8 @@ function panelState(snapshot, settings, now, remoteStatus) {
     staleBadge: stale ? '!' : '',
     indicators,
     indicatorText: indicators.map(indicator => indicator.text).join(' · '),
-    resetBadge: resetIndicator ? resetIndicator.symbol : '',
+    resetBadge: resetIndicator
+      ? resetIndicator.panelSymbol || resetIndicator.symbol : '',
     resetSeverity: resetIndicator ? resetIndicator.severity : null,
     resetExpiring,
     resetExpiryText: resetExpiring

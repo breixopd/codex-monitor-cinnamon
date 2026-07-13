@@ -70,13 +70,17 @@
 }
 
 .codex-monitor-dashboard {
-  width: 560px;
-  spacing: 14px;
+  width: 640px;
+  spacing: 16px;
 }
 
 .codex-monitor-scroll {
   max-height: 752px;
-  padding: 14px;
+  padding: 16px;
+}
+
+.codex-monitor-scroll StScrollBar {
+  margin-left: 12px;
 }
 
 .codex-monitor-header,
@@ -89,12 +93,14 @@
 }
 
 .codex-monitor-indicator-section,
-.codex-monitor-indicator-list {
+.codex-monitor-indicator-list,
+.codex-monitor-indicator-row {
   spacing: 6px;
 }
 
 .codex-monitor-indicator-chip {
-  padding: 3px 7px;
+  min-height: 18px;
+  padding: 5px 8px;
   border-radius: 4px;
   background-color: rgba(255, 255, 255, 0.055);
   font-size: 0.82em;

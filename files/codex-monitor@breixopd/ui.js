@@ -149,6 +149,7 @@ var Dashboard = class Dashboard {
       style_class: 'codex-monitor-card-kicker',
     }));
     this._indicatorList = new St.BoxLayout({
+      vertical: true,
       style_class: 'codex-monitor-indicator-list',
     });
     this._indicatorSection.add_child(this._indicatorList);
@@ -161,21 +162,33 @@ var Dashboard = class Dashboard {
       return;
     _clear(this._indicatorList);
     const visibleIndicators = Array.isArray(indicators) ? indicators : [];
-    if (visibleIndicators.length === 0) {
-      this._indicatorList.add_child(new St.Label({
-        text: this._('Usage data current'),
-        style_class: 'codex-monitor-indicator-chip codex-indicator-info',
-      }));
-      return;
-    }
-    for (const indicator of visibleIndicators) {
-      this._indicatorList.add_child(new St.Label({
-        text: `${indicator.symbol} ${this._(indicator.text)}`,
-        style_class: 'codex-monitor-indicator-chip ' +
-          `codex-indicator-${indicator.kind} ` +
-          `codex-indicator-${indicator.severity}`,
-        accessible_name: indicator.text,
-      }));
+    const statusItems = visibleIndicators.length > 0 ? visibleIndicators : [{
+      kind: 'current',
+      severity: 'info',
+      symbol: '✓',
+      text: 'Usage data current',
+    }];
+    for (let index = 0; index < statusItems.length; index += 2) {
+      const row = new St.BoxLayout({
+        style_class: 'codex-monitor-indicator-row',
+      });
+      for (const indicator of statusItems.slice(index, index + 2)) {
+        const chip = new St.Label({
+          text: `${indicator.symbol} ${this._(indicator.text)}`,
+          x_expand: true,
+          x_align: Clutter.ActorAlign.FILL,
+          y_align: Clutter.ActorAlign.CENTER,
+          style_class: 'codex-monitor-indicator-chip ' +
+            `codex-indicator-${indicator.kind} ` +
+            `codex-indicator-${indicator.severity}`,
+          accessible_name: indicator.text,
+        });
+        chip.clutter_text.set_line_wrap(true);
+        chip.clutter_text.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR);
+        chip.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE);
+        row.add_child(chip);
+      }
+      this._indicatorList.add_child(row);
     }
   }
 
