@@ -390,6 +390,13 @@ test('graph axes distinguish quota activity and combined scales', () => {
   assert.equal(combined.right.kind, 'tokens');
   assert.equal(combined.right.maximum, 15_000);
   assert.deepEqual(combined.x.map(item => item.timestamp), [100, 200, 300]);
+
+  const millionScale = model.graphAxes([{
+    kind: 'activity',
+    points: [{ timestamp: 200, tokens: 987_654 }],
+  }], 100, 300, 24, 'activity');
+  assert.equal(millionScale.left.maximum, 1_000_000);
+  assert.equal(millionScale.left.ticks[0].label, '1M');
 });
 
 test('graph axes fit sparse collected history instead of crushing it at the range edge', () => {

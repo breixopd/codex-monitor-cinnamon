@@ -23,6 +23,10 @@
 
 - Kept model-specific quota windows out of the canonical 5-hour/weekly history and filtered the already-recorded interleaving pattern without hiding genuine resets
 - Replaced sparse full-range quota plots with fitted, labeled, filled step trends that show current usage, percentage-point change, collected coverage, and only real reset transitions
+- Moved dashboard padding onto the clipped scroll viewport so scrolling cannot leave stale section fragments in the side gutters
+- Reserved scrollbar space so it cannot cover dashboard labels or controls
+- Ignored callbacks from retired helpers, prevented post-removal bridge restarts, and force-closed unresponsive app-server helpers
+- Required explicit confirmation before stopping Remote Control and potentially disconnecting active sessions
 
 ## [0.1.0] - 2026-07-13
 

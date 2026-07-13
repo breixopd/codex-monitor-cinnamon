@@ -162,6 +162,24 @@ def test_router_requires_confirmation_before_starting_remote_control():
     assert allowed["data"] == {"status": "connected"}
 
 
+def test_router_requires_confirmation_before_stopping_remote_control():
+    router = CommandRouter(FakeService())
+
+    denied = router.handle(
+        {"id": "request-stop-1", "action": "remote_stop", "params": {}}
+    )
+    allowed = router.handle(
+        {
+            "id": "request-stop-2",
+            "action": "remote_stop",
+            "params": {"confirmed": True},
+        }
+    )
+
+    assert denied["error"]["code"] == "CONFIRMATION_REQUIRED"
+    assert allowed["data"] == {"status": "disabled"}
+
+
 def test_router_exposes_bounded_sessions_and_launch_actions():
     service = FakeService()
     router = CommandRouter(service)

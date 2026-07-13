@@ -21,8 +21,22 @@ eval_cinnamon() {
   esac
 }
 
+json_true() {
+  printf '%s\n' "$1" | grep -F "\\\\\"$2\\\\\":true" >/dev/null
+}
+
+wait_for_screenshot() {
+  screenshot_path=$1
+  screenshot_attempt=0
+  while [ ! -s "$screenshot_path" ] && [ "$screenshot_attempt" -lt 20 ]; do
+    screenshot_attempt=$((screenshot_attempt + 1))
+    sleep 0.1
+  done
+  [ -s "$screenshot_path" ]
+}
+
 cleanup_smoke() {
-  eval_cinnamon 'delete global._codexMonitorSmokeErrorIndex; "cleared";' >/dev/null 2>&1 || true
+  eval_cinnamon 'delete global._codexMonitorSmokeErrorIndex; delete global._codexMonitorOldInstance; delete global._codexMonitorOldBridge; delete global._codexMonitorOldSnapshot; "cleared";' >/dev/null 2>&1 || true
 }
 trap cleanup_smoke EXIT HUP INT TERM
 eval_cinnamon 'global._codexMonitorSmokeErrorIndex=imports.ui.main._errorLogStack.length; "recorded";' >/dev/null
@@ -56,23 +70,63 @@ case "$running" in
     ;;
 esac
 
-geometry_js='var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; var a=x._fiveHourBar; var b=x._weeklyBar; var g1=a.x-(x._fiveHourLabel.x+x._fiveHourLabel.width); var g2=b.x-(x._weeklyLabel.x+x._weeklyLabel.width); JSON.stringify({instance:Boolean(x),snapshot:Boolean(x._snapshot),bridge:Boolean(x._bridge),centered:Math.abs((x._panelUsage.y+x._panelUsage.height/2)-x._panelBox.height/2)<=2,equalBars:a.width===b.width,equalGaps:Math.abs(g1-g2)<=1});'
+geometry_js='var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; var a=x._fiveHourBar; var b=x._weeklyBar; var g1=a.x-(x._fiveHourLabel.x+x._fiveHourLabel.width); var g2=b.x-(x._weeklyLabel.x+x._weeklyLabel.width); var sn=x._dashboardScroll.get_theme_node(); var dn=x._dashboard.actor.get_theme_node(); JSON.stringify({instance:Boolean(x),snapshot:Boolean(x._snapshot),bridge:Boolean(x._bridge),centered:Math.abs((x._panelUsage.y+x._panelUsage.height/2)-x._panelBox.height/2)<=2,equalBars:a.width===b.width,equalGaps:Math.abs(g1-g2)<=1,viewportClipped:x._dashboardScroll.get_clip_to_allocation(),viewportBounded:x._dashboardScroll.height<=780,naturalContent:x._dashboard.actor.height>x._dashboardScroll.height,viewportPadding:sn.get_padding(imports.gi.St.Side.LEFT)===14&&sn.get_padding(imports.gi.St.Side.RIGHT)===14,contentUnpadded:dn.get_padding(imports.gi.St.Side.LEFT)===0&&dn.get_padding(imports.gi.St.Side.RIGHT)===0,reservedScrollbar:x._dashboardScroll.overlay_scrollbars===false});'
 geometry=''
 attempt=0
 while [ "$attempt" -lt 20 ]; do
   if geometry=$(eval_cinnamon "$geometry_js" 2>/dev/null) && \
-      printf '%s\n' "$geometry" | grep -E 'snapshot.*true' >/dev/null; then
+      json_true "$geometry" snapshot; then
     break
   fi
   attempt=$((attempt + 1))
   sleep 1
 done
-for assertion in instance snapshot bridge centered equalBars equalGaps; do
-  if ! printf '%s\n' "$geometry" | grep -E "$assertion.*true" >/dev/null; then
+for assertion in instance snapshot bridge centered equalBars equalGaps viewportClipped viewportBounded naturalContent viewportPadding contentUnpadded reservedScrollbar; do
+  if ! json_true "$geometry" "$assertion"; then
     printf '%s\n' "Panel geometry assertion failed: $geometry" >&2
     exit 1
   fi
 done
+
+# Reload the newly installed code once more so this run exercises its own
+# removal callback, not only the previously installed version's callback.
+eval_cinnamon 'global._codexMonitorOldInstance=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; "marked";' >/dev/null
+gdbus call --session --dest org.Cinnamon --object-path /org/Cinnamon \
+  --method org.Cinnamon.ReloadXlet "$UUID" APPLET >/dev/null
+lifecycle_removal=''
+attempt=0
+while [ "$attempt" -lt 20 ]; do
+  lifecycle_removal=$(eval_cinnamon 'var old=global._codexMonitorOldInstance; var current=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; JSON.stringify({lifecycleRemovalClean:Boolean(old&&old._destroyed&&old._bridge===null&&current&&current!==old&&current._bridge&&current._snapshot)});')
+  if json_true "$lifecycle_removal" lifecycleRemovalClean; then
+    break
+  fi
+  attempt=$((attempt + 1))
+  sleep 1
+done
+if ! json_true "$lifecycle_removal" lifecycleRemovalClean; then
+  printf '%s\n' "Applet removal lifecycle assertion failed: $lifecycle_removal" >&2
+  exit 1
+fi
+eval_cinnamon 'delete global._codexMonitorOldInstance; "cleared";' >/dev/null
+
+# Restart only the helper and require a fresh snapshot. This catches callbacks
+# from the retired helper mutating flags or scheduling a delayed second restart.
+eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; global._codexMonitorOldBridge=x._bridge; global._codexMonitorOldSnapshot=x._snapshot; x._configurationChanged(); "restarting";' >/dev/null
+lifecycle_restart=''
+attempt=0
+while [ "$attempt" -lt 20 ]; do
+  lifecycle_restart=$(eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; JSON.stringify({lifecycleRestartClean:Boolean(x&&x._bridge&&x._bridge!==global._codexMonitorOldBridge&&x._snapshot&&x._snapshot!==global._codexMonitorOldSnapshot&&!x._refreshing&&x._restartTimer===0)});')
+  if json_true "$lifecycle_restart" lifecycleRestartClean; then
+    break
+  fi
+  attempt=$((attempt + 1))
+  sleep 1
+done
+if ! json_true "$lifecycle_restart" lifecycleRestartClean; then
+  printf '%s\n' "Bridge restart lifecycle assertion failed: $lifecycle_restart" >&2
+  exit 1
+fi
+eval_cinnamon 'delete global._codexMonitorOldBridge; delete global._codexMonitorOldSnapshot; "cleared";' >/dev/null
 
 python3 "$ROOT/scripts/smoke_bridge.py" \
   --helper "$TARGET/helper/bridge.py" \
@@ -83,7 +137,7 @@ eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-
 dashboard_js='var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; var modes=["quota","activity","both"]; var ranges=[24,168,720]; for (var i=0;i<modes.length;i++){for(var j=0;j<ranges.length;j++){x.graphMode=modes[i];x.graphRangeHours=ranges[j];x._render();}} x.menu.open(); var graph=x._dashboard._graphActor; var labels=graph._xAxis.get_children().map(function(v){return v.get_text();}); var legend=graph._legend.get_children().map(function(v){return v.get_text();}); var hoverStart=graph._hoverFormatter(graph._area._minimum); var hoverEnd=graph._hoverFormatter(graph._area._maximum); JSON.stringify({legendReady:legend.length>0,compactLegend:legend.length<=3&&legend.every(function(v){return v.indexOf(" min ")<0&&v.indexOf(" max ")<0&&v.indexOf("now —")<0;}),hoverDates:hoverStart!==hoverEnd,nativeQr:Boolean(x._dashboard._pairingQr),axisReady:labels.every(function(v){return Boolean(v)&&v!=="—";}),sessions:Boolean(x._dashboard._activeSessionList&&x._dashboard._recentSessionList),remote:Boolean(x._dashboard._remoteClientList),requestGuards:Boolean("_remoteRefreshing" in x&&"_pairingPolling" in x&&"_clientsLoading" in x)});'
 dashboard=$(eval_cinnamon "$dashboard_js")
 for assertion in legendReady compactLegend hoverDates nativeQr axisReady sessions remote requestGuards; do
-  if ! printf '%s\n' "$dashboard" | grep -E "$assertion.*true" >/dev/null; then
+  if ! json_true "$dashboard" "$assertion"; then
     printf '%s\n' "Dashboard assertion failed: $dashboard" >&2
     exit 1
   fi
@@ -93,12 +147,12 @@ remote_before=$(eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstance
 matrix_js=$(tr '\n' ' ' < "$ROOT/scripts/live-matrix.js")
 matrix=$(eval_cinnamon "$matrix_js")
 for assertion in instance graphMatrix emptyGraph singleGraph gapGraph foreignQuotaFiltered sparseQuotaFitted denseGraph peakGraph quotaUnavailable quotaNormal quotaWarning quotaCritical staleCritical resetNormal resetWarning resetCritical remoteDisabled remoteConnecting remoteConnected remoteError qrAvailable qrFallback pairingClaimed pairingExpired updateCurrent updateAvailable updateChecking updateUpdating updateUpdated updateFailed sessionsEmpty sessionsActiveRecent sessionsUnavailable; do
-  if ! printf '%s\n' "$matrix" | grep -E "$assertion.*true" >/dev/null; then
+  if ! json_true "$matrix" "$assertion"; then
     printf '%s\n' "Dynamic visual matrix assertion failed ($assertion): $matrix" >&2
     exit 1
   fi
 done
-if printf '%s\n' "$matrix" | grep -E 'matrixException.*true' >/dev/null; then
+if json_true "$matrix" matrixException; then
   printf '%s\n' "Dynamic visual matrix raised an exception: $matrix" >&2
   exit 1
 fi
@@ -117,30 +171,55 @@ settled=''
 attempt=0
 while [ "$attempt" -lt 20 ]; do
   settled=$(eval_cinnamon "$settled_js")
-  if printf '%s\n' "$settled" | grep -E 'settledQuota.*true' >/dev/null && \
-      printf '%s\n' "$settled" | grep -E 'settledSessions.*true' >/dev/null && \
-      printf '%s\n' "$settled" | grep -E 'settledRemote.*true' >/dev/null; then
+  if json_true "$settled" settledQuota && \
+      json_true "$settled" settledSessions && \
+      json_true "$settled" settledRemote; then
     break
   fi
   attempt=$((attempt + 1))
   sleep 1
 done
 for assertion in settledQuota settledSessions settledRemote; do
-  if ! printf '%s\n' "$settled" | grep -E "$assertion.*true" >/dev/null; then
+  if ! json_true "$settled" "$assertion"; then
     printf '%s\n' "Dashboard readiness assertion failed: $settled" >&2
     exit 1
   fi
 done
 
-# Allow the next Cinnamon paint to commit the verified actor state to the frame.
-sleep 1
-
 mkdir -p "$SCREENSHOT_DIR"
+rm -f -- "$SCREENSHOT_DIR/dashboard.png" "$SCREENSHOT_DIR/panel.png"
+dashboard_capture=$(eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; x.menu.open(); JSON.stringify({dashboardCaptureReady:Boolean(x.menu.isOpen&&x._dashboardScroll.mapped)});')
+if ! json_true "$dashboard_capture" dashboardCaptureReady; then
+  printf '%s\n' "Dashboard capture did not open the popup: $dashboard_capture" >&2
+  exit 1
+fi
+# Allow the popup animation and two Cinnamon paints to settle.
+sleep 2
+dashboard_capture=$(eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; var v=x._dashboardScroll.get_vscroll_bar(); var d=x._dashboard.actor; var status=x._dashboard._status; var statusNode=status.get_theme_node(); var statusMargins=statusNode.get_margin(imports.gi.St.Side.LEFT)+statusNode.get_margin(imports.gi.St.Side.RIGHT); JSON.stringify({dashboardCaptureReady:Boolean(x.menu.isOpen&&x._dashboardScroll.mapped),contentClearOfScrollbar:Boolean(d.x+d.width<=v.x),headerClearOfScrollbar:Boolean(d.x+status.x+status.width+statusMargins<=v.x),headerStatusFits:Boolean(status.width+statusMargins>=status.get_preferred_width(-1)[1])});')
+if ! json_true "$dashboard_capture" dashboardCaptureReady || \
+    ! json_true "$dashboard_capture" contentClearOfScrollbar || \
+    ! json_true "$dashboard_capture" headerClearOfScrollbar || \
+    ! json_true "$dashboard_capture" headerStatusFits; then
+  printf '%s\n' "Dashboard geometry changed before capture: $dashboard_capture" >&2
+  exit 1
+fi
 gdbus call --session --dest org.Cinnamon --object-path /org/Cinnamon \
   --method org.Cinnamon.Screenshot false false "$SCREENSHOT_DIR/dashboard.png" >/dev/null
+if ! wait_for_screenshot "$SCREENSHOT_DIR/dashboard.png"; then
+  printf '%s\n' "Dashboard screenshot was not created" >&2
+  exit 1
+fi
+# Cinnamon creates the file before the compositor has finished sampling it.
+sleep 5
 eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; x.menu.close(); "closed";' >/dev/null
+# Let the close animation finish before capturing the panel-only state.
+sleep 2
 gdbus call --session --dest org.Cinnamon --object-path /org/Cinnamon \
   --method org.Cinnamon.Screenshot false false "$SCREENSHOT_DIR/panel.png" >/dev/null
+if ! wait_for_screenshot "$SCREENSHOT_DIR/panel.png"; then
+  printf '%s\n' "Panel screenshot was not created" >&2
+  exit 1
+fi
 
 if journalctl --user -b --since "$STARTED_AT" --no-pager -o cat | \
   rg -i 'codex-monitor.*(error|exception|traceback)|(error|exception|traceback).*codex-monitor' >/dev/null; then
@@ -149,7 +228,7 @@ if journalctl --user -b --since "$STARTED_AT" --no-pager -o cat | \
 fi
 
 looking_glass=$(eval_cinnamon 'var start=Number(global._codexMonitorSmokeErrorIndex||0); var errors=imports.ui.main._errorLogStack.slice(start).filter(function(item){var message=String(item.message||"").toLowerCase();return ["error","trace"].indexOf(item.category)>=0&&message.indexOf("codex-monitor@breixopd")>=0;}); JSON.stringify({lookingGlassClean:errors.length===0});')
-if ! printf '%s\n' "$looking_glass" | grep -E 'lookingGlassClean.*true' >/dev/null; then
+if ! json_true "$looking_glass" lookingGlassClean; then
   printf '%s\n' "Cinnamon LookingGlass recorded a Codex Monitor error" >&2
   exit 1
 fi

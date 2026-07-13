@@ -1,5 +1,6 @@
 import io
 import json
+import subprocess
 
 from codex_bridge.rpc import AppServerClient, RpcError
 
@@ -18,6 +19,9 @@ class FakeProcess:
 
     def wait(self, timeout=None):
         return self.returncode
+
+    def kill(self):
+        self.returncode = -9
 
 
 def test_client_initializes_and_retains_notifications_while_waiting_for_response():
@@ -78,3 +82,31 @@ def test_client_raises_sanitized_error_for_rpc_failure():
         assert error.code == -32000
     else:
         raise AssertionError("expected a sanitized RPC error")
+
+
+def test_close_kills_app_server_that_ignores_termination():
+    class StubbornProcess(FakeProcess):
+        def __init__(self):
+            super().__init__([])
+            self.terminated = False
+            self.killed = False
+
+        def terminate(self):
+            self.terminated = True
+
+        def wait(self, timeout=None):
+            if not self.killed:
+                raise subprocess.TimeoutExpired("codex app-server", timeout)
+            return -9
+
+        def kill(self):
+            self.killed = True
+            self.returncode = -9
+
+    process = StubbornProcess()
+    client = AppServerClient(process=process, timeout_seconds=0.01)
+
+    client.close()
+
+    assert process.terminated is True
+    assert process.killed is True

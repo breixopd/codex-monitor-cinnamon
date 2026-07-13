@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 
 APPLET_SOURCE = (
@@ -10,6 +11,12 @@ APPLET_SOURCE = (
 UI_SOURCE = APPLET_SOURCE.with_name("ui.js")
 STYLESHEET_SOURCE = APPLET_SOURCE.with_name("stylesheet.css")
 GRAPH_SOURCE = APPLET_SOURCE.with_name("graph.js")
+
+
+def _css_rule(source, selector):
+    match = re.search(rf"{re.escape(selector)}\s*\{{([^}}]*)\}}", source)
+    assert match is not None
+    return match.group(1)
 
 
 def test_refresh_keeps_status_indicators_hidden_on_vertical_panels():
@@ -44,6 +51,48 @@ def test_indicator_severities_have_distinct_semantic_styles():
     assert ".codex-indicator-info" in source
     assert "#e8a641" in source
     assert "#e05a62" in source
+
+
+def test_scroll_viewport_owns_padding_and_clips_the_moving_dashboard():
+    applet = APPLET_SOURCE.read_text(encoding="utf-8")
+    stylesheet = STYLESHEET_SOURCE.read_text(encoding="utf-8")
+    dashboard_rule = _css_rule(stylesheet, ".codex-monitor-dashboard")
+    scroll_rule = _css_rule(stylesheet, ".codex-monitor-scroll")
+    header_status_rule = _css_rule(
+        stylesheet, ".codex-monitor-header .codex-monitor-status"
+    )
+
+    assert "padding" not in dashboard_rule
+    assert "padding: 14px" in scroll_rule
+    assert "max-height: 752px" in scroll_rule
+    assert "set_clip_to_allocation(true)" in applet
+    assert "overlay_scrollbars: false" in applet
+    assert "width: 160px" in header_status_rule
+    assert "margin-right: 8px" in header_status_rule
+    assert "text-align: right" in header_status_rule
+
+
+def test_retired_bridge_callbacks_cannot_restart_or_mutate_a_removed_applet():
+    source = APPLET_SOURCE.read_text(encoding="utf-8")
+
+    assert "this._destroyed = false;" in source
+    assert "_request(action, params, callback)" in source
+    assert "this._destroyed || bridge !== this._bridge" in source
+    assert source.count("this._bridge.request(") == 0
+    assert "_render() {\n    if (this._destroyed || !this._dashboard)" in source
+    assert "_configurationChanged() {\n    if (this._destroyed || !this._dashboard)" in source
+
+    removal = source[source.index("on_applet_removed_from_panel()") :]
+    assert removal.index("this._destroyed = true;") < removal.index("bridge.stop();")
+    assert removal.index("this._bridge = null;") < removal.index("bridge.stop();")
+
+
+def test_remote_stop_is_confirmed_before_the_destructive_bridge_action():
+    source = APPLET_SOURCE.read_text(encoding="utf-8")
+
+    assert "onRemoteStop: this._confirmRemoteStop.bind(this)" in source
+    assert "_confirmRemoteStop()" in source
+    assert "this._remoteAction('remote_stop', { confirmed: true });" in source
 
 
 def test_graph_renderer_has_separate_step_bar_and_reset_paths():

@@ -9,10 +9,16 @@ from scripts.smoke_bridge import run_probe
 
 class FakeSession:
     def __init__(
-        self, *, fail_clients=False, pair_status_failures=0, initial_status="disabled"
+        self,
+        *,
+        fail_clients=False,
+        pair_start_failures=0,
+        pair_status_failures=0,
+        initial_status="disabled",
     ):
         self.actions = []
         self.fail_clients = fail_clients
+        self.pair_start_failures = pair_start_failures
         self.pair_status_failures = pair_status_failures
         self.initial_status = initial_status
 
@@ -51,6 +57,9 @@ class FakeSession:
         }
         if action == "remote_clients" and self.fail_clients:
             raise RuntimeError("client list failed")
+        if action == "remote_pair_start" and self.pair_start_failures > 0:
+            self.pair_start_failures -= 1
+            raise RuntimeError("proxy is restarting")
         if action == "remote_pair_status" and self.pair_status_failures > 0:
             self.pair_status_failures -= 1
             raise RuntimeError("proxy is restarting")
@@ -101,6 +110,14 @@ def test_live_smoke_preserves_remote_and_runs_full_visual_matrix():
         '"$SCREENSHOT_DIR/dashboard.png"'
     )
     assert "remoteStatePreserved" in script
+    assert "lifecycleRemovalClean" in script
+    assert "lifecycleRestartClean" in script
+    assert "dashboardCaptureReady" in script
+    assert 'rm -f -- "$SCREENSHOT_DIR/dashboard.png"' in script
+    assert "json_true()" in script
+    assert "wait_for_screenshot()" in script
+    assert "grep -F" in script
+    assert ".*true" not in script
     assert "_codexMonitorSmokeErrorIndex" in script
     assert "lookingGlassClean" in script
     for value in ('"quota"', '"activity"', '"both"', "24", "168", "720"):
@@ -136,6 +153,18 @@ def test_run_probe_retries_pair_status_during_proxy_readiness_race():
         action for action, _params in session.actions if action == "remote_pair_status"
     ]
     assert len(pair_status_calls) == 3
+    assert result["remoteLeftRunning"] is True
+
+
+def test_run_probe_retries_pair_start_during_proxy_readiness_race():
+    session = FakeSession(pair_start_failures=2)
+
+    result = run_probe(session, output=io.StringIO(), sleeper=lambda _seconds: None)
+
+    pair_start_calls = [
+        action for action, _params in session.actions if action == "remote_pair_start"
+    ]
+    assert len(pair_start_calls) == 3
     assert result["remoteLeftRunning"] is True
 
 

@@ -72,11 +72,11 @@
 .codex-monitor-dashboard {
   width: 560px;
   spacing: 14px;
-  padding: 14px;
 }
 
 .codex-monitor-scroll {
-  max-height: 780px;
+  max-height: 752px;
+  padding: 14px;
 }
 
 .codex-monitor-header,
@@ -109,6 +109,12 @@
 .codex-monitor-secondary {
   color: rgba(255, 255, 255, 0.65);
   font-size: 0.9em;
+}
+
+.codex-monitor-header .codex-monitor-status {
+  width: 160px;
+  margin-right: 8px;
+  text-align: right;
 }
 
 .codex-monitor-card-row {
