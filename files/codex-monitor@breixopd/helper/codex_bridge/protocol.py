@@ -30,6 +30,33 @@ class CommandRouter:
         try:
             if action == "snapshot":
                 data = self.service.snapshot()
+            elif action == "sessions":
+                limit = params.get("limit", 12)
+                if (
+                    not isinstance(limit, int)
+                    or isinstance(limit, bool)
+                    or not 1 <= limit <= 50
+                ):
+                    return _error(
+                        request_id, "INVALID_PARAMS", "Invalid session-list parameters"
+                    )
+                data = self.service.sessions(limit)
+            elif action == "open_codex":
+                if params:
+                    return _error(
+                        request_id, "INVALID_PARAMS", "Invalid Codex launch parameters"
+                    )
+                data = self.service.open_codex()
+            elif action == "open_session":
+                thread_id = params.get("threadId")
+                cwd = params.get("cwd")
+                if not self._valid_uuid(thread_id) or not self._valid_optional_path(cwd):
+                    return _error(
+                        request_id,
+                        "INVALID_PARAMS",
+                        "Invalid session launch parameters",
+                    )
+                data = self.service.open_session(thread_id, cwd)
             elif action == "consume_reset":
                 credit_id = params.get("creditId")
                 idempotency_key = params.get("idempotencyKey")
@@ -88,3 +115,7 @@ class CommandRouter:
             return str(uuid.UUID(value)) == value.lower()
         except (ValueError, AttributeError):
             return False
+
+    @staticmethod
+    def _valid_optional_path(value):
+        return value is None or isinstance(value, str) and len(value) <= 4096

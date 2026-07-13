@@ -10,6 +10,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from codex_bridge.history import QuotaHistory
+from codex_bridge.launcher import TerminalLauncher
 from codex_bridge.process import serve, spawn_app_server
 from codex_bridge.protocol import CommandRouter
 from codex_bridge.remote import RemoteControl
@@ -20,7 +21,14 @@ from codex_bridge.service import CodexService
 UUID = "codex-monitor@breixopd"
 
 
-def create_runtime(options, *, spawn=None, client_factory=None, remote_runner=None):
+def create_runtime(
+    options,
+    *,
+    spawn=None,
+    client_factory=None,
+    remote_runner=None,
+    terminal_popen=None,
+):
     spawn = spawn or spawn_app_server
     client_factory = client_factory or (lambda process: AppServerClient(process=process))
 
@@ -55,11 +63,16 @@ def create_runtime(options, *, spawn=None, client_factory=None, remote_runner=No
     if remote_runner is not None:
         remote_kwargs["runner"] = remote_runner
     remote = RemoteControl(options.codex, **remote_kwargs)
-    service = CodexService(client, history, remote=remote)
+    launcher_kwargs = {}
+    if terminal_popen is not None:
+        launcher_kwargs["popen"] = terminal_popen
+    launcher = TerminalLauncher(options.codex, **launcher_kwargs)
+    service = CodexService(client, history, remote=remote, launcher=launcher)
     return SimpleNamespace(
         client=client,
         history=history,
         remote=remote,
+        launcher=launcher,
         service=service,
         router=CommandRouter(service),
     )

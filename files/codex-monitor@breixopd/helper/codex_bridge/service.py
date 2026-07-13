@@ -6,13 +6,15 @@ import copy
 import time
 
 from .models import normalize_snapshot
+from .sessions import normalize_session_list
 
 
 class CodexService:
-    def __init__(self, client, history, *, remote=None, clock=time.time):
+    def __init__(self, client, history, *, remote=None, launcher=None, clock=time.time):
         self.client = client
         self.history = history
         self.remote = remote
+        self.launcher = launcher
         self.clock = clock
         self._notification_probe_complete = False
 
@@ -53,6 +55,19 @@ class CodexService:
             {"creditId": credit_id, "idempotencyKey": idempotency_key},
         )
 
+    def sessions(self, limit=12):
+        response = self.client.request(
+            "thread/list",
+            {"limit": limit, "sortKey": "updated_at", "sortDirection": "desc"},
+        )
+        return normalize_session_list(response, limit=limit)
+
+    def open_codex(self):
+        return self._require_launcher().open_codex()
+
+    def open_session(self, thread_id, cwd=None):
+        return self._require_launcher().open_session(thread_id, cwd)
+
     def remote_status(self):
         return self._require_remote().status()
 
@@ -69,6 +84,11 @@ class CodexService:
         if self.remote is None:
             raise RuntimeError("Codex remote control is unavailable")
         return self.remote
+
+    def _require_launcher(self):
+        if self.launcher is None:
+            raise RuntimeError("Codex terminal launcher is unavailable")
+        return self.launcher
 
     def _merge_latest_rate_limits(self, response):
         wait = getattr(self.client, "wait_for_notification", None)

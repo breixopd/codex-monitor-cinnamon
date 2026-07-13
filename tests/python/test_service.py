@@ -143,6 +143,60 @@ def test_consume_reset_sends_credit_and_idempotency_key():
     ]
 
 
+def test_sessions_request_recent_threads_and_normalize_response():
+    thread_id = "019c0000-0000-7000-8000-000000000001"
+    client = FakeClient(
+        {
+            "thread/list": {
+                "data": [
+                    {
+                        "id": thread_id,
+                        "preview": "Recent work",
+                        "cwd": "/home/user/Code/Widgets",
+                        "source": "cli",
+                        "status": {"type": "notLoaded"},
+                        "createdAt": 100,
+                        "updatedAt": 200,
+                    }
+                ]
+            }
+        }
+    )
+    service = CodexService(client, history=None)
+
+    result = service.sessions(12)
+
+    assert result["recent"][0]["id"] == thread_id
+    assert client.calls == [
+        (
+            "thread/list",
+            {"limit": 12, "sortKey": "updated_at", "sortDirection": "desc"},
+        )
+    ]
+
+
+def test_launch_operations_are_delegated_to_terminal_launcher():
+    class FakeLauncher:
+        def __init__(self):
+            self.calls = []
+
+        def open_codex(self):
+            self.calls.append(("codex", None))
+            return {"launched": True}
+
+        def open_session(self, thread_id, cwd):
+            self.calls.append((thread_id, cwd))
+            return {"launched": True}
+
+    launcher = FakeLauncher()
+    service = CodexService(None, history=None, launcher=launcher)
+    thread_id = "019c0000-0000-7000-8000-000000000001"
+
+    assert service.open_codex() == {"launched": True}
+    assert service.open_session(thread_id, "/tmp") == {"launched": True}
+    assert launcher.calls == [("codex", None), (thread_id, "/tmp")]
+
+
 def test_remote_operations_are_delegated_to_remote_controller():
     class FakeRemote:
         def status(self):
