@@ -342,6 +342,34 @@
     dashboard.showSessionsError();
     results.sessionsUnavailable = dashboard._sessionList.get_children()[0]
       .get_text().indexOf("unavailable") >= 0;
+
+    x._updateDashboardLayout({ width: 1920, height: 1040 });
+    results.responsiveWide = dashboard.actor.width === 640 &&
+      !dashboard._compact && !dashboard._quotaRow.vertical &&
+      dashboard._sessionFilters.get_children().length === 1 &&
+      x._dashboardScroll.get_style().indexOf("752px") >= 0;
+
+    x._updateDashboardLayout({ width: 560, height: 600 });
+    var compactFilterRows = dashboard._sessionFilters.get_children();
+    var compactIndicatorRows = dashboard._indicatorList.get_children();
+    var compactRemoteRows = dashboard._remoteClientList.get_children();
+    results.responsiveCompact = dashboard.actor.width === 508 &&
+      dashboard._compact && dashboard._header.vertical &&
+      dashboard._quotaRow.vertical && dashboard._graphHeading.vertical &&
+      dashboard._sessionHeadingRow.vertical && dashboard._remoteHeading.vertical &&
+      dashboard._remoteButtons.vertical && dashboard._footer.vertical &&
+      compactFilterRows.length === 2 && compactFilterRows.every(function (row) {
+        return row.get_children().length === 2;
+      }) && compactIndicatorRows.length === 4 &&
+      compactIndicatorRows.every(function (row) {
+        return row.get_children().length === 1;
+      }) && compactRemoteRows.length === 1 && compactRemoteRows[0].vertical &&
+      x._dashboardScroll.get_style().indexOf("552px") >= 0;
+
+    x._updateDashboardLayout({ width: 360, height: 400 });
+    results.responsiveShort = dashboard.actor.width === 308 &&
+      dashboard._compact &&
+      x._dashboardScroll.get_style().indexOf("352px") >= 0;
   } catch (error) {
     results.matrixException = true;
   } finally {
@@ -363,6 +391,7 @@
     dashboard.setPairing(saved.pairing || null);
     dashboard.setUpdateState(saved.updateState || {});
     x._render();
+    x._updateDashboardLayout();
   }
   return JSON.stringify(results);
 })()

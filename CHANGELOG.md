@@ -4,12 +4,16 @@
 
 ### Added
 
+- Added active-monitor work-area sizing with compact stacked layouts for narrow and short displays
+- Added live wide, compact, and minimum-width layout coverage alongside the existing graph and dynamic-state matrix
 - Added a bounded WebSocket JSON-RPC client for Codex's local Unix control socket, including masked frames, ping/pong, fragmented responses, payload limits, and sanitized failures
 - Added explicit Checking, Live, Unavailable, and Unsupported states for connected-device management, with the last successful list retained during temporary failures
 - Added real Cinnamon-hosted smoke coverage for Remote pairing status and connected-device inventory without logging device identities or stopping Remote
 
 ### Changed
 
+- Kept the 640 px maximum dashboard width while making quota cards, status indicators, filters, actions, device rows, and footer controls responsive below 520 px
+- Recalculate dashboard width and scroll height when the menu opens, monitor geometry changes, or panel orientation changes
 - Widened the dashboard, arranged status alerts across readable rows, and added consistent spacing between content and the scrollbar
 - Compensated for Cinnamon's popup inset so the dashboard has balanced outer margins while preserving the gutter beside the scrollbar
 - Rewrote the project and Cinnamon store READMEs around installation, everyday use, privacy, and troubleshooting

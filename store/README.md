@@ -4,6 +4,8 @@ Codex Monitor puts Codex quota, reset windows, session activity, and Remote Cont
 
 The compact panel view shows 5-hour and weekly usage at a glance. Open the dashboard for exact reset countdowns, clear warning text, 24-hour to 30-day history, banked resets, recent and active sessions, Remote Control pairing and a live connected-device list, and safe Codex update checks.
 
+The dashboard adapts to the available display work area, keeping the full view on wide screens and stacking cards and actions cleanly on narrow layouts.
+
 ## Requirements
 
 - Cinnamon 6.0 or newer; live tested on Cinnamon 6.6

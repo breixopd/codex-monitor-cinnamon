@@ -13,6 +13,7 @@ Keep an eye on Codex without keeping a terminal open. Codex Monitor adds a small
 - **Banked resets**, including expiry details and a confirmation before one is used
 - **Remote Control** connection status, pairing, a live connected-device list, and confirmed device removal
 - **Codex updates**, checked automatically and offered only when a newer stable version is available
+- **Responsive dashboard layout** that keeps its full 640 px view on wide displays and stacks controls on narrow work areas
 
 Missing information is shown as unavailable. The applet never guesses a quota, reset time, or connection state.
 
@@ -63,6 +64,8 @@ Click the applet to open the dashboard. From there you can:
 - start, pair, and manage Remote Control
 - use a banked reset after confirming the action
 - install a Codex update when one is available
+
+The dashboard follows the work area of the display containing the applet. On narrow displays, quota cards, alerts, filters, Remote Control actions, and footer controls stack vertically; the same balanced margins and scrollbar gutter are preserved at every size.
 
 Right-click the applet and choose **Configure** to change refresh frequency, history retention, graph defaults, warning thresholds, panel indicators, the Codex executable, or `CODEX_HOME`.
 
