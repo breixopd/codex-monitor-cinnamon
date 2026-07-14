@@ -9,6 +9,8 @@ def test_capture_uses_an_isolated_scene_and_never_captures_the_desktop():
     assert "Demo project" in scene
     assert "Example active session" in scene
     assert "Example phone" in scene
+    assert "status: 'active'" in scene
+    assert "status: 'notLoaded'" in scene
     assert "Main.uiGroup.add_child(root)" in scene
     assert "background-color: #14171a" in scene
     assert "global._codexMonitorDestroyScreenshotScene" in scene

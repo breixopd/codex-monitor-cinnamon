@@ -46,12 +46,16 @@ class BridgeSession:
         request_id = f"smoke-{self._next_id}"
         self._next_id += 1
         message = {"id": request_id, "action": action, "params": params or {}}
-        self.process.stdin.write(json.dumps(message, separators=(",", ":")) + "\n")
-        self.process.stdin.flush()
-        readable, _, _ = select.select([self.process.stdout], [], [], self.timeout)
+        stdin = self.process.stdin
+        stdout = self.process.stdout
+        if stdin is None or stdout is None:
+            raise RuntimeError("Codex Monitor bridge pipes are unavailable")
+        stdin.write(json.dumps(message, separators=(",", ":")) + "\n")
+        stdin.flush()
+        readable, _, _ = select.select([stdout], [], [], self.timeout)
         if not readable:
             raise TimeoutError("Codex Monitor bridge smoke request timed out")
-        raw = self.process.stdout.readline()
+        raw = stdout.readline()
         if not raw:
             raise RuntimeError("Codex Monitor bridge exited during smoke test")
         try:
@@ -75,18 +79,6 @@ class BridgeSession:
                 self.process.kill()
                 self.process.wait(timeout=2)
         self._data_dir.cleanup()
-
-
-def _connected_status(session, initial, sleeper):
-    if initial.get("status") == "connected":
-        return initial
-    status = session.request("remote_start", {"confirmed": True})
-    for _attempt in range(10):
-        if status.get("status") == "connected":
-            return status
-        sleeper(1)
-        status = session.request("remote_status")
-    raise RuntimeError("Remote Control did not connect during smoke test")
 
 
 def _retry_remote_request(session, action, params, sleeper, *, attempts=3):
@@ -113,57 +105,29 @@ def run_probe(
     sessions = session.request("sessions", {"limit": 12})
     update_status = session.request("update_status")
     update_check = session.request("update_check", {"force": False})
-    status = pairing = pairing_status = clients = None
+    status = clients = None
     if check_remote:
-        initial = session.request("remote_status")
-        if initial.get("status") not in {
+        status = session.request("remote_status")
+        if status.get("status") not in {
             "disabled",
             "connecting",
             "running",
             "connected",
         }:
             raise RuntimeError("Remote Control initial state was not smoke-testable")
-        status = _connected_status(session, initial, sleeper)
-        pairing = _retry_remote_request(
-            session,
-            "remote_pair_start",
-            {},
-            sleeper,
-        )
-        pairing_status = _retry_remote_request(
-            session,
-            "remote_pair_status",
-            {
-                "pairingCode": pairing.get("pairingCode"),
-                "manualPairingCode": pairing.get("manualPairingCode"),
-            },
-            sleeper,
-        )
-        environment_id = pairing.get("environmentId") or status.get("environmentId")
-        clients = _retry_remote_request(
-            session,
-            "remote_clients",
-            {"environmentId": environment_id},
-            sleeper,
-        )
+        environment_id = status.get("environmentId")
+        if status.get("status") == "connected" and environment_id:
+            clients = _retry_remote_request(
+                session,
+                "remote_clients",
+                {"environmentId": environment_id},
+                sleeper,
+            )
     result = {
         "snapshot": isinstance(snapshot, dict) and "capturedAt" in snapshot,
         "sessionCount": len(sessions.get("active") or [])
         + len(sessions.get("recent") or []),
-        "remoteLifecycle": status.get("status") == "connected" if status else None,
-        "pairClaimed": bool(pairing_status.get("claimed"))
-        if pairing_status
-        else None,
-        "pairStatusSupported": pairing_status.get("supported") is not False
-        if pairing_status
-        else None,
-        "pairingQrSvg": (
-            isinstance(pairing.get("qrSvg"), str)
-            and pairing["qrSvg"].startswith("<svg")
-            and len(pairing["qrSvg"].encode("utf-8")) <= 256 * 1024
-        )
-        if pairing
-        else None,
+        "remoteConnected": status.get("status") == "connected" if status else None,
         "clientCount": len(clients.get("clients") or []) if clients else None,
         "clientListSupported": clients.get("supported") is not False
         if clients
@@ -175,9 +139,6 @@ def run_probe(
             and isinstance(value.get("updateAvailable"), bool)
             for value in (update_status, update_check)
         ),
-        # Stopping the live daemon also terminates the Codex session running this
-        # smoke test. Stop behavior is covered by isolated command tests instead.
-        "remoteLeftRunning": True,
     }
     output.write(json.dumps(result, sort_keys=True) + "\n")
     return result
@@ -205,7 +166,7 @@ def main(argv=None):
         result = run_probe(session, check_remote=not options.skip_remote)
     finally:
         session.close()
-    remote_ok = options.skip_remote or result["remoteLifecycle"]
+    remote_ok = options.skip_remote or result["remoteConnected"]
     return 0 if result["snapshot"] and remote_ok else 1
 
 

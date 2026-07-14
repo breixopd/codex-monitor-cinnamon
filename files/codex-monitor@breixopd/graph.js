@@ -198,7 +198,7 @@ var updateQuotaGraph = function(view, payload) {
   }
   if ((data.resetMarkers || []).length > 0) {
     view._legend.add_child(new St.Label({
-      text: 'R = reset',
+      text: data.resetKey || '',
       style_class: 'codex-monitor-graph-legend-item codex-monitor-graph-reset-key',
     }));
   }
@@ -206,8 +206,8 @@ var updateQuotaGraph = function(view, payload) {
   const counts = series.map(item => item.points.length);
   const total = counts.reduce((sum, count) => sum + count, 0);
   view._empty.set_text(total === 0
-    ? 'No history in this range'
-    : counts.every(count => count <= 1) ? 'Collecting more history…' : '');
+    ? data.emptyText || ''
+    : counts.every(count => count <= 1) ? data.collectingText || '' : '');
   view._empty.visible = Boolean(view._empty.get_text());
   view._area.queue_repaint();
 };

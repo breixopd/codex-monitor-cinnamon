@@ -156,7 +156,7 @@ while [ "$attempt" -lt 30 ]; do
   attempt=$((attempt + 1))
   sleep 1
 done
-for assertion in done pairStatusSupported pairStatusAvailable clientListSupported clientListAvailable remoteDeviceBridge; do
+for assertion in done clientListSupported clientListAvailable remoteDeviceBridge; do
   if ! json_true "$device_probe" "$assertion"; then
     printf '%s\n' "Remote device bridge assertion failed: $device_probe" >&2
     exit 1

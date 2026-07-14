@@ -20,9 +20,6 @@ class FakeService:
     def remote_stop(self):
         return {"status": "disabled"}
 
-    def remote_pair(self):
-        return {"manualPairingCode": "ABCD-EFGH", "expiresAt": 1_800_000_000}
-
     def remote_pair_start(self):
         self.calls.append(("remote_pair_start", None))
         return {
@@ -132,16 +129,18 @@ def test_router_requires_explicit_confirmation_for_destructive_actions():
     assert response["error"]["code"] == "CONFIRMATION_REQUIRED"
 
 
-def test_router_exposes_remote_status_and_pairing():
+def test_router_exposes_remote_status_and_rejects_retired_pair_alias():
     router = CommandRouter(FakeService())
 
     status = router.handle(
         {"id": "request-5", "action": "remote_status", "params": {}}
     )
-    pair = router.handle({"id": "request-6", "action": "remote_pair", "params": {}})
+    retired = router.handle(
+        {"id": "request-6", "action": "remote_pair", "params": {}}
+    )
 
     assert status["data"] == {"status": "connected"}
-    assert pair["data"]["manualPairingCode"] == "ABCD-EFGH"
+    assert retired["error"]["code"] == "INVALID_ACTION"
 
 
 def test_router_requires_confirmation_before_starting_remote_control():

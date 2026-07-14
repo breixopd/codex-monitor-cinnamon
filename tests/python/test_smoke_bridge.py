@@ -12,14 +12,12 @@ class FakeSession:
         self,
         *,
         fail_clients=False,
-        pair_start_failures=0,
-        pair_status_failures=0,
+        client_failures=0,
         initial_status="disabled",
     ):
         self.actions = []
         self.fail_clients = fail_clients
-        self.pair_start_failures = pair_start_failures
-        self.pair_status_failures = pair_status_failures
+        self.client_failures = client_failures
         self.initial_status = initial_status
 
     def request(self, action, params=None):
@@ -27,16 +25,10 @@ class FakeSession:
         responses = {
             "snapshot": {"capturedAt": 10, "windows": {}},
             "sessions": {"active": [{"id": "active"}], "recent": [{"id": "recent"}]},
-            "remote_status": {"status": self.initial_status},
-            "remote_start": {"status": "connected"},
-            "remote_pair_start": {
-                "pairingCode": "opaque-private-code",
-                "manualPairingCode": "PRIVATE-MANUAL",
+            "remote_status": {
+                "status": self.initial_status,
                 "environmentId": "environment-1",
-                "expiresAt": 1_900_000_000,
-                "qrSvg": '<svg viewBox="0 0 11 11"></svg>',
             },
-            "remote_pair_status": {"claimed": False},
             "remote_clients": {"clients": [{"clientId": "client-1"}]},
             "update_status": {
                 "installedVersion": "0.144.3",
@@ -57,46 +49,68 @@ class FakeSession:
         }
         if action == "remote_clients" and self.fail_clients:
             raise RuntimeError("client list failed")
-        if action == "remote_pair_start" and self.pair_start_failures > 0:
-            self.pair_start_failures -= 1
-            raise RuntimeError("control channel is reconnecting")
-        if action == "remote_pair_status" and self.pair_status_failures > 0:
-            self.pair_status_failures -= 1
+        if action == "remote_clients" and self.client_failures > 0:
+            self.client_failures -= 1
             raise RuntimeError("control channel is reconnecting")
         return responses[action]
 
 
-def test_run_probe_exercises_lifecycle_redacts_codes_and_leaves_remote_running():
-    session = FakeSession()
+def test_run_probe_reads_connected_remote_without_mutating_it():
+    session = FakeSession(initial_status="connected")
     output = io.StringIO()
 
     result = run_probe(session, output=output, sleeper=lambda _seconds: None)
 
     assert result["snapshot"] is True
     assert result["sessionCount"] == 2
-    assert result["remoteLifecycle"] is True
-    assert result["pairClaimed"] is False
-    assert result["pairStatusSupported"] is True
+    assert result["remoteConnected"] is True
     assert result["clientCount"] == 1
     assert result["clientListSupported"] is True
-    assert result["remoteLeftRunning"] is True
-    assert result["pairingQrSvg"] is True
     assert result["updateContract"] is True
-    assert all(action != "remote_stop" for action, _params in session.actions)
-    assert all(action != "update_start" for action, _params in session.actions)
+    assert session.actions == [
+        ("snapshot", {}),
+        ("sessions", {"limit": 12}),
+        ("update_status", {}),
+        ("update_check", {"force": False}),
+        ("remote_status", {}),
+        ("remote_clients", {"environmentId": "environment-1"}),
+    ]
     rendered = output.getvalue()
     assert json.loads(rendered) == result
-    assert "opaque-private-code" not in rendered
-    assert "PRIVATE-MANUAL" not in rendered
+    assert "client-1" not in rendered
+    assert "environment-1" not in rendered
 
 
-def test_run_probe_never_stops_live_remote_when_lifecycle_step_fails():
-    session = FakeSession(fail_clients=True)
+def test_run_probe_never_mutates_remote_when_read_only_step_fails():
+    session = FakeSession(fail_clients=True, initial_status="connected")
 
     with pytest.raises(RuntimeError, match="client list failed"):
         run_probe(session, output=io.StringIO(), sleeper=lambda _seconds: None)
 
-    assert all(action != "remote_stop" for action, _params in session.actions)
+    assert all(
+        action not in {
+            "remote_start",
+            "remote_stop",
+            "remote_pair_start",
+            "remote_pair_status",
+            "remote_revoke",
+        }
+        for action, _params in session.actions
+    )
+
+
+@pytest.mark.parametrize("initial_status", ["disabled", "connecting", "running"])
+def test_run_probe_reports_unconnected_remote_without_starting_it(initial_status):
+    session = FakeSession(initial_status=initial_status)
+
+    result = run_probe(session, output=io.StringIO(), sleeper=lambda _seconds: None)
+
+    assert result["remoteConnected"] is False
+    assert result["clientCount"] is None
+    assert result["clientListSupported"] is None
+    assert [action for action, _params in session.actions if action.startswith("remote_")] == [
+        "remote_status"
+    ]
 
 
 def test_run_probe_can_skip_socket_operations_in_a_restricted_shell():
@@ -110,7 +124,7 @@ def test_run_probe_can_skip_socket_operations_in_a_restricted_shell():
     )
 
     assert result["snapshot"] is True
-    assert result["remoteLifecycle"] is None
+    assert result["remoteConnected"] is None
     assert result["clientListSupported"] is None
     assert all(
         not action.startswith("remote_") for action, _params in session.actions
@@ -135,6 +149,14 @@ def test_live_smoke_preserves_remote_and_runs_full_visual_matrix():
     assert "clientCount" in remote_probe
     assert "clientId" not in remote_probe
     assert "displayName" not in remote_probe
+    for mutable_action in (
+        "remote_start",
+        "remote_stop",
+        "remote_pair_start",
+        "remote_pair_status",
+        "remote_revoke",
+    ):
+        assert mutable_action not in remote_probe
     assert "remoteStatePreserved" in script
     assert "lifecycleRemovalClean" in script
     assert "lifecycleRestartClean" in script
@@ -178,38 +200,16 @@ def test_live_smoke_preserves_remote_and_runs_full_visual_matrix():
         assert state in matrix
 
 
-def test_run_probe_retries_pair_status_during_channel_readiness_race():
-    session = FakeSession(pair_status_failures=2)
+def test_run_probe_retries_client_list_during_channel_readiness_race():
+    session = FakeSession(client_failures=2, initial_status="connected")
 
     result = run_probe(session, output=io.StringIO(), sleeper=lambda _seconds: None)
 
-    pair_status_calls = [
-        action for action, _params in session.actions if action == "remote_pair_status"
+    client_calls = [
+        action for action, _params in session.actions if action == "remote_clients"
     ]
-    assert len(pair_status_calls) == 3
-    assert result["remoteLeftRunning"] is True
-
-
-def test_run_probe_retries_pair_start_during_channel_readiness_race():
-    session = FakeSession(pair_start_failures=2)
-
-    result = run_probe(session, output=io.StringIO(), sleeper=lambda _seconds: None)
-
-    pair_start_calls = [
-        action for action, _params in session.actions if action == "remote_pair_start"
-    ]
-    assert len(pair_start_calls) == 3
-    assert result["remoteLeftRunning"] is True
-
-
-@pytest.mark.parametrize("initial_status", ["connecting", "running"])
-def test_run_probe_completes_start_from_unconfirmed_running_state(initial_status):
-    session = FakeSession(initial_status=initial_status)
-
-    result = run_probe(session, output=io.StringIO(), sleeper=lambda _seconds: None)
-
-    assert ("remote_start", {"confirmed": True}) in session.actions
-    assert result["remoteLifecycle"] is True
+    assert len(client_calls) == 3
+    assert result["remoteConnected"] is True
 
 
 def test_dashboard_uses_only_cinnamons_native_context_settings_action():

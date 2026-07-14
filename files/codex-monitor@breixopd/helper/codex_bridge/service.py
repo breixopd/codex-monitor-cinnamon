@@ -88,9 +88,6 @@ class CodexService:
     def remote_stop(self):
         return self._require_remote().stop()
 
-    def remote_pair(self):
-        return self._require_remote().pair()
-
     def remote_pair_start(self):
         return self._require_remote().pair_start()
 
@@ -176,7 +173,7 @@ class CodexService:
             or len(account_type) > 64
         ):
             return None
-        normalized = {"type": account_type}
+        normalized: dict[str, object] = {"type": account_type}
         if account_type == "chatgpt":
             plan_type = account.get("planType")
             normalized["planType"] = (

@@ -91,8 +91,6 @@ class CommandRouter:
                         "Explicit confirmation is required",
                     )
                 data = self.service.remote_stop()
-            elif action == "remote_pair":
-                data = self.service.remote_pair()
             elif action == "remote_pair_start":
                 if params:
                     return _error(

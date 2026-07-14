@@ -6,9 +6,9 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: codex-monitor@breixopd 1.1.0\n"
-"Report-Msgid-Bugs-To: https://github.com/breixopd/codex-monitor-cinnamon/"
+"Report-Msgid-Bugs-To: https://github.com/linuxmint/cinnamon-spices-applets/"
 "issues\n"
-"POT-Creation-Date: 2026-07-14 01:27+0200\n"
+"POT-Creation-Date: 2026-07-15 01:19+0200\n"
 "PO-Revision-Date: \n"
 "Last-Translator: \n"
 "Language-Team: \n"
@@ -17,497 +17,711 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#. applet.js:50 applet.js:434
+#. applet.js:63 applet.js:490
 msgid "Codex usage monitor"
 msgstr ""
 
-#. applet.js:226
+#. applet.js:266
 msgid "Refreshing…"
 msgstr ""
 
-#. applet.js:318
+#. applet.js:358
 msgid "Remote Control status unavailable"
 msgstr ""
 
-#. applet.js:409
+#. applet.js:463
 msgid "Unable to refresh Codex; showing last data"
 msgstr ""
 
-#. applet.js:428
+#. applet.js:482
 msgid "Codex Monitor · connecting"
 msgstr ""
 
-#. applet.js:468 ui.js:628
+#. applet.js:526 ui.js:753
 msgid "no expiry"
 msgstr ""
 
-#. applet.js:469
+#. applet.js:527
 msgid "Apply this banked reset?"
 msgstr ""
 
-#. applet.js:470 ui.js:631
+#. applet.js:528 ui.js:756
 msgid "Codex limit reset"
 msgstr ""
 
-#. applet.js:478
+#. applet.js:536
 msgid "Reset could not be applied"
 msgstr ""
 
-#. applet.js:479
-msgid "Reset result"
+#. applet.js:537
+#, javascript-format
+msgid "Reset result: %s"
 msgstr ""
 
-#. applet.js:488 applet.js:501
+#. applet.js:546 applet.js:559
 msgid "Could not open the default terminal"
 msgstr ""
 
-#. applet.js:510
+#. applet.js:568
 msgid ""
 "Start Codex Remote Control? This allows paired mobile clients to control "
 "this Linux device."
 msgstr ""
 
-#. applet.js:519
+#. applet.js:577
 msgid ""
 "Stop Codex Remote Control? This disconnects paired devices and may end "
 "active Remote sessions."
 msgstr ""
 
-#. applet.js:527
+#. applet.js:585
 msgid "this device"
 msgstr ""
 
-#. applet.js:528
-msgid "Revoke Remote Control access for"
+#. applet.js:587
+#, javascript-format
+msgid "Revoke Remote Control access for %s?"
 msgstr ""
 
-#. applet.js:545
+#. applet.js:605
 msgid "Update Codex?"
 msgstr ""
 
-#. applet.js:547
+#. applet.js:607
 msgid "Existing Codex and Remote sessions will keep running."
 msgstr ""
 
-#. applet.js:570
+#. applet.js:630
 msgid "Updating Remote Control…"
 msgstr ""
 
-#. applet.js:573 applet.js:575
+#. applet.js:633 applet.js:635
 msgid "Remote Control action failed"
 msgstr ""
 
-#. ui.js:71
-msgid "Waiting for Codex…"
+#. model.js:33
+msgid "now"
 msgstr ""
 
-#. ui.js:81
-msgid "Not available"
+#. model.js:35
+msgid "<1m"
+msgstr ""
+
+#. model.js:42
+#, javascript-format
+msgid "%sd %sh"
+msgstr ""
+
+#. model.js:43
+#, javascript-format
+msgid "%sd"
+msgstr ""
+
+#. model.js:48
+#, javascript-format
+msgid "%sh %sm"
+msgstr ""
+
+#. model.js:49
+#, javascript-format
+msgid "%sh"
+msgstr ""
+
+#. model.js:51
+#, javascript-format
+msgid "%sm"
+msgstr ""
+
+#. model.js:60 model.js:313
+msgid "5-hour"
+msgstr ""
+
+#. model.js:61 model.js:314 ui.js:631
+msgid "Weekly"
+msgstr ""
+
+#. model.js:90
+#, javascript-format
+msgid "%s quota critical: %s%% used"
+msgstr ""
+
+#. model.js:91
+#, javascript-format
+msgid "%s quota warning: %s%% used"
+msgstr ""
+
+#. model.js:109
+#, javascript-format
+msgid "Banked reset expires in %s"
+msgstr ""
+
+#. model.js:112
+#, javascript-format
+msgid "%s banked reset available"
+msgstr ""
+
+#. model.js:113
+#, javascript-format
+msgid "%s banked resets available"
+msgstr ""
+
+#. model.js:120
+msgid "Remote Control connecting"
+msgstr ""
+
+#. model.js:124
+msgid "Remote Control running; connection state unavailable"
+msgstr ""
+
+#. model.js:127
+msgid "Remote Control connected"
+msgstr ""
+
+#. model.js:130
+msgid "Remote Control error"
+msgstr ""
+
+#. model.js:134
+msgid "Remote Control status unknown"
+msgstr ""
+
+#. model.js:142
+msgid "Usage data stale"
+msgstr ""
+
+#. model.js:160
+#, javascript-format
+msgid "Reset expires in %s"
+msgstr ""
+
+#. model.js:294
+#, javascript-format
+msgid "%s: unavailable"
+msgstr ""
+
+#. model.js:296
+#, javascript-format
+msgid "%s: %s%% used · resets in %s"
+msgstr ""
+
+#. model.js:300
+#, javascript-format
+msgid "%s: %s%% used · reset time unavailable"
+msgstr ""
+
+#. model.js:315
+#, javascript-format
+msgid "Banked resets: %s"
+msgstr ""
+
+#. model.js:318
+#, javascript-format
+msgid "Nearest banked reset expiry: %s"
+msgstr ""
+
+#. model.js:322
+msgid "disabled"
+msgstr ""
+
+#. model.js:323
+msgid "connecting"
+msgstr ""
+
+#. model.js:324
+msgid "running"
+msgstr ""
+
+#. model.js:325
+msgid "connected"
+msgstr ""
+
+#. model.js:326
+msgid "errored"
+msgstr ""
+
+#. model.js:328
+#, javascript-format
+msgid "Remote: %s"
+msgstr ""
+
+#. model.js:329
+msgid "unknown"
+msgstr ""
+
+#. model.js:331
+#, javascript-format
+msgid "Updated: %s ago"
 msgstr ""
 
 #. ui.js:82
-msgid "No limit reported for the current model"
-msgstr ""
-
-#. ui.js:86
-msgid "used"
-msgstr ""
-
-#. ui.js:88
-msgid "Reset time unavailable"
+msgid "Waiting for Codex…"
 msgstr ""
 
 #. ui.js:92
-msgid "Resets in"
+msgid "Not available"
+msgstr ""
+
+#. ui.js:93
+msgid "No limit reported for the current model"
+msgstr ""
+
+#. ui.js:97
+#, javascript-format
+msgid "%s%% used"
+msgstr ""
+
+#. ui.js:99
+msgid "Reset time unavailable"
+msgstr ""
+
+#. ui.js:103
+#, javascript-format
+msgid "Resets in %s"
 msgstr ""
 
 #. metadata.json->name
-#. ui.js:132
+#. ui.js:149
 msgid "Codex Monitor"
 msgstr ""
 
-#. ui.js:137 ui.js:746
+#. ui.js:154 ui.js:891
 msgid "Connecting…"
 msgstr ""
 
-#. ui.js:148
+#. ui.js:165
 msgid "Current indicators"
 msgstr ""
 
-#. ui.js:166
-msgid "Usage data current"
-msgstr ""
-
-#. ui.js:184
+#. ui.js:217
 msgid "5-HOUR"
 msgstr ""
 
-#. ui.js:185
+#. ui.js:218
 msgid "WEEKLY"
 msgstr ""
 
-#. ui.js:198
+#. ui.js:233
 msgid "Usage trend"
 msgstr ""
 
-#. ui.js:204
+#. ui.js:242
 msgid "Quota"
 msgstr ""
 
-#. ui.js:205 ui.js:543
+#. ui.js:243 ui.js:659
 msgid "Activity"
 msgstr ""
 
 #. settings-schema.json->graph-mode->options
-#. ui.js:206
+#. ui.js:244
 msgid "Both"
 msgstr ""
 
-#. ui.js:235 ui.js:614
+#. ui.js:274
 msgid "Banked resets"
 msgstr ""
 
-#. ui.js:251 ui.js:648
+#. ui.js:292
 msgid "Codex sessions"
 msgstr ""
 
-#. ui.js:256
+#. ui.js:298
 msgid "Open Codex"
 msgstr ""
 
-#. ui.js:263
+#. ui.js:307
 msgid "All"
 msgstr ""
 
-#. ui.js:264
+#. ui.js:308 ui.js:837
 msgid "Active"
 msgstr ""
 
-#. ui.js:265
+#. ui.js:309
 msgid "Attention"
 msgstr ""
 
-#. ui.js:266
+#. ui.js:310
 msgid "Recent"
 msgstr ""
 
-#. ui.js:293
+#. ui.js:339
 msgid "Remote Control"
 msgstr ""
 
-#. ui.js:298 ui.js:745
+#. ui.js:344 ui.js:890
 msgid "Disabled"
 msgstr ""
 
-#. ui.js:333 ui.js:814
+#. ui.js:382
 msgid "Paired devices"
 msgstr ""
 
-#. ui.js:351 ui.js:374
+#. ui.js:407 ui.js:473
 msgid "Update Codex…"
 msgstr ""
 
-#. ui.js:360
+#. ui.js:416
 msgid "No data yet"
 msgstr ""
 
-#. ui.js:365 ui.js:772 ui.js:777
+#. ui.js:421 ui.js:919 ui.js:924
 msgid "Refresh"
 msgstr ""
 
-#. ui.js:377 ui.js:395 ui.js:399
-msgid "Codex"
+#. ui.js:476
+#, javascript-format
+msgid "Codex %s · Checking for updates…"
 msgstr ""
 
-#. ui.js:377
-msgid "Checking for updates…"
-msgstr ""
-
-#. ui.js:378
+#. ui.js:477
 msgid "Checking for Codex updates…"
 msgstr ""
 
-#. ui.js:381
+#. ui.js:480
 msgid "Updating Codex…"
 msgstr ""
 
-#. ui.js:385
-msgid "Updated to Codex"
+#. ui.js:484
+#, javascript-format
+msgid "Updated to Codex %s. New Codex launches use this version."
 msgstr ""
 
-#. ui.js:386
-msgid "New Codex launches use this version."
-msgstr ""
-
-#. ui.js:390
-msgid "Update failed; Codex"
-msgstr ""
-
-#. ui.js:391
-msgid "is still installed"
-msgstr ""
-
-#. ui.js:392
-msgid "Retry"
-msgstr ""
-
-#. ui.js:411
-msgid "Automatic update failed; Codex"
-msgstr ""
-
-#. ui.js:412
+#. ui.js:490 ui.js:512
+#, javascript-format
 msgid ""
-"is still installed. Use the official Codex installation instructions to "
-"update manually."
+"Automatic update failed; Codex %s is still installed. Use the official Codex "
+"installation instructions to update manually."
 msgstr ""
 
-#. ui.js:413
+#. ui.js:492 ui.js:514
 msgid ""
 "Automatic Codex update failed. Use the official Codex installation "
 "instructions to update manually."
 msgstr ""
 
-#. ui.js:437
+#. ui.js:493
+msgid "Retry"
+msgstr ""
+
+#. ui.js:496
+#, javascript-format
+msgid "Codex %s → %s"
+msgstr ""
+
+#. ui.js:500
+#, javascript-format
+msgid "Codex %s"
+msgstr ""
+
+#. ui.js:538
 msgid "Unknown plan"
 msgstr ""
 
-#. ui.js:438
-msgid "Live"
+#. ui.js:539
+#, javascript-format
+msgid "%s · Live ●"
 msgstr ""
 
-#. ui.js:442
-msgid "Updated"
+#. ui.js:543
+#, javascript-format
+msgid "Updated %s ago"
 msgstr ""
 
-#. ui.js:442 ui.js:715 ui.js:854
-msgid "ago"
-msgstr ""
-
-#. ui.js:449
+#. ui.js:551
 msgid "Stale · retrying"
 msgstr ""
 
-#. ui.js:450
+#. ui.js:552
 msgid "Unable to refresh Codex"
 msgstr ""
 
-#. ui.js:484
+#. ui.js:600
 msgid "Remote Control is unavailable"
 msgstr ""
 
-#. ui.js:515
-msgid "Weekly"
+#. ui.js:671
+#, javascript-format
+msgid "%s tokens"
 msgstr ""
 
-#. ui.js:555
-msgid "tokens"
+#. ui.js:696
+#, javascript-format
+msgid "%s · No sample near this time"
 msgstr ""
 
-#. ui.js:580
-msgid "No sample near this time"
+#. ui.js:708
+#, javascript-format
+msgid "History starts %s · %s collected of %s"
 msgstr ""
 
-#. ui.js:592
-msgid "History starts"
+#. ui.js:719
+msgid "R = reset"
 msgstr ""
 
-#. ui.js:594
-msgid "collected of"
+#. ui.js:720
+msgid "No history in this range"
 msgstr ""
 
-#. ui.js:606
+#. ui.js:721
+msgid "Collecting more history…"
+msgstr ""
+
+#. ui.js:725
 msgid "Hover for timestamp and exact values"
 msgstr ""
 
-#. ui.js:607
+#. ui.js:726
 msgid "No samples yet"
 msgstr ""
 
-#. ui.js:618
+#. ui.js:734
+#, javascript-format
+msgid "Banked resets (%s)"
+msgstr ""
+
+#. ui.js:739
 msgid "No available reset credits"
 msgstr ""
 
-#. ui.js:627 ui.js:795
-msgid "expires in"
+#. ui.js:751
+#, javascript-format
+msgid "expires in %s"
 msgstr ""
 
-#. ui.js:636
+#. ui.js:761
 msgid "Apply…"
 msgstr ""
 
-#. ui.js:659
+#. ui.js:773
+#, javascript-format
+msgid "Codex sessions (%s)"
+msgstr ""
+
+#. ui.js:784
 msgid "Session list unavailable; quota monitoring is still live"
 msgstr ""
 
-#. ui.js:666
+#. ui.js:791
 msgid "No sessions reported"
 msgstr ""
 
-#. ui.js:667
+#. ui.js:792
 msgid "No active sessions"
 msgstr ""
 
-#. ui.js:668
+#. ui.js:793
 msgid "No sessions need attention"
 msgstr ""
 
-#. ui.js:669
+#. ui.js:794
 msgid "No recent sessions"
 msgstr ""
 
-#. ui.js:684 ui.js:735
+#. ui.js:809 ui.js:827
 msgid "Unknown project"
 msgstr ""
 
-#. ui.js:700 ui.js:736
+#. ui.js:825
 msgid "Untitled session"
 msgstr ""
 
-#. ui.js:707
-msgid "Unavailable"
-msgstr ""
-
-#. ui.js:709
-msgid "Waiting for approval"
-msgstr ""
-
-#. ui.js:711
-msgid "Waiting for you"
-msgstr ""
-
-#. ui.js:713
-msgid "updated"
-msgstr ""
-
-#. ui.js:716
-msgid "update time unavailable"
-msgstr ""
-
-#. ui.js:718
-msgid "Unknown source"
-msgstr ""
-
-#. ui.js:747
-msgid "Running"
-msgstr ""
-
-#. ui.js:748
-msgid "Connected"
-msgstr ""
-
-#. ui.js:749
-msgid "Error"
-msgstr ""
-
-#. ui.js:751
-msgid "Unknown"
-msgstr ""
-
-#. ui.js:757
-msgid "environment"
-msgstr ""
-
-#. ui.js:759
-msgid "Connection state unavailable; Remote is still running"
-msgstr ""
-
-#. ui.js:764 ui.js:770
-msgid "Stop"
-msgstr ""
-
-#. ui.js:765
-msgid "Pair device"
-msgstr ""
-
-#. ui.js:767
-msgid "Refresh devices"
-msgstr ""
-
-#. ui.js:775
-msgid "Start"
-msgstr ""
-
-#. ui.js:785
-msgid "Pairing complete"
-msgstr ""
-
-#. ui.js:789
-msgid "Manual code"
-msgstr ""
-
-#. ui.js:793
-msgid "QR unavailable; use the manual code"
-msgstr ""
-
-#. ui.js:795
-msgid "Waiting for device"
+#. ui.js:838
+msgid "Idle"
 msgstr ""
 
 #. ui.js:839
-msgid "claim detection is not exposed by this Codex build"
+msgid "Ready to resume"
 msgstr ""
 
-#. ui.js:841
-msgid "claim status temporarily unavailable; retrying"
+#. ui.js:840
+msgid "System error"
 msgstr ""
 
-#. ui.js:862
-msgid "Checking"
-msgstr ""
-
-#. ui.js:864
-msgid "Unsupported"
-msgstr ""
-
-#. ui.js:870
-msgid "Not checked"
-msgstr ""
-
-#. ui.js:876
-msgid "Refresh to confirm the connection before managing devices"
-msgstr ""
-
-#. ui.js:881
-msgid "Start Remote Control to manage paired devices"
-msgstr ""
-
-#. ui.js:886
-msgid "Checking paired devices…"
-msgstr ""
-
-#. ui.js:891
-msgid "This Codex build does not expose device management"
-msgstr ""
-
-#. ui.js:897
-msgid "Device channel is not responding; retrying automatically"
-msgstr ""
-
-#. ui.js:903
-msgid "Refresh devices to load paired devices"
-msgstr ""
-
-#. ui.js:908
-msgid "No paired devices"
+#. ui.js:841 ui.js:843 ui.js:972
+msgid "Unavailable"
 msgstr ""
 
 #. ui.js:845
-msgid "Paired device"
+msgid "Waiting for approval"
 msgstr ""
 
-#. ui.js:850
-msgid "app"
+#. ui.js:847
+msgid "Waiting for you"
 msgstr ""
 
-#. ui.js:852
-msgid "seen"
+#. ui.js:849
+#, javascript-format
+msgid "updated %s ago"
+msgstr ""
+
+#. ui.js:851
+msgid "update time unavailable"
+msgstr ""
+
+#. ui.js:853
+msgid "CLI"
+msgstr ""
+
+#. ui.js:854
+msgid "VS Code"
+msgstr ""
+
+#. ui.js:855
+msgid "Codex exec"
+msgstr ""
+
+#. ui.js:856
+msgid "Codex app"
 msgstr ""
 
 #. ui.js:857
+msgid "Custom"
+msgstr ""
+
+#. ui.js:858
+msgid "Sub-agent"
+msgstr ""
+
+#. ui.js:859 ui.js:861
+msgid "Unknown source"
+msgstr ""
+
+#. ui.js:892
+msgid "Running"
+msgstr ""
+
+#. ui.js:893
+msgid "Connected"
+msgstr ""
+
+#. ui.js:894
+msgid "Error"
+msgstr ""
+
+#. ui.js:896
+msgid "Unknown"
+msgstr ""
+
+#. ui.js:903
+#, javascript-format
+msgid "environment %s"
+msgstr ""
+
+#. ui.js:906
+msgid "Connection state unavailable; Remote is still running"
+msgstr ""
+
+#. ui.js:911 ui.js:917
+msgid "Stop"
+msgstr ""
+
+#. ui.js:912
+msgid "Pair device"
+msgstr ""
+
+#. ui.js:914
+msgid "Refresh devices"
+msgstr ""
+
+#. ui.js:922
+msgid "Start"
+msgstr ""
+
+#. ui.js:932
+msgid "Pairing complete"
+msgstr ""
+
+#. ui.js:936
+#, javascript-format
+msgid "Manual code: %s"
+msgstr ""
+
+#. ui.js:940
+msgid "QR unavailable; use the manual code"
+msgstr ""
+
+#. ui.js:942
+#, javascript-format
+msgid "Waiting for device · expires in %s"
+msgstr ""
+
+#. ui.js:945
+msgid "claim detection is not exposed by this Codex build"
+msgstr ""
+
+#. ui.js:947
+msgid "claim status temporarily unavailable; retrying"
+msgstr ""
+
+#. ui.js:963
+#, javascript-format
+msgid "Paired devices (%s)"
+msgstr ""
+
+#. ui.js:968
+msgid "Checking"
+msgstr ""
+
+#. ui.js:970
+msgid "Unsupported"
+msgstr ""
+
+#. ui.js:974
+msgid "Live"
+msgstr ""
+
+#. ui.js:976
+msgid "Not checked"
+msgstr ""
+
+#. ui.js:982
+msgid "Refresh to confirm the connection before managing devices"
+msgstr ""
+
+#. ui.js:987
+msgid "Start Remote Control to manage paired devices"
+msgstr ""
+
+#. ui.js:992
+msgid "Checking paired devices…"
+msgstr ""
+
+#. ui.js:997
+msgid "This Codex build does not expose device management"
+msgstr ""
+
+#. ui.js:1003
+msgid "Device channel is not responding; retrying automatically"
+msgstr ""
+
+#. ui.js:1009
+msgid "Refresh devices to load paired devices"
+msgstr ""
+
+#. ui.js:1014
+msgid "No paired devices"
+msgstr ""
+
+#. ui.js:1032
+msgid "Paired device"
+msgstr ""
+
+#. ui.js:1037
+#, javascript-format
+msgid "app %s"
+msgstr ""
+
+#. ui.js:1039
+#, javascript-format
+msgid "seen %s ago"
+msgstr ""
+
+#. ui.js:1043
 msgid "Device details unavailable"
 msgstr ""
 
-#. ui.js:862
+#. ui.js:1049
 msgid "Revoke…"
 msgstr ""
 

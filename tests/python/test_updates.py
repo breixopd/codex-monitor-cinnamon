@@ -258,9 +258,7 @@ def test_background_update_prefers_codex_self_update_and_rereads_version(tmp_pat
     assert result["status"] == "updated"
     assert result["installedVersion"] == "0.145.0"
     assert result["updateAvailable"] is False
-    assert result["message"] == (
-        "Updated to Codex 0.145.0. New Codex launches use this version."
-    )
+    assert result["message"] is None
 
 
 def test_update_never_downloads_or_executes_an_installer_when_self_update_fails(
@@ -299,10 +297,7 @@ def test_update_never_downloads_or_executes_an_installer_when_self_update_fails(
     ]
     assert network_calls == []
     assert result["status"] == "failed"
-    assert result["message"] == (
-        "Automatic update failed; Codex 0.144.3 is still installed. "
-        "Use the official Codex installation instructions to update manually."
-    )
+    assert result["message"] is None
 
 
 def test_update_failure_is_sanitized_and_keeps_installed_version(tmp_path):
@@ -324,10 +319,7 @@ def test_update_failure_is_sanitized_and_keeps_installed_version(tmp_path):
 
     assert result["status"] == "failed"
     assert result["installedVersion"] == "0.144.3"
-    assert result["message"] == (
-        "Automatic update failed; Codex 0.144.3 is still installed. "
-        "Use the official Codex installation instructions to update manually."
-    )
+    assert result["message"] is None
     assert "private" not in repr(result)
     assert "stack" not in repr(result)
 

@@ -41,7 +41,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: linuxmint/cinnamon-spices-applets
-          ref: 5b4240a93b32b2171e672ae3e86e4649a447d4cf
+          ref: 76fc4d9b21276f9d454f5209d584c83a9deb5570
           path: .official-spices
           sparse-checkout: validate-spice
           sparse-checkout-cone-mode: false

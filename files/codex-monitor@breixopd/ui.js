@@ -12,6 +12,17 @@ function _clear(actor) {
     child.destroy();
 }
 
+function _format(template, ...values) {
+  let index = 0;
+  return String(template).replace(/%%|%s/g, token => {
+    if (token === '%%')
+      return '%';
+    const value = index < values.length ? values[index] : token;
+    index += 1;
+    return String(value);
+  });
+}
+
 function _button(label, callback, styleClass = 'codex-monitor-button') {
   const button = new St.Button({
     label,
@@ -83,13 +94,13 @@ class QuotaCard {
       return;
     }
     const percentage = Math.max(0, Math.min(100, Number(window.usedPercent)));
-    this._percent.set_text(`${Math.round(percentage)}% ${this._('used')}`);
+    this._percent.set_text(_format(_('%s%% used'), Math.round(percentage)));
     if (window.resetsAt == null) {
       this._reset.set_text(this._('Reset time unavailable'));
       return;
     }
-    const countdown = model.formatDuration(Number(window.resetsAt) - now);
-    this._reset.set_text(`${this._('Resets in')} ${countdown}`);
+    const countdown = model.formatDuration(Number(window.resetsAt) - now, this._);
+    this._reset.set_text(_format(_('Resets in %s'), countdown));
   }
 }
 
@@ -462,29 +473,31 @@ var Dashboard = class Dashboard {
     this._updateButton.set_label(this._('Update Codex…'));
     if (state.status === 'checking') {
       this._versionLabel.set_text(state.installedVersion
-        ? `${this._('Codex')} ${state.installedVersion} · ${this._('Checking for updates…')}`
+        ? _format(this._('Codex %s · Checking for updates…'), state.installedVersion)
         : this._('Checking for Codex updates…'));
       this._updateButton.visible = false;
     } else if (state.status === 'updating') {
       this._versionLabel.set_text(this._('Updating Codex…'));
       this._updateButton.visible = false;
     } else if (state.status === 'updated') {
-      this._versionLabel.set_text(state.message ||
-        `${this._('Updated to Codex')} ${state.installedVersion}. ` +
-        this._('New Codex launches use this version.'));
+      this._versionLabel.set_text(
+        _format(this._('Updated to Codex %s. New Codex launches use this version.'),
+          state.installedVersion)
+      );
       this._updateButton.visible = false;
     } else if (state.status === 'failed') {
-      this._versionLabel.set_text(state.message ||
-        `${this._('Update failed; Codex')} ${state.installedVersion} ` +
-        this._('is still installed'));
+      this._versionLabel.set_text(state.installedVersion
+        ? _format(this._('Automatic update failed; Codex %s is still installed. Use the official Codex installation instructions to update manually.'),
+          state.installedVersion)
+        : this._('Automatic Codex update failed. Use the official Codex installation instructions to update manually.'));
       this._updateButton.set_label(this._('Retry'));
     } else if (state.updateAvailable) {
       this._versionLabel.set_text(
-        `${this._('Codex')} ${state.installedVersion} → ${state.latestVersion}`
+        _format(this._('Codex %s → %s'), state.installedVersion, state.latestVersion)
       );
     } else {
       this._versionLabel.set_text(state.installedVersion
-        ? `${this._('Codex')} ${state.installedVersion}` : '');
+        ? _format(this._('Codex %s'), state.installedVersion) : '');
     }
   }
 
@@ -496,8 +509,8 @@ var Dashboard = class Dashboard {
       updateAvailable: Boolean(this._updateState && this._updateState.updateAvailable),
       status: 'failed',
       message: installed
-        ? `${this._('Automatic update failed; Codex')} ${installed} ` +
-          this._('is still installed. Use the official Codex installation instructions to update manually.')
+        ? _format(this._('Automatic update failed; Codex %s is still installed. Use the official Codex installation instructions to update manually.'),
+          installed)
         : this._('Automatic Codex update failed. Use the official Codex installation instructions to update manually.'),
     });
   }
@@ -523,11 +536,12 @@ var Dashboard = class Dashboard {
     this._remoteStatus = remoteStatus || this._remoteStatus;
     const now = Math.floor(Date.now() / 1000);
     const plan = snapshot.planType || snapshot.account && snapshot.account.planType || this._('Unknown plan');
-    this._status.set_text(`${plan} · ${this._('Live')} ●`);
+    this._status.set_text(_format(this._('%s · Live ●'), plan));
     this._fiveHourCard.update(snapshot.windows.fiveHour, this._model, now);
     this._weeklyCard.update(snapshot.windows.weekly, this._model, now);
     this.setIndicators(panelState && panelState.indicators);
-    this._updated.set_text(`${this._('Updated')} ${this._model.formatDuration(now - snapshot.capturedAt)} ${this._('ago')}`);
+    this._updated.set_text(_format(this._('Updated %s ago'),
+      this._model.formatDuration(now - snapshot.capturedAt, this._)));
     this._renderGraph();
     this._renderResetBank();
     this._renderRemote();
@@ -654,7 +668,7 @@ var Dashboard = class Dashboard {
       if (!point)
         return '—';
       return point.tokens != null
-        ? `${this._model.formatTokenCount(point.tokens)} ${this._('tokens')}`
+        ? _format(this._('%s tokens'), this._model.formatTokenCount(point.tokens))
         : `${Math.round(Number(point.value))}%`;
     };
     const legend = summaries.map((summary, index) => {
@@ -679,7 +693,7 @@ var Dashboard = class Dashboard {
       );
       const cursorTime = new Date(Number(timestamp) * 1000).toLocaleString();
       if (values.length === 0)
-        return `${cursorTime} · ${this._('No sample near this time')}`;
+        return _format(this._('%s · No sample near this time'), cursorTime);
       const details = values.map(value => `${value.label} ${valueText(value)}`).join(' · ');
       return `${cursorTime} · ${details}`;
     };
@@ -691,9 +705,9 @@ var Dashboard = class Dashboard {
         undefined, { year: 'numeric', month: 'short', day: 'numeric' }
       ) : null;
     const coverage = partialCoverage
-      ? `${this._('History starts')} ${historyDate} · ` +
-        `${this._model.formatDuration(axes.domain.collectedSeconds)} ` +
-        `${this._('collected of')} ${selectedRange}`
+      ? _format(this._('History starts %s · %s collected of %s'), historyDate,
+        this._model.formatDuration(axes.domain.collectedSeconds, this._),
+        selectedRange)
       : null;
     this._graph.updateQuotaGraph(this._graphActor, {
       mode,
@@ -702,6 +716,9 @@ var Dashboard = class Dashboard {
       resetMarkers: Array.from(markers),
       axes,
       legend,
+      resetKey: this._('R = reset'),
+      emptyText: this._('No history in this range'),
+      collectingText: this._('Collecting more history…'),
       hoverFormatter,
       defaultDetail: legend.length > 0
         ? `${coverage ? `${coverage} · ` : ''}` +
@@ -713,7 +730,9 @@ var Dashboard = class Dashboard {
   _renderResetBank() {
     _clear(this._resetList);
     const bank = this._snapshot.resetCredits || { availableCount: 0, credits: [] };
-    this._resetHeading.set_text(`${this._('Banked resets')} (${bank.availableCount || 0})`);
+    this._resetHeading.set_text(_format(
+      this._('Banked resets (%s)'), bank.availableCount || 0
+    ));
     const available = (bank.credits || []).filter(credit => credit.status === 'available');
     if (available.length === 0) {
       this._resetList.add_child(new St.Label({
@@ -729,7 +748,8 @@ var Dashboard = class Dashboard {
         style_class: 'codex-monitor-reset-row',
       });
       const expiry = credit.expiresAt
-        ? `${this._('expires in')} ${this._model.formatDuration(credit.expiresAt - now)}`
+        ? _format(this._('expires in %s'),
+          this._model.formatDuration(credit.expiresAt - now, this._))
         : this._('no expiry');
       const details = new St.BoxLayout({ vertical: true, x_expand: true });
       details.add_child(new St.Label({
@@ -749,9 +769,9 @@ var Dashboard = class Dashboard {
     _clear(this._sessionList);
     const view = this._model.sessionView(this._sessions, this._sessionFilter, 12);
     this._sessionFilter = view.filter;
-    this._sessionHeading.set_text(
-      `${this._('Codex sessions')} (${view.counts.all})`
-    );
+    this._sessionHeading.set_text(_format(
+      this._('Codex sessions (%s)'), view.counts.all
+    ));
     for (const [key, button] of Object.entries(this._sessionFilterButtons)) {
       button.set_label(`${button._baseLabel} ${view.counts[key]}`);
       if (key === view.filter)
@@ -801,26 +821,46 @@ var Dashboard = class Dashboard {
       style_class: 'codex-monitor-session-content',
       x_expand: true,
     });
+    const sessionTitle = !session.title || session.title === 'Untitled session'
+      ? this._('Untitled session') : session.title;
+    const sessionProject = !session.project || session.project === 'Unknown project'
+      ? this._('Unknown project') : session.project;
     const title = new St.Label({
-      text: session.title || this._('Untitled session'),
+      text: sessionTitle,
       style_class: 'codex-monitor-row-title',
       x_expand: true,
     });
     title.clutter_text.set_ellipsize(Pango.EllipsizeMode.END);
     title.clutter_text.set_single_line_mode(true);
     const attention = session.attention || [];
-    let status = session.statusLabel || this._('Unavailable');
+    const statusLabels = {
+      active: this._('Active'),
+      idle: this._('Idle'),
+      notLoaded: this._('Ready to resume'),
+      systemError: this._('System error'),
+      unavailable: this._('Unavailable'),
+    };
+    let status = statusLabels[session.status] || this._('Unavailable');
     if (attention.includes('waitingOnApproval'))
       status = this._('Waiting for approval');
     else if (attention.includes('waitingOnUserInput'))
       status = this._('Waiting for you');
     const updated = session.updatedAt
-      ? `${this._('updated')} ${this._model.formatDuration(
-        Math.floor(Date.now() / 1000) - Number(session.updatedAt)
-      )} ${this._('ago')}`
+      ? _format(this._('updated %s ago'), this._model.formatDuration(
+        Math.floor(Date.now() / 1000) - Number(session.updatedAt), this._))
       : this._('update time unavailable');
+    const sourceLabels = {
+      'CLI': this._('CLI'),
+      'VS Code': this._('VS Code'),
+      'Codex exec': this._('Codex exec'),
+      'Codex app': this._('Codex app'),
+      'Custom': this._('Custom'),
+      'Sub-agent': this._('Sub-agent'),
+      'Unknown': this._('Unknown source'),
+    };
+    const source = sourceLabels[session.sourceLabel] || this._('Unknown source');
     const meta = new St.Label({
-      text: `${session.sourceLabel || this._('Unknown source')} · ${status} · ${updated}`,
+      text: `${source} · ${status} · ${updated}`,
       style_class: 'codex-monitor-secondary',
       x_expand: true,
     });
@@ -837,8 +877,8 @@ var Dashboard = class Dashboard {
       can_focus: true,
       track_hover: true,
       x_expand: true,
-      accessible_name: `${session.project || this._('Unknown project')} · ` +
-        `${session.title || this._('Untitled session')} · ${status}`,
+      accessible_name: `${sessionProject} · ` +
+        `${sessionTitle} · ${status}`,
     });
     row.connect('clicked', () => this._callbacks.onOpenSession(session));
     return row;
@@ -859,7 +899,9 @@ var Dashboard = class Dashboard {
     if (identity.serverName)
       identityParts.push(identity.serverName);
     if (identity.environmentId)
-      identityParts.push(`${this._('environment')} ${identity.environmentId}`);
+      identityParts.push(_format(
+        this._('environment %s'), identity.environmentId
+      ));
     if (status === 'running' && identityParts.length === 0)
       identityParts.push(this._('Connection state unavailable; Remote is still running'));
     this._remoteIdentity.set_text(this._remoteError || identityParts.join(' · '));
@@ -891,14 +933,14 @@ var Dashboard = class Dashboard {
     } else if (this._pairing && this._pairing.expiresAt > now) {
       const qrReady = _updateQrSvg(this._pairingQr, this._pairing.qrSvg);
       this._pairingManualLabel.set_text(this._pairing.manualPairingCode
-        ? `${this._('Manual code')}: ${this._pairing.manualPairingCode}`
+        ? _format(this._('Manual code: %s'), this._pairing.manualPairingCode)
         : '');
       this._pairingQrFallback.set_text(qrReady
         ? ''
         : this._('QR unavailable; use the manual code'));
       this._pairingState.set_text(
-        `${this._('Waiting for device')} · ${this._('expires in')} ` +
-        this._model.formatDuration(this._pairing.expiresAt - now) +
+        _format(this._('Waiting for device · expires in %s'),
+          this._model.formatDuration(this._pairing.expiresAt - now, this._)) +
         (!this._pairingStatusSupported
           ? ` · ${this._('claim detection is not exposed by this Codex build')}`
           : !this._pairingStatusAvailable
@@ -917,9 +959,9 @@ var Dashboard = class Dashboard {
     this._pairingState.visible = Boolean(this._pairingState.get_text());
 
     _clear(this._remoteClientList);
-    this._remoteClientsHeading.set_text(
-      `${this._('Paired devices')} (${this._remoteClients.length})`
-    );
+    this._remoteClientsHeading.set_text(_format(
+      this._('Paired devices (%s)'), this._remoteClients.length
+    ));
     let clientsState = '';
     if (status === 'connected') {
       if (this._remoteClientsLoading)
@@ -992,11 +1034,10 @@ var Dashboard = class Dashboard {
     const parts = [client.deviceType, client.platform, client.osVersion]
       .filter(Boolean);
     if (client.appVersion)
-      parts.push(`${this._('app')} ${client.appVersion}`);
+      parts.push(_format(this._('app %s'), client.appVersion));
     if (client.lastSeenAt) {
-      parts.push(`${this._('seen')} ${this._model.formatDuration(
-        Math.floor(Date.now() / 1000) - Number(client.lastSeenAt)
-      )} ${this._('ago')}`);
+      parts.push(_format(this._('seen %s ago'), this._model.formatDuration(
+        Math.floor(Date.now() / 1000) - Number(client.lastSeenAt), this._)));
     }
     details.add_child(new St.Label({
       text: parts.join(' · ') || this._('Device details unavailable'),

@@ -153,6 +153,36 @@ def test_retired_bridge_callbacks_cannot_restart_or_mutate_a_removed_applet():
     removal = source[source.index("on_applet_removed_from_panel()") :]
     assert removal.index("this._destroyed = true;") < removal.index("bridge.stop();")
     assert removal.index("this._bridge = null;") < removal.index("bridge.stop();")
+    for timer in (
+        "_refreshTimer",
+        "_restartTimer",
+        "_remoteTimer",
+        "_updateTimer",
+        "_updatePollTimer",
+    ):
+        assert f"this.{timer} = 0;" in removal
+
+
+def test_dynamic_dashboard_text_is_translation_ready():
+    applet = APPLET_SOURCE.read_text(encoding="utf-8")
+    dashboard = Path("files/codex-monitor@breixopd/ui.js").read_text(
+        encoding="utf-8"
+    )
+    graph = Path("files/codex-monitor@breixopd/graph.js").read_text(
+        encoding="utf-8"
+    )
+
+    assert applet.count("this._remoteStatus, this._") == 2
+    assert "resetKey: this._('R = reset')" in dashboard
+    assert "emptyText: this._('No history in this range')" in dashboard
+    assert "collectingText: this._('Collecting more history…')" in dashboard
+    assert "'R = reset'" not in graph
+    assert "'No history in this range'" not in graph
+    assert "'Collecting more history…'" not in graph
+    assert "session.title === 'Untitled session'" in dashboard
+    assert "session.statusLabel ||" not in dashboard
+    assert "session.sourceLabel ||" not in dashboard
+    assert "state.message ||" not in dashboard
 
 
 def test_bridge_shutdown_waits_for_helper_and_has_a_bounded_force_fallback():

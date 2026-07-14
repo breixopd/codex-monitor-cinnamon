@@ -8,7 +8,7 @@ The dashboard adapts to the available display work area, keeping the full view o
 
 ## Requirements
 
-- Cinnamon 6.0 or newer; live tested on Cinnamon 6.6
+- Cinnamon 6.0–6.6; live tested on Cinnamon 6.6
 - Python 3.10 or newer
 - The Codex CLI available as `codex`
 

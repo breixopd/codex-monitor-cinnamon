@@ -263,6 +263,39 @@ test('duration formatting remains compact and never goes negative', () => {
   assert.equal(model.formatDuration(172800), '2d');
 });
 
+test('panel and tooltip text use the supplied translator for complete messages', () => {
+  const translations = {
+    'Weekly': 'Hebdomadaire',
+    'Remote Control connected': 'Commande distante connectee',
+    'Banked reset expires in %s': 'Expiration du reset dans %s',
+    'Reset expires in %s': 'Reset dans %s',
+    '%s: unavailable': '%s : indisponible',
+    '%s: %s%% used · resets in %s': '%s : %s%% utilise · reset dans %s',
+    'Banked resets: %s': 'Resets reserves : %s',
+    'Remote: %s': 'Distant : %s',
+    'connected': 'connecte',
+    'Updated: %s ago': 'Actualise il y a %s',
+    'now': 'maintenant',
+  };
+  const translate = text => translations[text] || text;
+
+  const state = model.panelState(snapshot(), {
+    resetExpiryWarningHours: 72,
+    showResetBadge: true,
+    showRemoteBadge: true,
+  }, 1_799_100_100, { status: 'connected' }, translate);
+  const tooltip = model.tooltipText(
+    snapshot(), 1_799_100_100, { status: 'connected' }, translate
+  );
+
+  assert.match(state.indicatorText, /Expiration du reset dans/);
+  assert.match(state.indicatorText, /Commande distante connectee/);
+  assert.match(tooltip, /Hebdomadaire : 32% utilise/);
+  assert.match(tooltip, /Resets reserves : 2/);
+  assert.match(tooltip, /Distant : connecte/);
+  assert.equal(model.formatDuration(0, translate), 'maintenant');
+});
+
 test('transient Remote read failures retain only usable live states', () => {
   assert.equal(model.isUsableRemoteStatus({ status: 'connected' }), true);
   assert.equal(model.isUsableRemoteStatus({ status: 'connecting' }), true);
@@ -629,6 +662,7 @@ test('update state preserves known active and result states without raw fields',
       privateDiagnostics: 'do not expose',
     });
     assert.equal(state.status, status);
+    assert.equal(state.message, null);
     assert.equal(state.privateDiagnostics, undefined);
   }
 });

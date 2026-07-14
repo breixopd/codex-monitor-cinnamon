@@ -15,33 +15,50 @@ function responsiveLayout(workAreaWidth, workAreaHeight) {
   };
 }
 
-function formatDuration(seconds) {
+function _format(template, ...values) {
+  let index = 0;
+  return String(template).replace(/%%|%s/g, token => {
+    if (token === '%%')
+      return '%';
+    const value = index < values.length ? values[index] : token;
+    index += 1;
+    return String(value);
+  });
+}
+
+function formatDuration(seconds, translate = text => text) {
+  const _ = translate;
   const safeSeconds = Math.max(0, Math.floor(Number(seconds) || 0));
   if (safeSeconds === 0)
-    return 'now';
+    return _('now');
   if (safeSeconds < 60)
-    return '<1m';
+    return _('<1m');
   const minutes = Math.floor(safeSeconds / 60);
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
   if (days > 0) {
     const remainingHours = hours % 24;
-    return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`;
+    return remainingHours > 0
+      ? _format(_('%sd %sh'), days, remainingHours)
+      : _format(_('%sd'), days);
   }
   if (hours > 0) {
     const remainingMinutes = minutes % 60;
-    return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+    return remainingMinutes > 0
+      ? _format(_('%sh %sm'), hours, remainingMinutes)
+      : _format(_('%sh'), hours);
   }
-  return `${minutes}m`;
+  return _format(_('%sm'), minutes);
 }
 
-function panelState(snapshot, settings, now, remoteStatus) {
+function panelState(snapshot, settings, now, remoteStatus, translate = text => text) {
+  const _ = translate;
   const windows = snapshot.windows || {};
   const fiveHour = windows.fiveHour;
   const weekly = windows.weekly;
   const quotaWindows = [
-    { name: '5-hour', window: fiveHour },
-    { name: 'Weekly', window: weekly },
+    { name: _('5-hour'), window: fiveHour },
+    { name: _('Weekly'), window: weekly },
   ].filter(item => item.window && Number.isFinite(Number(item.window.usedPercent)));
   const highestWindow = quotaWindows.reduce((highestValue, item) =>
     highestValue == null || Number(item.window.usedPercent) >
@@ -69,11 +86,14 @@ function panelState(snapshot, settings, now, remoteStatus) {
   const resetCount = Number(resetCredits.availableCount) || 0;
   const indicators = [];
   if (level !== 'normal' && highestWindow) {
+    const quotaText = level === 'critical'
+      ? _('%s quota critical: %s%% used')
+      : _('%s quota warning: %s%% used');
     indicators.push({
       kind: 'quota',
       severity: level,
       symbol: '!',
-      text: `${highestWindow.name} quota ${level}: ${Math.round(highest)}% used`,
+      text: _format(quotaText, highestWindow.name, Math.round(highest)),
     });
   }
   if (settings.showResetBadge !== false && resetCount > 0) {
@@ -86,29 +106,32 @@ function panelState(snapshot, settings, now, remoteStatus) {
       symbol: resetExpiring ? '⚠' : '↻',
       panelSymbol: `${resetExpiring ? '⚠' : '↻'}${resetCount}`,
       text: resetExpiring
-        ? `Banked reset expires in ${formatDuration(secondsUntilExpiry)}`
-        : `${resetCount} banked reset${resetCount === 1 ? '' : 's'} available`,
+        ? _format(_('Banked reset expires in %s'),
+          formatDuration(secondsUntilExpiry, translate))
+        : _format(resetCount === 1
+          ? _('%s banked reset available')
+          : _('%s banked resets available'), resetCount),
     });
   }
   if (settings.showRemoteBadge !== false && remoteStatus &&
       remoteStatus.status !== 'disabled') {
     const remoteIndicators = {
       connecting: {
-        severity: 'warning', symbol: '◐', text: 'Remote Control connecting',
+        severity: 'warning', symbol: '◐', text: _('Remote Control connecting'),
       },
       running: {
         severity: 'warning', symbol: '◐',
-        text: 'Remote Control running; connection state unavailable',
+        text: _('Remote Control running; connection state unavailable'),
       },
       connected: {
-        severity: 'success', symbol: '●', text: 'Remote Control connected',
+        severity: 'success', symbol: '●', text: _('Remote Control connected'),
       },
       errored: {
-        severity: 'critical', symbol: '!', text: 'Remote Control error',
+        severity: 'critical', symbol: '!', text: _('Remote Control error'),
       },
     };
     const remoteIndicator = remoteIndicators[remoteStatus.status] ||
-      { severity: 'critical', symbol: '!', text: 'Remote Control status unknown' };
+      { severity: 'critical', symbol: '!', text: _('Remote Control status unknown') };
     indicators.push({ kind: 'remote', ...remoteIndicator });
   }
   if (stale) {
@@ -116,7 +139,7 @@ function panelState(snapshot, settings, now, remoteStatus) {
       kind: 'stale',
       severity: 'critical',
       symbol: '!',
-      text: 'Usage data stale',
+      text: _('Usage data stale'),
     });
   }
   const resetIndicator = indicators.find(indicator => indicator.kind === 'reset');
@@ -134,7 +157,8 @@ function panelState(snapshot, settings, now, remoteStatus) {
     resetSeverity: resetIndicator ? resetIndicator.severity : null,
     resetExpiring,
     resetExpiryText: resetExpiring
-      ? `Reset expires in ${formatDuration(nearestExpiry - now)}`
+      ? _format(_('Reset expires in %s'),
+        formatDuration(nearestExpiry - now, translate))
       : '',
     remoteBadge: remoteIndicator ? remoteIndicator.symbol : '',
     remoteSeverity: remoteIndicator ? remoteIndicator.severity : null,
@@ -262,17 +286,23 @@ function formatPercent(window) {
     : '—';
 }
 
-function tooltipText(snapshot, now, remoteStatus) {
+function tooltipText(snapshot, now, remoteStatus, translate = text => text) {
+  const _ = translate;
   const windows = snapshot.windows || {};
   const lineForWindow = (name, window) => {
     if (!window)
-      return `${name}: unavailable`;
-    const reset = window.resetsAt != null
-      ? `resets in ${formatDuration(Number(window.resetsAt) - now)}`
-      : 'reset time unavailable';
-    return `${name}: ${Math.round(Number(window.usedPercent))}% used · ${reset}`;
+      return _format(_('%s: unavailable'), name);
+    if (window.resetsAt != null) {
+      return _format(_('%s: %s%% used · resets in %s'), name,
+        Math.round(Number(window.usedPercent)),
+        formatDuration(Number(window.resetsAt) - now, translate));
+    }
+    return _format(_('%s: %s%% used · reset time unavailable'), name,
+      Math.round(Number(window.usedPercent)));
   };
-  const capturedAge = formatDuration(now - Number(snapshot.capturedAt || now));
+  const capturedAge = formatDuration(
+    now - Number(snapshot.capturedAt || now), translate
+  );
   const resetCount = Number((snapshot.resetCredits || {}).availableCount || 0);
   const expiringCredits = ((snapshot.resetCredits || {}).credits || [])
     .filter(credit => credit.status === 'available' && credit.expiresAt != null)
@@ -280,15 +310,25 @@ function tooltipText(snapshot, now, remoteStatus) {
     .filter(expiresAt => Number.isFinite(expiresAt) && expiresAt >= now)
     .sort((left, right) => left - right);
   const lines = [
-    lineForWindow('5-hour', windows.fiveHour),
-    lineForWindow('Weekly', windows.weekly),
-    `Banked resets: ${resetCount}`,
+    lineForWindow(_('5-hour'), windows.fiveHour),
+    lineForWindow(_('Weekly'), windows.weekly),
+    _format(_('Banked resets: %s'), resetCount),
   ];
   if (expiringCredits.length > 0)
-    lines.push(`Nearest banked reset expiry: ${formatDuration(expiringCredits[0] - now)}`);
-  if (remoteStatus)
-    lines.push(`Remote: ${remoteStatus.status || 'unknown'}`);
-  lines.push(`Updated: ${capturedAge} ago`);
+    lines.push(_format(_('Nearest banked reset expiry: %s'),
+      formatDuration(expiringCredits[0] - now, translate)));
+  if (remoteStatus) {
+    const statusLabels = {
+      disabled: _('disabled'),
+      connecting: _('connecting'),
+      running: _('running'),
+      connected: _('connected'),
+      errored: _('errored'),
+    };
+    lines.push(_format(_('Remote: %s'),
+      statusLabels[remoteStatus.status] || _('unknown')));
+  }
+  lines.push(_format(_('Updated: %s ago'), capturedAge));
   return lines.join('\n');
 }
 
@@ -539,8 +579,7 @@ function normalizeUpdateState(value) {
     checkedAt: Number.isFinite(checkedAt) && checkedAt >= 0
       ? Math.floor(checkedAt) : null,
     status: statuses.has(raw.status) ? raw.status : 'idle',
-    message: typeof raw.message === 'string' && raw.message.length <= 256
-      ? raw.message : null,
+    message: null,
   };
 }
 

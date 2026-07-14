@@ -16,47 +16,28 @@
     return JSON.stringify({ started: false });
   }
 
-  x._request("remote_pair_start", {}, function (pairError, pairing) {
-    if (pairError || !pairing) {
+  x._request("remote_status", {}, function (statusError, status) {
+    if (statusError || !status || status.status !== "connected" ||
+        !status.environmentId) {
       fail();
       return;
     }
-    x._request("remote_pair_status", {
-      pairingCode: pairing.pairingCode || null,
-      manualPairingCode: pairing.manualPairingCode || null,
-    }, function (statusError, pairStatus) {
-      if (statusError || !pairStatus) {
-        fail();
-        return;
-      }
-      var environmentId = pairing.environmentId ||
-        x._remoteStatus && x._remoteStatus.environmentId;
-      if (!environmentId) {
-        fail();
-        return;
-      }
-      x._request("remote_clients", {
-        environmentId: environmentId,
-      }, function (clientError, clients) {
-        var list = clients && Array.isArray(clients.clients)
-          ? clients.clients : [];
-        var pairStatusSupported = pairStatus.supported !== false;
-        var pairStatusAvailable = pairStatus.available !== false;
-        var clientListSupported = Boolean(clients && clients.supported !== false);
-        var clientListAvailable = Boolean(clients && clients.available !== false);
-        finish({
-          done: true,
-          error: Boolean(clientError),
-          pairStatusSupported: pairStatusSupported,
-          pairStatusAvailable: pairStatusAvailable,
-          clientListSupported: clientListSupported,
-          clientListAvailable: clientListAvailable,
-          clientCount: list.length,
-          remoteDeviceBridge: Boolean(
-            !clientError && pairStatusSupported && pairStatusAvailable &&
-            clientListSupported && clientListAvailable
-          ),
-        });
+    x._request("remote_clients", {
+      environmentId: status.environmentId,
+    }, function (clientError, clients) {
+      var list = clients && Array.isArray(clients.clients)
+        ? clients.clients : [];
+      var clientListSupported = Boolean(clients && clients.supported !== false);
+      var clientListAvailable = Boolean(clients && clients.available !== false);
+      finish({
+        done: true,
+        error: Boolean(clientError),
+        clientListSupported: clientListSupported,
+        clientListAvailable: clientListAvailable,
+        clientCount: list.length,
+        remoteDeviceBridge: Boolean(
+          !clientError && clientListSupported && clientListAvailable
+        ),
       });
     });
   });

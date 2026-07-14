@@ -19,7 +19,7 @@ Missing information is shown as unavailable. The applet never guesses a quota, r
 
 ## Requirements
 
-- Linux Mint or another Cinnamon desktop with Cinnamon 6.0 or newer; live tested on Cinnamon 6.6
+- Linux Mint or another Cinnamon desktop with Cinnamon 6.0–6.6; live tested on Cinnamon 6.6
 - Python 3.10 or newer
 - Codex CLI available as `codex`
 - Optional: `python3-qrcode` for a scannable Remote Control pairing code; a manual code is always available

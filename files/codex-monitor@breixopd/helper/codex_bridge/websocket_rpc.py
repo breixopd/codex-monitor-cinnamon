@@ -166,7 +166,11 @@ class UnixSocketAppServerClient:
             name, value = line.split(":", 1)
             headers[name.strip().lower()] = value.strip()
         expected_accept = base64.b64encode(
-            hashlib.sha1((key + _WEBSOCKET_GUID).encode("ascii")).digest()
+            # RFC 6455 requires SHA-1 here as a protocol checksum, not for
+            # authentication or cryptographic trust.
+            hashlib.sha1(
+                (key + _WEBSOCKET_GUID).encode("ascii"), usedforsecurity=False
+            ).digest()
         ).decode("ascii")
         valid = (
             lines[0].startswith("HTTP/1.1 101 ")
@@ -293,8 +297,11 @@ class UnixSocketAppServerClient:
         return value
 
     def _receive_bytes(self, maximum):
+        connection = self._socket
+        if connection is None:
+            raise RuntimeError("Codex control channel is unavailable")
         try:
-            value = self._socket.recv(maximum)
+            value = connection.recv(maximum)
         except socket.timeout:
             raise TimeoutError("Codex control channel timed out") from None
         except OSError:

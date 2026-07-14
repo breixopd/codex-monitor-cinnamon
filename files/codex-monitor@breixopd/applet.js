@@ -17,6 +17,17 @@ const { Dashboard } = require('./ui');
 const Graph = require('./graph');
 const Model = require('./model');
 
+function _format(template, ...values) {
+  let index = 0;
+  return String(template).replace(/%%|%s/g, token => {
+    if (token === '%%')
+      return '%';
+    const value = index < values.length ? values[index] : token;
+    index += 1;
+    return String(value);
+  });
+}
+
 class CodexMonitorApplet extends Applet.Applet {
   constructor(metadata, orientation, panelHeight, instanceId) {
     super(orientation, panelHeight, instanceId);
@@ -472,7 +483,9 @@ class CodexMonitorApplet extends Applet.Applet {
       return;
     }
     const now = Math.floor(Date.now() / 1000);
-    const state = Model.panelState(this._snapshot, settings, now, this._remoteStatus);
+    const state = Model.panelState(
+      this._snapshot, settings, now, this._remoteStatus, this._
+    );
     this.actor.set_accessible_name(
       `${this._('Codex usage monitor')} · ${state.label}` +
       (state.indicatorText ? ` · ${state.indicatorText}` : '')
@@ -499,7 +512,9 @@ class CodexMonitorApplet extends Applet.Applet {
     this._panelBox.add_style_class_name(`codex-monitor-${state.level}`);
     if (state.stale)
       this._panelBox.add_style_class_name('codex-monitor-stale');
-    const tooltip = Model.tooltipText(this._snapshot, now, this._remoteStatus);
+    const tooltip = Model.tooltipText(
+      this._snapshot, now, this._remoteStatus, this._
+    );
     this.set_applet_tooltip(tooltip +
       (state.indicatorText ? `\n${state.indicatorText}` : ''));
     this._dashboard.update(this._snapshot, this._remoteStatus, state);
@@ -519,7 +534,7 @@ class CodexMonitorApplet extends Applet.Applet {
       }, (error, result) => {
         this._dashboard.showActionMessage(error
           ? this._('Reset could not be applied')
-          : `${this._('Reset result')}: ${result.outcome}`);
+          : _format(this._('Reset result: %s'), result.outcome));
         this._refresh();
       });
     }).open();
@@ -568,7 +583,9 @@ class CodexMonitorApplet extends Applet.Applet {
 
   _confirmRemoteRevoke(client) {
     const name = client.displayName || client.deviceModel || this._('this device');
-    const message = `${this._('Revoke Remote Control access for')} ${name}?`;
+    const message = _format(
+      this._('Revoke Remote Control access for %s?'), name
+    );
     new ModalDialog.ConfirmDialog(message, () => {
       const environmentId = this._remoteStatus && this._remoteStatus.environmentId ||
         this._pairing && this._pairing.environmentId;
@@ -701,6 +718,11 @@ class CodexMonitorApplet extends Applet.Applet {
       Mainloop.source_remove(this._updateTimer);
     if (this._updatePollTimer)
       Mainloop.source_remove(this._updatePollTimer);
+    this._refreshTimer = 0;
+    this._restartTimer = 0;
+    this._remoteTimer = 0;
+    this._updateTimer = 0;
+    this._updatePollTimer = 0;
     if (this._monitorsChangedId) {
       Main.layoutManager.disconnect(this._monitorsChangedId);
       this._monitorsChangedId = 0;

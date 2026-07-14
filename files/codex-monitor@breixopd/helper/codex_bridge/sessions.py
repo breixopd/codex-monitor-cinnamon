@@ -62,7 +62,8 @@ def _normalize_row(raw):
     if thread_id is None:
         return None
 
-    raw_status = raw.get("status") if isinstance(raw.get("status"), dict) else {}
+    status_value = raw.get("status")
+    raw_status = status_value if isinstance(status_value, dict) else {}
     status = raw_status.get("type")
     if status not in _STATUS_LABELS:
         status = "unavailable"

@@ -39,8 +39,8 @@ class RemoteControl:
         self.daemon_running = daemon_running or self._remote_process_running
         self.qr_encoder = qr_encoder or encode_qr_svg
         self._last_status = None
-        self._status_channel_retry_at = 0
-        self._status_cli_retry_at = 0
+        self._status_channel_retry_at = 0.0
+        self._status_cli_retry_at = 0.0
 
     def status(self):
         if self.client_factory is None:
@@ -58,22 +58,22 @@ class RemoteControl:
                 raise
             self._status_channel_retry_at = now + self.STATUS_RETRY_SECONDS
             return self._fallback_status()
-        self._status_channel_retry_at = 0
-        self._status_cli_retry_at = 0
+        self._status_channel_retry_at = 0.0
+        self._status_cli_retry_at = 0.0
         self._last_status = self._normalize_status(value)
         return dict(self._last_status)
 
     def start(self):
         status = self._compact_status(self._normalize_status(self._run_json("start")))
-        self._status_channel_retry_at = 0
-        self._status_cli_retry_at = 0
+        self._status_channel_retry_at = 0.0
+        self._status_cli_retry_at = 0.0
         self._last_status = status
         return dict(status)
 
     def stop(self):
         self._run_json("stop")
-        self._status_channel_retry_at = 0
-        self._status_cli_retry_at = 0
+        self._status_channel_retry_at = 0.0
+        self._status_cli_retry_at = 0.0
         self._last_status = {"status": "disabled"}
         return dict(self._last_status)
 
@@ -116,11 +116,6 @@ class RemoteControl:
             "expiresAt": expires_at,
             "qrSvg": self.qr_encoder(pairing_code),
         }
-
-    def pair(self):
-        """Compatibility alias for the original bridge action."""
-
-        return self.pair_start()
 
     def pair_status(self, pairing_code, manual_pairing_code=None):
         pairing_code = self._bounded_string(
@@ -232,20 +227,20 @@ class RemoteControl:
     def _fallback_status(self):
         if not self._daemon_is_running():
             self._last_status = None
-            self._status_cli_retry_at = 0
+            self._status_cli_retry_at = 0.0
             return {"status": "disabled"}
         if self._last_status is not None and self._last_status.get("status") != "running":
             return dict(self._last_status)
         now = self.clock()
         if now < self._status_cli_retry_at:
-            return dict(self._last_status)
+            return dict(self._last_status or {"status": "running"})
         try:
             status = self._compact_status(self._normalize_status(self._run_json("start")))
         except (RuntimeError, TimeoutError):
             status = {"status": "running"}
             self._status_cli_retry_at = now + self.STATUS_RETRY_SECONDS
         else:
-            self._status_cli_retry_at = 0
+            self._status_cli_retry_at = 0.0
         self._last_status = status
         return dict(status)
 

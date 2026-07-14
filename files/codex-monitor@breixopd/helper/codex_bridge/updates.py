@@ -153,19 +153,11 @@ class UpdateManager:
                 self._state["latestVersion"] = installed
                 self._state["checkedAt"] = int(self.clock())
                 self._state["status"] = "updated"
-                self._state["message"] = (
-                    f"Updated to Codex {installed}. "
-                    "New Codex launches use this version."
-                )
+                self._state["message"] = None
                 self._persist_monitor_cache()
             else:
-                current = self._state.get("installedVersion") or "the current version"
                 self._state["status"] = "failed"
-                self._state["message"] = (
-                    f"Automatic update failed; Codex {current} is still installed. "
-                    "Use the official Codex installation instructions to update "
-                    "manually."
-                )
+                self._state["message"] = None
             self._recalculate_availability()
             self._worker = None
 

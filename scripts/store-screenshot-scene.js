@@ -81,6 +81,7 @@
       title: 'Example active session',
       project: 'Demo project',
       sourceLabel: 'CLI',
+      status: 'active',
       statusLabel: 'Active',
       updatedAt: now - 120,
       attention: [],
@@ -89,8 +90,9 @@
       id: 'example-finished',
       title: 'Example finished session',
       project: 'Demo project',
-      sourceLabel: 'Desktop',
-      statusLabel: 'Finished',
+      sourceLabel: 'Codex app',
+      status: 'notLoaded',
+      statusLabel: 'Ready to resume',
       updatedAt: now - 900,
       attention: [],
     }],
@@ -106,7 +108,7 @@
       lastSeenAt: now - 60,
     }],
   };
-  var panelState = Model.panelState(snapshot, settings, now, remoteStatus);
+  var panelState = Model.panelState(snapshot, settings, now, remoteStatus, translate);
 
   function createDashboard(compact, width, height) {
     var dashboard = new Dashboard({

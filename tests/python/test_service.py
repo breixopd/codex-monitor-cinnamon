@@ -275,9 +275,6 @@ def test_remote_operations_are_delegated_to_remote_controller():
         def stop(self):
             return {"status": "disabled"}
 
-        def pair(self):
-            return {"manualPairingCode": "ABCD-EFGH", "expiresAt": 1_800_000_000}
-
         def pair_start(self):
             return {
                 "pairingCode": "opaque",
@@ -305,7 +302,6 @@ def test_remote_operations_are_delegated_to_remote_controller():
     assert service.remote_status() == {"status": "connected"}
     assert service.remote_start() == {"status": "connected"}
     assert service.remote_stop() == {"status": "disabled"}
-    assert service.remote_pair()["manualPairingCode"] == "ABCD-EFGH"
     assert service.remote_pair_start()["environmentId"] == "environment-1"
     assert service.remote_pair_status("opaque", "ABCD-EFGH") == {"claimed": True}
     assert service.remote_clients("environment-1")["clients"][0]["clientId"] == (
