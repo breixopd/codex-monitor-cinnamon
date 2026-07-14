@@ -1,6 +1,6 @@
 {
   "name": "codex-monitor-cinnamon",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "scripts": {
     "check": "python3 scripts/validate.py && sh -n scripts/install.sh && sh -n scripts/package.sh && sh -n scripts/smoke-live.sh && sh -n scripts/capture-store-screenshot.sh",

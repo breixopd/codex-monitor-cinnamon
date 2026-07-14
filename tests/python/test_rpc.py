@@ -46,7 +46,7 @@ def test_client_initializes_and_retains_notifications_while_waiting_for_response
             "clientInfo": {
                 "name": "codex-monitor-cinnamon",
                 "title": "Codex Monitor",
-                "version": "1.1.0",
+                "version": "1.1.1",
             },
             "capabilities": {
                 "experimentalApi": True,

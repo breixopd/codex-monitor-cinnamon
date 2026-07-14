@@ -2,17 +2,34 @@
 
 ## [Unreleased]
 
-## [1.1.0] - 2026-07-15
+## [1.1.1] - 2026-07-15
 
 ### Added
 
-- Added a reproducible Cinnamon-rendered store preview with labeled wide, compact, and panel views using only isolated demo actors
+- Completed translation coverage for dynamic panel alerts, tooltips, graph states, duration text, session metadata, and update results
+
+### Changed
+
+- Made live Remote probes strictly read-only so validation never starts or stops Remote, creates pairing state, revokes devices, or records device identity
+- Pinned CI to the current official Cinnamon Spices validator and added full validation for `dev` branch pushes
+- Kept updater failures localizable by mapping bounded helper states to applet-owned messages
+
+### Fixed
+
+- Cleared every Cinnamon timer source identifier during applet removal and removed the retired duplicate pairing action
+- Kept dynamic quota, reset, session, Remote, and graph labels fully translatable without concatenating partial sentences
+- Removed unused icon assets and tightened helper typing and WebSocket failure handling
+
+## [1.1.0] - 2026-07-14
+
+### Added
+
+- Added a deterministic Cinnamon-rendered store preview with labeled wide, compact, and panel views using only isolated demo actors
 - Added active-monitor work-area sizing with compact stacked layouts for narrow and short displays
 - Added live wide, compact, and minimum-width layout coverage alongside the existing graph and dynamic-state matrix
 - Added a bounded WebSocket JSON-RPC client for Codex's local Unix control socket, including masked frames, ping/pong, fragmented responses, payload limits, and sanitized failures
 - Added explicit Checking, Live, Unavailable, and Unsupported states for connected-device management, with the last successful list retained during temporary failures
-- Added real Cinnamon-hosted smoke coverage for Remote status and connected-device inventory without logging device identities or stopping Remote
-- Added complete translation coverage for dynamic panel alerts, tooltips, graph states, duration text, and session metadata
+- Added real Cinnamon-hosted smoke coverage for Remote pairing status and connected-device inventory without logging device identities or stopping Remote
 
 ### Changed
 
@@ -26,8 +43,6 @@
 - Rewrote the project and Cinnamon store READMEs around installation, everyday use, privacy, and troubleshooting
 - Replaced the raw `app-server proxy` JSONL attempt with direct local Unix WebSocket transport and daemon-advertised socket discovery
 - Added bounded exponential retry for pairing claim checks and disabled stale revocation controls until the device channel recovers
-- Made Remote smoke probes strictly read-only so validation never starts Remote or creates pairing state
-- Updated CI to pin the current official Cinnamon Spices validator revision
 
 ### Fixed
 
@@ -36,8 +51,6 @@
 - Made live layout checks measure the mapped popup so Cinnamon theme allocations are verified accurately
 - Fixed connected-device listing and revocation never reaching Codex because the proxy stream was being spoken to with the wrong wire protocol
 - Stopped reporting temporary control-channel failures as requiring a newer Codex version
-- Cleared every Cinnamon timer source identifier during applet removal and removed the retired pairing compatibility action
-- Removed unused icon assets from source and store packages
 
 ## [1.0.0] - 2026-07-13
 

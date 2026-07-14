@@ -104,7 +104,7 @@
       deviceType: 'phone',
       platform: 'example-os',
       osVersion: '1',
-      appVersion: '1.1.0',
+      appVersion: '1.1.1',
       lastSeenAt: now - 60,
     }],
   };
@@ -123,8 +123,8 @@
     dashboard.setSessions(sessions);
     dashboard.setRemoteClients(clients);
     dashboard.setUpdateState({
-      installedVersion: '1.1.0',
-      latestVersion: '1.1.0',
+      installedVersion: '1.1.1',
+      latestVersion: '1.1.1',
       updateAvailable: false,
       status: 'idle',
       checkedAt: now,
