@@ -126,7 +126,7 @@ def test_live_smoke_preserves_remote_and_runs_full_visual_matrix():
     assert 'x._remoteAction("remote_start"' not in script
     assert "delete imports.applets" not in script
     assert script.index('python3 "$ROOT/scripts/smoke_bridge.py"') < script.index(
-        '"$SCREENSHOT_DIR/dashboard.png"'
+        "dashboardCaptureReady"
     )
     assert '"--skip-remote"' in script
     assert "_codexMonitorDeviceProbe" in script
@@ -139,9 +139,10 @@ def test_live_smoke_preserves_remote_and_runs_full_visual_matrix():
     assert "lifecycleRemovalClean" in script
     assert "lifecycleRestartClean" in script
     assert "dashboardCaptureReady" in script
-    assert 'rm -f -- "$SCREENSHOT_DIR/dashboard.png"' in script
+    assert "org.Cinnamon.Screenshot" not in script
+    assert "SCREENSHOT_DIR" not in script
     assert "json_true()" in script
-    assert "wait_for_screenshot()" in script
+    assert "wait_for_screenshot()" not in script
     assert "grep -F" in script
     assert ".*true" not in script
     assert "_codexMonitorSmokeErrorIndex" in script

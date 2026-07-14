@@ -6,7 +6,6 @@ UUID=codex-monitor@breixopd
 DATA_HOME=${XDG_DATA_HOME:-"$HOME/.local/share"}
 TARGET_ROOT="$DATA_HOME/cinnamon/applets"
 TARGET="$TARGET_ROOT/$UUID"
-SCREENSHOT_DIR=${CODEX_MONITOR_SCREENSHOT_DIR:-/tmp/codex-monitor-smoke}
 STARTED_AT=$(date --iso-8601=seconds)
 
 eval_cinnamon() {
@@ -23,16 +22,6 @@ eval_cinnamon() {
 
 json_true() {
   printf '%s\n' "$1" | grep -F "\\\\\"$2\\\\\":true" >/dev/null
-}
-
-wait_for_screenshot() {
-  screenshot_path=$1
-  screenshot_attempt=0
-  while [ ! -s "$screenshot_path" ] && [ "$screenshot_attempt" -lt 20 ]; do
-    screenshot_attempt=$((screenshot_attempt + 1))
-    sleep 0.1
-  done
-  [ -s "$screenshot_path" ]
 }
 
 cleanup_smoke() {
@@ -247,8 +236,6 @@ for assertion in settledQuota settledSessions settledRemote; do
   fi
 done
 
-mkdir -p "$SCREENSHOT_DIR"
-rm -f -- "$SCREENSHOT_DIR/dashboard.png" "$SCREENSHOT_DIR/panel.png"
 dashboard_capture=$(eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; x.menu.open(); JSON.stringify({dashboardCaptureReady:Boolean(x.menu.isOpen&&x._dashboardScroll.mapped)});')
 if ! json_true "$dashboard_capture" dashboardCaptureReady; then
   printf '%s\n' "Dashboard capture did not open the popup: $dashboard_capture" >&2
@@ -264,23 +251,7 @@ if ! json_true "$dashboard_capture" dashboardCaptureReady || \
   printf '%s\n' "Dashboard geometry changed before capture: $dashboard_capture" >&2
   exit 1
 fi
-gdbus call --session --dest org.Cinnamon --object-path /org/Cinnamon \
-  --method org.Cinnamon.Screenshot false false "$SCREENSHOT_DIR/dashboard.png" >/dev/null
-if ! wait_for_screenshot "$SCREENSHOT_DIR/dashboard.png"; then
-  printf '%s\n' "Dashboard screenshot was not created" >&2
-  exit 1
-fi
-# Cinnamon creates the file before the compositor has finished sampling it.
-sleep 5
 eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; x.menu.close(); "closed";' >/dev/null
-# Let the close animation finish before capturing the panel-only state.
-sleep 2
-gdbus call --session --dest org.Cinnamon --object-path /org/Cinnamon \
-  --method org.Cinnamon.Screenshot false false "$SCREENSHOT_DIR/panel.png" >/dev/null
-if ! wait_for_screenshot "$SCREENSHOT_DIR/panel.png"; then
-  printf '%s\n' "Panel screenshot was not created" >&2
-  exit 1
-fi
 
 if journalctl --user -b --since "$STARTED_AT" --no-pager -o cat | \
   rg -i 'codex-monitor.*(error|exception|traceback)|(error|exception|traceback).*codex-monitor' >/dev/null; then
@@ -294,4 +265,4 @@ if ! json_true "$looking_glass" lookingGlassClean; then
   exit 1
 fi
 
-printf '%s\n' "Live smoke passed; screenshots: $SCREENSHOT_DIR"
+printf '%s\n' "Live smoke passed"
