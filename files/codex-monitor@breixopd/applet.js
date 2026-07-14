@@ -4,7 +4,6 @@ const Applet = imports.ui.applet;
 const Clutter = imports.gi.Clutter;
 const GLib = imports.gi.GLib;
 const Gettext = imports.gettext;
-const Gtk = imports.gi.Gtk;
 const Main = imports.ui.main;
 const Mainloop = imports.mainloop;
 const ModalDialog = imports.ui.modalDialog;
@@ -160,7 +159,7 @@ class CodexMonitorApplet extends Applet.Applet {
       overlay_scrollbars: false,
       x_expand: true,
     });
-    this._dashboardScroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
+    this._dashboardScroll.set_policy(St.PolicyType.NEVER, St.PolicyType.AUTOMATIC);
     this._dashboardScroll.set_clip_to_allocation(true);
     this._dashboardScroll.add_actor(this._dashboard.actor);
     this._menuItem.addActor(this._dashboardScroll);
@@ -181,7 +180,7 @@ class CodexMonitorApplet extends Applet.Applet {
       return;
     if (!workArea) {
       const monitor = Main.layoutManager.findMonitorForActor(this.actor);
-      const workspace = global.screen.get_active_workspace();
+      const workspace = global.workspace_manager.get_active_workspace();
       if (monitor && workspace)
         workArea = workspace.get_work_area_for_monitor(monitor.index);
     }

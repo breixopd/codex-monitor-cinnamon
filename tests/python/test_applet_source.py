@@ -86,7 +86,10 @@ def test_dashboard_uses_active_monitor_work_area_and_reacts_to_layout_changes():
     source = APPLET_SOURCE.read_text(encoding="utf-8")
 
     assert "Main.layoutManager.findMonitorForActor(this.actor)" in source
-    assert "global.screen.get_active_workspace()" in source
+    assert "global.workspace_manager.get_active_workspace()" in source
+    assert "global.screen" not in source
+    assert "St.PolicyType.NEVER, St.PolicyType.AUTOMATIC" in source
+    assert "imports.gi.Gtk" not in source
     assert "get_work_area_for_monitor(monitor.index)" in source
     assert "Model.responsiveLayout(workArea.width, workArea.height)" in source
     assert "this._dashboard.actor.set_width(layout.contentWidth);" in source
