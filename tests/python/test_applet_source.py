@@ -126,7 +126,7 @@ def test_scroll_viewport_owns_padding_and_clips_the_moving_dashboard():
     assert "padding-right: 0" in menu_item_rule
     assert "margin-left: 0" in menu_item_rule
     assert "margin-right: 0" in menu_item_rule
-    assert "padding: 16px 0" in scroll_rule
+    assert "padding: 16px 0 8px" in scroll_rule
     assert "max-height: 752px" in scroll_rule
     assert "set_clip_to_allocation(true)" in applet
     assert "overlay_scrollbars: false" in applet

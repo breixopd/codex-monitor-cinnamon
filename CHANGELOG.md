@@ -22,6 +22,7 @@
 
 ### Fixed
 
+- Reduced the excess space below the dashboard footer while retaining top scroll clearance
 - Removed the duplicated banked-reset count from dashboard status text while keeping the compact count in the panel badge
 - Made live layout checks measure the mapped popup so Cinnamon theme allocations are verified accurately
 - Fixed connected-device listing and revocation never reaching Codex because the proxy stream was being spoken to with the wrong wire protocol
