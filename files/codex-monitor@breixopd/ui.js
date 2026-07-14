@@ -181,8 +181,9 @@ var Dashboard = class Dashboard {
         style_class: 'codex-monitor-indicator-row',
       });
       for (const indicator of statusItems.slice(index, index + indicatorsPerRow)) {
+        const indicatorGap = indicator.kind === 'remote' ? '  ' : ' ';
         const chip = new St.Label({
-          text: `${indicator.symbol} ${this._(indicator.text)}`,
+          text: `${indicator.symbol}${indicatorGap}${this._(indicator.text)}`,
           x_expand: true,
           x_align: Clutter.ActorAlign.FILL,
           y_align: Clutter.ActorAlign.CENTER,

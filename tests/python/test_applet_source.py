@@ -44,6 +44,8 @@ def test_dashboard_explains_current_indicators_in_plain_language():
     assert "set_line_wrap(true)" in source
     assert "Pango.EllipsizeMode.NONE" in source
     assert "codex-monitor-indicator-row" in source
+    assert "indicator.kind === 'remote' ? '  ' : ' '" in source
+    assert "${indicator.symbol}${indicatorGap}" in source
 
 
 def test_dashboard_compact_layout_stacks_dense_rows_and_reflows_filters():
