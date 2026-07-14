@@ -95,6 +95,7 @@ def test_ci_uses_current_node_24_github_action_majors():
     assert "actions/setup-python@v6" in workflow
     assert "actions/setup-node@v6" in workflow
     assert "actions/upload-artifact@v7" in workflow
+    assert "branches: [main, dev]" in workflow
 
 
 def test_store_screenshot_is_a_landscape_dashboard_compact_and_panel_composite():
