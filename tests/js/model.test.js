@@ -3,6 +3,50 @@ const assert = require('node:assert/strict');
 
 const model = require('../../files/codex-monitor@breixopd/model.js');
 
+test('responsive dashboard layout caps wide work areas at the desktop size', () => {
+  assert.deepEqual(model.responsiveLayout(1920, 1040), {
+    contentWidth: 640,
+    scrollMaxHeight: 752,
+    compact: false,
+  });
+  assert.deepEqual(model.responsiveLayout(692, 800), {
+    contentWidth: 640,
+    scrollMaxHeight: 752,
+    compact: false,
+  });
+});
+
+test('responsive dashboard layout shrinks and enters compact mode', () => {
+  assert.deepEqual(model.responsiveLayout(560, 600), {
+    contentWidth: 508,
+    scrollMaxHeight: 552,
+    compact: true,
+  });
+  assert.deepEqual(model.responsiveLayout(480, 480), {
+    contentWidth: 428,
+    scrollMaxHeight: 432,
+    compact: true,
+  });
+  assert.deepEqual(model.responsiveLayout(360, 400), {
+    contentWidth: 308,
+    scrollMaxHeight: 352,
+    compact: true,
+  });
+});
+
+test('responsive dashboard layout sanitizes invalid and extreme work areas', () => {
+  assert.deepEqual(model.responsiveLayout(undefined, Number.NaN), {
+    contentWidth: 640,
+    scrollMaxHeight: 752,
+    compact: false,
+  });
+  assert.deepEqual(model.responsiveLayout(100, 100), {
+    contentWidth: 280,
+    scrollMaxHeight: 280,
+    compact: true,
+  });
+});
+
 function snapshot() {
   return {
     capturedAt: 1_799_100_000,

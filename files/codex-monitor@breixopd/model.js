@@ -1,5 +1,20 @@
 'use strict';
 
+function responsiveLayout(workAreaWidth, workAreaHeight) {
+  const width = Number(workAreaWidth);
+  const height = Number(workAreaHeight);
+  const safeWidth = Number.isFinite(width) && width > 0 ? Math.floor(width) : 1920;
+  const safeHeight = Number.isFinite(height) && height > 0
+    ? Math.floor(height) : 1040;
+  const contentWidth = Math.min(640, Math.max(280, safeWidth - 52));
+  const scrollMaxHeight = Math.min(752, Math.max(280, safeHeight - 48));
+  return {
+    contentWidth,
+    scrollMaxHeight,
+    compact: contentWidth < 520,
+  };
+}
+
 function formatDuration(seconds) {
   const safeSeconds = Math.max(0, Math.floor(Number(seconds) || 0));
   if (safeSeconds === 0)
@@ -530,6 +545,7 @@ function normalizeUpdateState(value) {
 }
 
 const CodexModel = {
+  responsiveLayout,
   formatDuration,
   formatPercent,
   panelState,
