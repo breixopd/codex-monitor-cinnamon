@@ -69,15 +69,32 @@ def test_dashboard_compact_layout_stacks_dense_rows_and_reflows_filters():
     assert "vertical: this._compact" in source
 
 
-def test_dashboard_is_wider_and_keeps_a_gutter_before_the_scrollbar():
+def test_dashboard_width_is_runtime_responsive_and_keeps_scrollbar_gutter():
     stylesheet = STYLESHEET_SOURCE.read_text(encoding="utf-8")
     dashboard_rule = _css_rule(stylesheet, ".codex-monitor-dashboard")
     scrollbar_rule = _css_rule(
         stylesheet, ".codex-monitor-scroll StScrollBar"
     )
 
-    assert "width: 640px" in dashboard_rule
+    assert "width:" not in dashboard_rule
     assert "margin-left: 12px" in scrollbar_rule
+
+
+def test_dashboard_uses_active_monitor_work_area_and_reacts_to_layout_changes():
+    source = APPLET_SOURCE.read_text(encoding="utf-8")
+
+    assert "Main.layoutManager.findMonitorForActor(this.actor)" in source
+    assert "global.screen.get_active_workspace()" in source
+    assert "get_work_area_for_monitor(monitor.index)" in source
+    assert "Model.responsiveLayout(workArea.width, workArea.height)" in source
+    assert "this._dashboard.actor.set_width(layout.contentWidth);" in source
+    assert "this._dashboard.setCompactLayout(layout.compact);" in source
+    assert "open-state-changed" in source
+    assert "monitors-changed" in source
+    assert "this._updateDashboardLayout();" in source
+
+    removal = source[source.index("on_applet_removed_from_panel()") :]
+    assert "Main.layoutManager.disconnect(this._monitorsChangedId);" in removal
 
 
 def test_indicator_severities_have_distinct_semantic_styles():

@@ -43,6 +43,7 @@ class CodexMonitorApplet extends Applet.Applet {
     this._bridge = null;
     this._pairing = null;
     this._destroyed = false;
+    this._monitorsChangedId = 0;
 
     Gettext.bindtextdomain(UUID, GLib.build_filenamev([
       GLib.get_home_dir(), '.local', 'share', 'locale',
@@ -164,7 +165,31 @@ class CodexMonitorApplet extends Applet.Applet {
     this._dashboardScroll.add_actor(this._dashboard.actor);
     this._menuItem.addActor(this._dashboardScroll);
     this.menu.addMenuItem(this._menuItem);
+    this.menu.connect('open-state-changed', (_menu, isOpen) => {
+      if (isOpen)
+        this._updateDashboardLayout();
+    });
+    this._monitorsChangedId = Main.layoutManager.connect(
+      'monitors-changed', () => this._updateDashboardLayout()
+    );
+    this._updateDashboardLayout();
     this._render();
+  }
+
+  _updateDashboardLayout(workArea = null) {
+    if (this._destroyed || !this._dashboard || !this._dashboardScroll)
+      return;
+    if (!workArea) {
+      const monitor = Main.layoutManager.findMonitorForActor(this.actor);
+      const workspace = global.screen.get_active_workspace();
+      if (monitor && workspace)
+        workArea = workspace.get_work_area_for_monitor(monitor.index);
+    }
+    workArea = workArea || {};
+    const layout = Model.responsiveLayout(workArea.width, workArea.height);
+    this._dashboard.actor.set_width(layout.contentWidth);
+    this._dashboardScroll.set_style(`max-height: ${layout.scrollMaxHeight}px;`);
+    this._dashboard.setCompactLayout(layout.compact);
   }
 
   _settingsView() {
@@ -661,6 +686,8 @@ class CodexMonitorApplet extends Applet.Applet {
     this._weeklyLabel.visible = !vertical;
     this._indicatorBox.visible = !vertical &&
       this._indicatorBox.get_children().length > 0;
+    if (this._dashboard)
+      this._updateDashboardLayout();
   }
 
   on_applet_removed_from_panel() {
@@ -675,6 +702,10 @@ class CodexMonitorApplet extends Applet.Applet {
       Mainloop.source_remove(this._updateTimer);
     if (this._updatePollTimer)
       Mainloop.source_remove(this._updatePollTimer);
+    if (this._monitorsChangedId) {
+      Main.layoutManager.disconnect(this._monitorsChangedId);
+      this._monitorsChangedId = 0;
+    }
     const bridge = this._bridge;
     this._bridge = null;
     if (bridge)
