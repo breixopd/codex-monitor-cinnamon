@@ -46,6 +46,29 @@ def test_dashboard_explains_current_indicators_in_plain_language():
     assert "codex-monitor-indicator-row" in source
 
 
+def test_dashboard_compact_layout_stacks_dense_rows_and_reflows_filters():
+    source = UI_SOURCE.read_text(encoding="utf-8")
+
+    assert "setCompactLayout(compact)" in source
+    assert "this._compact = false;" in source
+    assert "const indicatorsPerRow = this._compact ? 1 : 2;" in source
+    assert "const filtersPerRow = this._compact ? 2 : 4;" in source
+    for actor in (
+        "this._header",
+        "this._quotaRow",
+        "this._graphHeading",
+        "this._sessionHeadingRow",
+        "this._remoteHeading",
+        "this._remoteClientsHeadingRow",
+        "this._remoteButtons",
+        "this._versionRow",
+        "this._footer",
+    ):
+        assert f"{actor}.set_vertical(this._compact);" in source
+
+    assert "vertical: this._compact" in source
+
+
 def test_dashboard_is_wider_and_keeps_a_gutter_before_the_scrollbar():
     stylesheet = STYLESHEET_SOURCE.read_text(encoding="utf-8")
     dashboard_rule = _css_rule(stylesheet, ".codex-monitor-dashboard")

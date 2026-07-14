@@ -116,6 +116,8 @@ var Dashboard = class Dashboard {
     this._sessionFilterButtons = {};
     this._updateState = null;
     this._settings = {};
+    this._compact = false;
+    this._indicators = [];
 
     this.actor = new St.BoxLayout({
       vertical: true,
@@ -131,7 +133,7 @@ var Dashboard = class Dashboard {
   }
 
   _buildHeader() {
-    const header = new St.BoxLayout({ style_class: 'codex-monitor-header' });
+    this._header = new St.BoxLayout({ style_class: 'codex-monitor-header' });
     const title = new St.Label({
       text: this._('Codex Monitor'),
       style_class: 'codex-monitor-title',
@@ -141,9 +143,9 @@ var Dashboard = class Dashboard {
       text: this._('Connecting…'),
       style_class: 'codex-monitor-status',
     });
-    header.add_child(title);
-    header.add_child(this._status);
-    this.actor.add_child(header);
+    this._header.add_child(title);
+    this._header.add_child(this._status);
+    this.actor.add_child(this._header);
     this._indicatorSection = new St.BoxLayout({
       vertical: true,
       style_class: 'codex-monitor-indicator-section',
@@ -166,17 +168,19 @@ var Dashboard = class Dashboard {
       return;
     _clear(this._indicatorList);
     const visibleIndicators = Array.isArray(indicators) ? indicators : [];
+    this._indicators = visibleIndicators;
     const statusItems = visibleIndicators.length > 0 ? visibleIndicators : [{
       kind: 'current',
       severity: 'info',
       symbol: '✓',
       text: 'Usage data current',
     }];
-    for (let index = 0; index < statusItems.length; index += 2) {
+    const indicatorsPerRow = this._compact ? 1 : 2;
+    for (let index = 0; index < statusItems.length; index += indicatorsPerRow) {
       const row = new St.BoxLayout({
         style_class: 'codex-monitor-indicator-row',
       });
-      for (const indicator of statusItems.slice(index, index + 2)) {
+      for (const indicator of statusItems.slice(index, index + indicatorsPerRow)) {
         const chip = new St.Label({
           text: `${indicator.symbol} ${this._(indicator.text)}`,
           x_expand: true,
@@ -197,12 +201,12 @@ var Dashboard = class Dashboard {
   }
 
   _buildQuotaCards() {
-    const row = new St.BoxLayout({ style_class: 'codex-monitor-card-row' });
+    this._quotaRow = new St.BoxLayout({ style_class: 'codex-monitor-card-row' });
     this._fiveHourCard = new QuotaCard(this._('5-HOUR'), this._);
     this._weeklyCard = new QuotaCard(this._('WEEKLY'), this._);
-    row.add_child(this._fiveHourCard.actor);
-    row.add_child(this._weeklyCard.actor);
-    this.actor.add_child(row);
+    this._quotaRow.add_child(this._fiveHourCard.actor);
+    this._quotaRow.add_child(this._weeklyCard.actor);
+    this.actor.add_child(this._quotaRow);
   }
 
   _buildGraph() {
@@ -210,12 +214,17 @@ var Dashboard = class Dashboard {
       vertical: true,
       style_class: 'codex-monitor-section',
     });
-    const heading = new St.BoxLayout({ style_class: 'codex-monitor-section-heading' });
-    heading.add_child(new St.Label({
+    this._graphHeading = new St.BoxLayout({
+      style_class: 'codex-monitor-section-heading',
+    });
+    this._graphHeading.add_child(new St.Label({
       text: this._('Usage trend'),
       style_class: 'codex-monitor-section-title',
       x_expand: true,
     }));
+    this._graphModeControls = new St.BoxLayout({
+      style_class: 'codex-monitor-action-row',
+    });
     this._modeButtons = {};
     for (const [mode, label] of [
       ['quota', this._('Quota')],
@@ -224,22 +233,23 @@ var Dashboard = class Dashboard {
     ]) {
       const button = _button(label, () => this._callbacks.onGraphMode(mode), 'codex-monitor-tab');
       this._modeButtons[mode] = button;
-      heading.add_child(button);
+      this._graphModeControls.add_child(button);
     }
-    section.add_child(heading);
+    this._graphHeading.add_child(this._graphModeControls);
+    section.add_child(this._graphHeading);
     this._graphActor = this._graph.createQuotaGraph({
       legendStyleClass: 'codex-monitor-graph-legend',
     });
     section.add_child(this._graphActor);
 
-    const ranges = new St.BoxLayout({ style_class: 'codex-monitor-range-row' });
+    this._rangeRow = new St.BoxLayout({ style_class: 'codex-monitor-range-row' });
     this._rangeButtons = {};
     for (const [hours, label] of [[24, '24h'], [168, '7d'], [720, '30d']]) {
       const button = _button(label, () => this._callbacks.onGraphRange(hours), 'codex-monitor-range');
       this._rangeButtons[hours] = button;
-      ranges.add_child(button);
+      this._rangeRow.add_child(button);
     }
-    section.add_child(ranges);
+    section.add_child(this._rangeRow);
     this.actor.add_child(section);
   }
 
@@ -263,17 +273,22 @@ var Dashboard = class Dashboard {
       vertical: true,
       style_class: 'codex-monitor-section codex-monitor-sessions',
     });
-    const heading = new St.BoxLayout({ style_class: 'codex-monitor-section-heading' });
+    this._sessionHeadingRow = new St.BoxLayout({
+      style_class: 'codex-monitor-section-heading',
+    });
     this._sessionHeading = new St.Label({
       text: this._('Codex sessions'),
       style_class: 'codex-monitor-section-title',
       x_expand: true,
     });
-    heading.add_child(this._sessionHeading);
-    heading.add_child(_button(this._('Open Codex'), this._callbacks.onOpenCodex));
-    section.add_child(heading);
+    this._sessionHeadingRow.add_child(this._sessionHeading);
+    this._sessionHeadingRow.add_child(_button(
+      this._('Open Codex'), this._callbacks.onOpenCodex
+    ));
+    section.add_child(this._sessionHeadingRow);
 
     this._sessionFilters = new St.BoxLayout({
+      vertical: true,
       style_class: 'codex-monitor-session-filters',
     });
     for (const [key, label] of [
@@ -288,8 +303,8 @@ var Dashboard = class Dashboard {
       }, 'codex-monitor-session-filter');
       button._baseLabel = label;
       this._sessionFilterButtons[key] = button;
-      this._sessionFilters.add_child(button);
     }
+    this._layoutSessionFilters();
     section.add_child(this._sessionFilters);
     this._sessionList = new St.BoxLayout({
       vertical: true,
@@ -305,8 +320,10 @@ var Dashboard = class Dashboard {
       vertical: true,
       style_class: 'codex-monitor-section codex-monitor-remote-section',
     });
-    const heading = new St.BoxLayout({ style_class: 'codex-monitor-section-heading' });
-    heading.add_child(new St.Label({
+    this._remoteHeading = new St.BoxLayout({
+      style_class: 'codex-monitor-section-heading',
+    });
+    this._remoteHeading.add_child(new St.Label({
       text: this._('Remote Control'),
       style_class: 'codex-monitor-section-title',
       x_expand: true,
@@ -315,13 +332,13 @@ var Dashboard = class Dashboard {
       text: this._('Disabled'),
       style_class: 'codex-monitor-status',
     });
-    heading.add_child(this._remoteLabel);
+    this._remoteHeading.add_child(this._remoteLabel);
     this._remoteButtons = new St.BoxLayout({ style_class: 'codex-monitor-action-row' });
     this._remoteIdentity = new St.Label({
       text: '',
       style_class: 'codex-monitor-secondary',
     });
-    this._remoteSection.add_child(heading);
+    this._remoteSection.add_child(this._remoteHeading);
     this._remoteSection.add_child(this._remoteIdentity);
     this._remoteSection.add_child(this._remoteButtons);
     this._pairingQr = new St.Bin({
@@ -346,7 +363,7 @@ var Dashboard = class Dashboard {
     this._remoteSection.add_child(this._pairingManualLabel);
     this._remoteSection.add_child(this._pairingQrFallback);
     this._remoteSection.add_child(this._pairingState);
-    const clientsHeading = new St.BoxLayout({
+    this._remoteClientsHeadingRow = new St.BoxLayout({
       style_class: 'codex-monitor-section-heading',
     });
     this._remoteClientsHeading = new St.Label({
@@ -359,9 +376,9 @@ var Dashboard = class Dashboard {
       style_class: 'codex-monitor-device-state',
     });
     this._remoteClientList = new St.BoxLayout({ vertical: true });
-    clientsHeading.add_child(this._remoteClientsHeading);
-    clientsHeading.add_child(this._remoteClientsState);
-    this._remoteSection.add_child(clientsHeading);
+    this._remoteClientsHeadingRow.add_child(this._remoteClientsHeading);
+    this._remoteClientsHeadingRow.add_child(this._remoteClientsState);
+    this._remoteSection.add_child(this._remoteClientsHeadingRow);
     this._remoteSection.add_child(this._remoteClientList);
     this.actor.add_child(this._remoteSection);
   }
@@ -382,15 +399,58 @@ var Dashboard = class Dashboard {
     this._versionRow.visible = false;
     this.actor.add_child(this._versionRow);
 
-    const footer = new St.BoxLayout({ style_class: 'codex-monitor-footer' });
+    this._footer = new St.BoxLayout({ style_class: 'codex-monitor-footer' });
     this._updated = new St.Label({
       text: this._('No data yet'),
       style_class: 'codex-monitor-secondary',
       x_expand: true,
     });
-    footer.add_child(this._updated);
-    footer.add_child(_button(this._('Refresh'), this._callbacks.onRefresh));
-    this.actor.add_child(footer);
+    this._footer.add_child(this._updated);
+    this._footer.add_child(_button(this._('Refresh'), this._callbacks.onRefresh));
+    this.actor.add_child(this._footer);
+  }
+
+  _layoutSessionFilters() {
+    if (!this._sessionFilters)
+      return;
+    for (const row of this._sessionFilters.get_children()) {
+      for (const button of row.get_children())
+        row.remove_child(button);
+      row.destroy();
+    }
+    const filtersPerRow = this._compact ? 2 : 4;
+    const buttons = Object.values(this._sessionFilterButtons);
+    for (let index = 0; index < buttons.length; index += filtersPerRow) {
+      const row = new St.BoxLayout({ style_class: 'codex-monitor-session-filter-row' });
+      for (const button of buttons.slice(index, index + filtersPerRow))
+        row.add_child(button);
+      this._sessionFilters.add_child(row);
+    }
+  }
+
+  setCompactLayout(compact) {
+    const next = Boolean(compact);
+    if (this._compact === next)
+      return;
+    this._compact = next;
+    if (this._compact)
+      this.actor.add_style_class_name('codex-monitor-compact');
+    else
+      this.actor.remove_style_class_name('codex-monitor-compact');
+    this._header.set_vertical(this._compact);
+    this._quotaRow.set_vertical(this._compact);
+    this._graphHeading.set_vertical(this._compact);
+    this._sessionHeadingRow.set_vertical(this._compact);
+    this._remoteHeading.set_vertical(this._compact);
+    this._remoteClientsHeadingRow.set_vertical(this._compact);
+    this._remoteButtons.set_vertical(this._compact);
+    this._versionRow.set_vertical(this._compact);
+    this._footer.set_vertical(this._compact);
+    this._layoutSessionFilters();
+    this.setIndicators(this._indicators);
+    if (this._snapshot)
+      this._renderResetBank();
+    this._renderRemote();
   }
 
   setUpdateState(value) {
@@ -663,7 +723,10 @@ var Dashboard = class Dashboard {
     }
     const now = Math.floor(Date.now() / 1000);
     for (const credit of available) {
-      const row = new St.BoxLayout({ style_class: 'codex-monitor-reset-row' });
+      const row = new St.BoxLayout({
+        vertical: this._compact,
+        style_class: 'codex-monitor-reset-row',
+      });
       const expiry = credit.expiresAt
         ? `${this._('expires in')} ${this._model.formatDuration(credit.expiresAt - now)}`
         : this._('no expiry');
@@ -918,7 +981,10 @@ var Dashboard = class Dashboard {
   }
 
   _remoteClientRow(client, manageable = true) {
-    const row = new St.BoxLayout({ style_class: 'codex-monitor-remote-client-row' });
+    const row = new St.BoxLayout({
+      vertical: this._compact,
+      style_class: 'codex-monitor-remote-client-row',
+    });
     const details = new St.BoxLayout({ vertical: true, x_expand: true });
     const name = client.displayName || client.deviceModel || this._('Paired device');
     details.add_child(new St.Label({ text: name, style_class: 'codex-monitor-row-title' }));
