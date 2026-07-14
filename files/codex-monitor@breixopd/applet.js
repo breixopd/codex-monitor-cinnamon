@@ -152,6 +152,7 @@ class CodexMonitorApplet extends Applet.Applet {
     });
     this._menuItem = new PopupMenu.PopupBaseMenuItem({
       reactive: false,
+      style_class: 'codex-monitor-menu-item',
     });
     this._dashboardScroll = new St.ScrollView({
       style_class: 'codex-monitor-scroll',

@@ -73,11 +73,17 @@ def test_scroll_viewport_owns_padding_and_clips_the_moving_dashboard():
     stylesheet = STYLESHEET_SOURCE.read_text(encoding="utf-8")
     dashboard_rule = _css_rule(stylesheet, ".codex-monitor-dashboard")
     scroll_rule = _css_rule(stylesheet, ".codex-monitor-scroll")
+    menu_item_rule = _css_rule(
+        stylesheet, ".popup-menu-item.codex-monitor-menu-item"
+    )
     header_status_rule = _css_rule(
         stylesheet, ".codex-monitor-header .codex-monitor-status"
     )
 
     assert "padding" not in dashboard_rule
+    assert "style_class: 'codex-monitor-menu-item'" in applet
+    assert "padding-right: 0" in menu_item_rule
+    assert "margin-right: 0" in menu_item_rule
     assert "padding: 16px 0 16px 16px" in scroll_rule
     assert "max-height: 752px" in scroll_rule
     assert "set_clip_to_allocation(true)" in applet

@@ -6,7 +6,7 @@ The compact panel view shows 5-hour and weekly usage at a glance. Open the dashb
 
 ## Requirements
 
-- Cinnamon 6.0 or newer
+- Cinnamon 6.0 or newer; live tested on Cinnamon 6.6
 - Python 3.10 or newer
 - The Codex CLI available as `codex`
 

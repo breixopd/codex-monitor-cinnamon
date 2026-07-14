@@ -74,6 +74,11 @@
   spacing: 16px;
 }
 
+.popup-menu-item.codex-monitor-menu-item {
+  padding-right: 0;
+  margin-right: 0;
+}
+
 .codex-monitor-scroll {
   max-height: 752px;
   padding: 16px 0 16px 16px;
