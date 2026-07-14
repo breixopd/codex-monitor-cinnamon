@@ -92,3 +92,13 @@ def test_ci_uses_current_node_24_github_action_majors():
     assert "actions/setup-python@v6" in workflow
     assert "actions/setup-node@v6" in workflow
     assert "actions/upload-artifact@v7" in workflow
+
+
+def test_store_screenshot_is_a_landscape_dashboard_compact_and_panel_composite():
+    screenshot = ROOT / "store" / "screenshot.png"
+    width, height = _png_size(screenshot)
+    package = json.loads((ROOT / "package.json").read_text())
+
+    assert 1100 <= width <= 1500
+    assert 760 <= height <= 1100
+    assert package["scripts"]["screenshot"] == "sh scripts/capture-store-screenshot.sh"
