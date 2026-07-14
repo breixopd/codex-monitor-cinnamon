@@ -7,7 +7,7 @@ from scripts.package_spice import build_spice
 
 ROOT = Path(__file__).resolve().parents[2]
 UUID = "codex-monitor@breixopd"
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 
 def _png_size(path):
@@ -27,6 +27,9 @@ def test_release_versions_and_store_metadata_are_consistent():
     assert f'version = "{VERSION}"' in pyproject
     assert f'__version__ = "{VERSION}"' in (
         ROOT / "files" / UUID / "helper" / "codex_bridge" / "__init__.py"
+    ).read_text()
+    assert f"Project-Id-Version: {UUID} {VERSION}" in (
+        ROOT / "files" / UUID / "po" / f"{UUID}.pot"
     ).read_text()
     assert "from . import __version__" in rpc
     assert runtime["uuid"] == UUID

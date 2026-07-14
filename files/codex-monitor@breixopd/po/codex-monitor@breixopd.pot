@@ -5,7 +5,7 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: codex-monitor@breixopd 1.0.0\n"
+"Project-Id-Version: codex-monitor@breixopd 1.1.0\n"
 "Report-Msgid-Bugs-To: https://github.com/breixopd/codex-monitor-cinnamon/"
 "issues\n"
 "POT-Creation-Date: 2026-07-14 01:27+0200\n"

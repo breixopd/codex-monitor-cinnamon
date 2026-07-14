@@ -2,8 +2,11 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-07-14
+
 ### Added
 
+- Added a deterministic Cinnamon-rendered store preview with labeled wide, compact, and panel views using only isolated demo actors
 - Added active-monitor work-area sizing with compact stacked layouts for narrow and short displays
 - Added live wide, compact, and minimum-width layout coverage alongside the existing graph and dynamic-state matrix
 - Added a bounded WebSocket JSON-RPC client for Codex's local Unix control socket, including masked frames, ping/pong, fragmented responses, payload limits, and sanitized failures
@@ -12,6 +15,9 @@
 
 ### Changed
 
+- Switched responsive sizing to Cinnamon's current workspace manager and native St scroll-policy constants
+- Balanced the Remote Control indicator's optical spacing with the quota and reset indicators
+- Kept live smoke coverage data-free by validating geometry and dynamic states without writing full-desktop screenshots
 - Kept the 640 px maximum dashboard width while making quota cards, status indicators, filters, actions, device rows, and footer controls responsive below 520 px
 - Recalculate dashboard width and scroll height when the menu opens, monitor geometry changes, or panel orientation changes
 - Widened the dashboard, arranged status alerts across readable rows, and added consistent spacing between content and the scrollbar
