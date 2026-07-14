@@ -75,13 +75,15 @@
 }
 
 .popup-menu-item.codex-monitor-menu-item {
+  padding-left: 0;
   padding-right: 0;
+  margin-left: 0;
   margin-right: 0;
 }
 
 .codex-monitor-scroll {
   max-height: 752px;
-  padding: 16px 0 16px 16px;
+  padding: 16px 0;
 }
 
 .codex-monitor-scroll StScrollBar {

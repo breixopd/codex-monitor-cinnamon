@@ -11,7 +11,7 @@
 ### Changed
 
 - Widened the dashboard, arranged status alerts across readable rows, and added consistent spacing between content and the scrollbar
-- Compensated for Cinnamon's popup inset so the scrollbar sits near the outer edge while preserving the gutter beside dashboard cards
+- Compensated for Cinnamon's popup inset so the dashboard has balanced outer margins while preserving the gutter beside the scrollbar
 - Rewrote the project and Cinnamon store READMEs around installation, everyday use, privacy, and troubleshooting
 - Replaced the raw `app-server proxy` JSONL attempt with direct local Unix WebSocket transport and daemon-advertised socket discovery
 - Added bounded exponential retry for pairing claim checks and disabled stale revocation controls until the device channel recovers
