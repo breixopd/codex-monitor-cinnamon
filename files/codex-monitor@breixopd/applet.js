@@ -519,8 +519,7 @@ class CodexMonitorApplet extends Applet.Applet {
     const tooltip = Model.tooltipText(
       this._snapshot, now, this._remoteStatus, this._
     );
-    this.set_applet_tooltip(tooltip +
-      (state.indicatorText ? `\n${state.indicatorText}` : ''));
+    this.set_applet_tooltip(tooltip);
     this._dashboard.update(this._snapshot, this._remoteStatus, state);
   }
 

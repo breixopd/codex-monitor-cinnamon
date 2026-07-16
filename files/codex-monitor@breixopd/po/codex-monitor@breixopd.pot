@@ -222,14 +222,14 @@ msgstr ""
 msgid "%s: %s%% used · reset time unavailable"
 msgstr ""
 
-#. model.js:315
+#. model.js:316
 #, javascript-format
 msgid "Banked resets: %s"
 msgstr ""
 
-#. model.js:318
+#. model.js:314
 #, javascript-format
-msgid "Nearest banked reset expiry: %s"
+msgid "Banked resets: %s · nearest expiry in %s"
 msgstr ""
 
 #. model.js:322

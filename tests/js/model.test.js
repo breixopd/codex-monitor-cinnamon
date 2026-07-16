@@ -272,6 +272,8 @@ test('panel and tooltip text use the supplied translator for complete messages',
     '%s: unavailable': '%s : indisponible',
     '%s: %s%% used · resets in %s': '%s : %s%% utilise · reset dans %s',
     'Banked resets: %s': 'Resets reserves : %s',
+    'Banked resets: %s · nearest expiry in %s':
+      'Resets reserves : %s · expiration la plus proche dans %s',
     'Remote: %s': 'Distant : %s',
     'connected': 'connecte',
     'Updated: %s ago': 'Actualise il y a %s',
@@ -294,6 +296,17 @@ test('panel and tooltip text use the supplied translator for complete messages',
   assert.match(tooltip, /Resets reserves : 2/);
   assert.match(tooltip, /Distant : connecte/);
   assert.equal(model.formatDuration(0, translate), 'maintenant');
+});
+
+test('tooltip summarizes banked resets and Remote exactly once', () => {
+  const tooltip = model.tooltipText(
+    snapshot(), 1_799_100_100, { status: 'connected' }
+  );
+  const lines = tooltip.split('\n');
+
+  assert.equal(lines.filter(line => /banked reset/i.test(line)).length, 1);
+  assert.match(lines.find(line => /banked reset/i.test(line)), /expiry/i);
+  assert.equal(lines.filter(line => /^Remote:/i.test(line)).length, 1);
 });
 
 test('transient Remote read failures retain only usable live states', () => {

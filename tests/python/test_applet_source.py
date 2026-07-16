@@ -357,6 +357,13 @@ def test_stuck_remote_error_exposes_only_a_confirmed_repair_action():
     assert "this._callbacks.onRemoteRepair" in ui
 
 
+def test_tooltip_does_not_append_panel_badges_to_the_detailed_summary():
+    source = APPLET_SOURCE.read_text(encoding="utf-8")
+
+    assert "this.set_applet_tooltip(tooltip);" in source
+    assert "this.set_applet_tooltip(tooltip +" not in source
+
+
 def test_bridge_queues_async_writes_and_closes_without_sync_io():
     source = APPLET_SOURCE.with_name("bridgeClient.js").read_text(encoding="utf-8")
 

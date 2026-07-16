@@ -309,14 +309,15 @@ function tooltipText(snapshot, now, remoteStatus, translate = text => text) {
     .map(credit => Number(credit.expiresAt))
     .filter(expiresAt => Number.isFinite(expiresAt) && expiresAt >= now)
     .sort((left, right) => left - right);
+  const resetLine = expiringCredits.length > 0
+    ? _format(_('Banked resets: %s · nearest expiry in %s'), resetCount,
+      formatDuration(expiringCredits[0] - now, translate))
+    : _format(_('Banked resets: %s'), resetCount);
   const lines = [
     lineForWindow(_('5-hour'), windows.fiveHour),
     lineForWindow(_('Weekly'), windows.weekly),
-    _format(_('Banked resets: %s'), resetCount),
+    resetLine,
   ];
-  if (expiringCredits.length > 0)
-    lines.push(_format(_('Nearest banked reset expiry: %s'),
-      formatDuration(expiringCredits[0] - now, translate)));
   if (remoteStatus) {
     const statusLabels = {
       disabled: _('disabled'),
