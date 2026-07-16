@@ -12,11 +12,14 @@
 
 - Recheck Remote Control after an applet-managed Codex update finishes
 - Clarified that terminal sessions continue during an update while Remote Control may reconnect
+- Added the Python lint gate to CI and bounded bridge messages, local cache reads, history files, and external Codex collections
 
 ### Fixed
 
 - Preserved a bounded stuck-daemon error code across the helper bridge instead of reducing every Remote startup failure to the same message
-- Made Remote repair fail closed by validating user ownership, managed executable location, executable permissions, zombie state, parent relationship, process identity, and pidfd stability before sending `SIGTERM`
+- Made Remote repair fail closed by validating user ownership, managed executable location, executable permissions, zombie state, parent relationship, actual executable identity, and pidfd stability before sending `SIGTERM`
+- Removed duplicate Remote Control and banked-reset details from the panel tooltip
+- Made dead app-server streams fail promptly, rejected malformed or future graph data, sanitized UI labels, and kept history-write failures from taking quota monitoring offline
 
 ## [1.1.1] - 2026-07-15
 
