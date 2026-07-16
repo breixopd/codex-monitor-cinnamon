@@ -400,6 +400,15 @@ def test_applet_uses_cinnamons_reloadable_commonjs_module_loader():
     assert "imports.applets[UUID]" not in source
 
 
+def test_bridge_rejects_oversized_helper_lines_before_json_parsing():
+    source = (APPLET_SOURCE.parent / "bridgeClient.js").read_text(encoding="utf-8")
+
+    assert "MAX_BRIDGE_RESPONSE_CHARACTERS" in source
+    guard = source.index("line.length > MAX_BRIDGE_RESPONSE_CHARACTERS")
+    parse = source.index("JSON.parse(line)")
+    assert guard < parse
+
+
 def test_remote_polling_expires_stale_state_and_does_not_rebuild_unchanged_graphs():
     applet = APPLET_SOURCE.read_text(encoding="utf-8")
     dashboard = UI_SOURCE.read_text(encoding="utf-8")

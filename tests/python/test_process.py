@@ -2,7 +2,13 @@ import io
 import json
 import subprocess
 
-from codex_bridge.process import MAX_REQUEST_BYTES, control_socket_path, serve, spawn_app_server
+from codex_bridge.process import (
+    MAX_REQUEST_BYTES,
+    MAX_RESPONSE_BYTES,
+    control_socket_path,
+    serve,
+    spawn_app_server,
+)
 
 
 class FakePopen:
@@ -146,3 +152,34 @@ def test_serve_discards_an_oversized_line_and_keeps_the_stream_aligned():
     responses = [json.loads(line) for line in output_stream.getvalue().splitlines()]
     assert responses[0]["error"]["code"] == "INVALID_JSON"
     assert responses[1] == {"id": "request-2", "ok": True, "data": {}}
+
+
+def test_serve_replaces_an_oversized_response_with_a_bounded_error():
+    class OversizedRouter:
+        def handle(self, request):
+            return {
+                "id": request["id"],
+                "ok": True,
+                "data": {"payload": "x" * MAX_RESPONSE_BYTES},
+            }
+
+    output_stream = io.StringIO()
+
+    serve(
+        OversizedRouter(),
+        input_stream=io.StringIO('{"id":"request-1"}\n'),
+        output_stream=output_stream,
+    )
+
+    raw_response = output_stream.getvalue()
+    response = json.loads(raw_response)
+    assert len(raw_response.encode("utf-8")) <= MAX_RESPONSE_BYTES
+    assert response == {
+        "id": "request-1",
+        "ok": False,
+        "error": {
+            "code": "RESPONSE_TOO_LARGE",
+            "message": "Codex response was too large",
+            "retryable": True,
+        },
+    }

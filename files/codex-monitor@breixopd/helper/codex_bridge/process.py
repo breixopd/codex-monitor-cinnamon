@@ -11,6 +11,7 @@ from .bounded_process import CommandOutputTooLarge, run_bounded
 
 
 MAX_REQUEST_BYTES = 1_000_000
+MAX_RESPONSE_BYTES = 4 * 1024 * 1024
 MAX_CONTROL_PROBE_STDOUT_BYTES = 65_536
 
 
@@ -100,6 +101,7 @@ def control_socket_path(
 
 def serve(router, *, input_stream, output_stream):
     while True:
+        request = None
         raw_line = input_stream.readline(MAX_REQUEST_BYTES + 1)
         if not raw_line:
             break
@@ -129,5 +131,17 @@ def serve(router, *, input_stream, output_stream):
             }
         else:
             response = router.handle(request)
-        output_stream.write(json.dumps(response, separators=(",", ":")) + "\n")
+        serialized = json.dumps(response, separators=(",", ":")) + "\n"
+        if len(serialized.encode("utf-8")) > MAX_RESPONSE_BYTES:
+            response = {
+                "id": request.get("id") if isinstance(request, dict) else None,
+                "ok": False,
+                "error": {
+                    "code": "RESPONSE_TOO_LARGE",
+                    "message": "Codex response was too large",
+                    "retryable": True,
+                },
+            }
+            serialized = json.dumps(response, separators=(",", ":")) + "\n"
+        output_stream.write(serialized)
         output_stream.flush()
