@@ -155,7 +155,7 @@ def promote_live_sessions(sessions, live_threads, *, now):
             continue
         safe_start = _timestamp(started_at)
         validated[canonical_id] = (
-            safe_start if safe_start is not None and safe_start <= int(now) + 300 else None
+            safe_start if safe_start is not None and safe_start <= int(now) + 5 else None
         )
 
     rows = []

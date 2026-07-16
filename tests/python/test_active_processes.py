@@ -1,6 +1,6 @@
 import os
 
-from codex_bridge.active_processes import discover_live_threads
+from codex_bridge.active_processes import MAX_ENVIRONMENT_BYTES, discover_live_threads
 
 
 ENV_THREAD_ID = "019c0000-0000-7000-8000-000000000001"
@@ -106,3 +106,30 @@ def test_rejects_other_executables_invalid_ids_and_session_files_outside_home(
     )
 
     assert result == {}
+
+
+def test_missing_proc_and_oversized_environment_fail_closed(tmp_path):
+    executable = tmp_path / "codex"
+    executable.write_bytes(b"codex")
+
+    assert discover_live_threads(
+        str(executable), proc_root=tmp_path / "missing-proc"
+    ) == {}
+
+    proc_root = tmp_path / "proc"
+    proc_root.mkdir()
+    (proc_root / "stat").write_text("btime 1000\n", encoding="utf-8")
+    _fake_process(
+        proc_root,
+        pid=123,
+        executable=executable,
+        started_ticks=100,
+        environment=(
+            f"CODEX_THREAD_ID={ENV_THREAD_ID}\0".encode()
+            + b"x" * MAX_ENVIRONMENT_BYTES
+        ),
+    )
+
+    assert discover_live_threads(
+        str(executable), proc_root=proc_root, uid=os.getuid(), now=2000
+    ) == {}

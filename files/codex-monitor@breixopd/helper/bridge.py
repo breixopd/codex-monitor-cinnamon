@@ -10,8 +10,8 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
-from codex_bridge.history import QuotaHistory
 from codex_bridge.active_processes import discover_live_threads
+from codex_bridge.history import QuotaHistory
 from codex_bridge.launcher import TerminalLauncher
 from codex_bridge.process import control_socket_path, serve, spawn_app_server
 from codex_bridge.protocol import CommandRouter
