@@ -41,7 +41,7 @@ def _rate_limits():
     }
 
 
-def test_snapshot_combines_account_limits_usage_and_history(tmp_path):
+def test_snapshot_combines_account_limits_usage_and_history(tmp_path, monkeypatch):
     client = FakeClient(
         {
             "account/read": {
@@ -60,6 +60,14 @@ def test_snapshot_combines_account_limits_usage_and_history(tmp_path):
         }
     )
     history = QuotaHistory(tmp_path / "history.jsonl", retention_days=30)
+    read_calls = []
+    original_read_rows = history._read_rows
+
+    def record_read_rows(*, now, days):
+        read_calls.append((now, days))
+        return original_read_rows(now=now, days=days)
+
+    monkeypatch.setattr(history, "_read_rows", record_read_rows)
     service = CodexService(client, history, clock=lambda: 1_799_100_000)
 
     snapshot = service.snapshot()
@@ -71,6 +79,40 @@ def test_snapshot_combines_account_limits_usage_and_history(tmp_path):
     assert "developer@example.com" not in repr(snapshot)
     assert snapshot["tokenUsage"]["dailyUsageBuckets"][0]["tokens"] == 250
     assert snapshot["history"][0]["fiveHourUsedPercent"] == 25.0
+    assert read_calls == [(1_799_100_000, 30)]
+
+
+def test_snapshot_reads_history_once_and_limits_it_to_thirty_days():
+    class RecordingHistory:
+        def __init__(self):
+            self.append_calls = []
+            self.display_calls = []
+
+        def append(self, snapshot, *, now):
+            self.append_calls.append((snapshot, now))
+
+        def load(self, *, now):
+            raise AssertionError("snapshot must use the bounded display API")
+
+        def load_for_display(self, *, now, days):
+            self.display_calls.append((now, days))
+            return [{"capturedAt": now}]
+
+    client = FakeClient(
+        {
+            "account/read": {"account": {"type": "apiKey"}},
+            "account/rateLimits/read": _rate_limits(),
+            "account/usage/read": {"summary": {}, "dailyUsageBuckets": []},
+        }
+    )
+    history = RecordingHistory()
+    service = CodexService(client, history, clock=lambda: 1_799_100_000)
+
+    snapshot = service.snapshot()
+
+    assert len(history.append_calls) == 1
+    assert history.display_calls == [(1_799_100_000, 30)]
+    assert snapshot["history"] == [{"capturedAt": 1_799_100_000}]
 
 
 def test_snapshot_treats_account_usage_as_optional_for_older_codex(tmp_path):
