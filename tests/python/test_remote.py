@@ -1,4 +1,5 @@
 import json
+import os
 import shutil
 import signal
 import subprocess
@@ -103,7 +104,20 @@ def test_remote_status_treats_unavailable_control_channel_as_disabled():
     assert client.closed is True
 
 
-def test_remote_status_probes_existing_daemon_when_control_channel_is_unavailable():
+def test_remote_status_passive_fallback_never_starts_remote_control():
+    remote = RemoteControl(
+        "codex",
+        runner=lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("passive status must not invoke a lifecycle command")
+        ),
+        client_factory=lambda: FailingInitializeClient({}),
+        daemon_running=lambda: True,
+    )
+
+    assert remote.status() == {"status": "running"}
+
+
+def test_remote_status_reports_existing_daemon_without_a_lifecycle_probe():
     client = FailingInitializeClient({})
     calls = []
 
@@ -130,13 +144,8 @@ def test_remote_status_probes_existing_daemon_when_control_channel_is_unavailabl
         daemon_running=lambda: True,
     )
 
-    assert remote.status() == {
-        "status": "connected",
-        "serverName": "mint-workstation",
-        "environmentId": "environment-1",
-        "environmentLabel": "environment-1",
-    }
-    assert calls == [["codex", "remote-control", "start", "--json"]]
+    assert remote.status() == {"status": "running"}
+    assert calls == []
 
 
 def test_remote_status_reports_running_when_existing_daemon_probe_fails():
@@ -177,17 +186,17 @@ def test_remote_status_backs_off_unavailable_channel_without_blocking_every_poll
         ),
     )
 
-    assert remote.status()["status"] == "connected"
-    assert remote.status()["status"] == "connected"
+    assert remote.status()["status"] == "running"
+    assert remote.status()["status"] == "running"
     assert len(clients) == 1
 
     clock.advance(60)
 
-    assert remote.status()["status"] == "connected"
+    assert remote.status()["status"] == "running"
     assert len(clients) == 2
 
 
-def test_remote_status_retries_transient_existing_daemon_probe_failure():
+def test_remote_status_retries_the_channel_without_probing_a_lifecycle_command():
     clock = FakeClock()
     probe_count = 0
 
@@ -213,12 +222,12 @@ def test_remote_status_retries_transient_existing_daemon_probe_failure():
 
     assert remote.status() == {"status": "running"}
     assert remote.status() == {"status": "running"}
-    assert probe_count == 1
+    assert probe_count == 0
 
     clock.advance(60)
 
-    assert remote.status()["status"] == "connected"
-    assert probe_count == 2
+    assert remote.status()["status"] == "running"
+    assert probe_count == 0
 
 
 def test_remote_status_invalidates_cached_connection_when_daemon_disappears():
@@ -240,26 +249,70 @@ def test_remote_status_invalidates_cached_connection_when_daemon_disappears():
         daemon_running=lambda: next(running),
     )
 
-    assert remote.status()["status"] == "connected"
+    assert remote.status()["status"] == "running"
     assert remote.status() == {"status": "disabled"}
 
 
 def test_remote_process_detection_requires_same_user_remote_control_process(tmp_path):
+    configured = tmp_path / "codex"
+    configured.write_text("configured", encoding="utf-8")
+    configured.chmod(0o700)
     proc_root = tmp_path / "proc"
     remote_process = proc_root / "123"
     ordinary_process = proc_root / "456"
     remote_process.mkdir(parents=True)
     ordinary_process.mkdir()
     remote_process.joinpath("cmdline").write_bytes(
-        b"/usr/bin/codex\0app-server\0--remote-control\0--listen\0unix://\0"
+        f"{configured}\0app-server\0--remote-control\0--listen\0unix://\0".encode()
     )
+    remote_process.joinpath("exe").symlink_to(configured)
     ordinary_process.joinpath("cmdline").write_bytes(
-        b"/usr/bin/codex\0app-server\0daemon\0"
+        f"{configured}\0app-server\0daemon\0".encode()
     )
+    ordinary_process.joinpath("exe").symlink_to(configured)
 
-    remote = RemoteControl("codex", proc_root=str(proc_root))
+    remote = RemoteControl(str(configured), proc_root=str(proc_root))
 
     assert remote._daemon_is_running() is True
+
+
+def test_remote_process_detection_rejects_an_impostor_executable_with_expected_tokens(
+    tmp_path,
+):
+    configured = tmp_path / "codex"
+    configured.write_text("configured", encoding="utf-8")
+    configured.chmod(0o700)
+    impostor = tmp_path / "impostor"
+    impostor.write_text("impostor", encoding="utf-8")
+    impostor.chmod(0o700)
+    proc_root = tmp_path / "proc"
+    process = proc_root / "123"
+    process.mkdir(parents=True)
+    process.joinpath("cmdline").write_bytes(
+        f"{impostor}\0app-server\0--remote-control\0".encode()
+    )
+    process.joinpath("exe").symlink_to(impostor)
+
+    remote = RemoteControl(str(configured), proc_root=str(proc_root))
+
+    assert remote._daemon_is_running() is False
+
+
+def test_remote_process_detection_rejects_misplaced_remote_control_arguments(tmp_path):
+    configured = tmp_path / "codex"
+    configured.write_text("configured", encoding="utf-8")
+    configured.chmod(0o700)
+    proc_root = tmp_path / "proc"
+    process = proc_root / "123"
+    process.mkdir(parents=True)
+    process.joinpath("cmdline").write_bytes(
+        f"{configured}\0untrusted\0app-server\0--remote-control\0".encode()
+    )
+    process.joinpath("exe").symlink_to(configured)
+
+    remote = RemoteControl(str(configured), proc_root=str(proc_root))
+
+    assert remote._daemon_is_running() is False
 
 
 def test_remote_status_discards_invalid_or_oversized_metadata():
@@ -964,7 +1017,10 @@ def test_remote_repair_refuses_when_the_running_executable_does_not_match_argv(t
 
 
 def test_remote_command_timeout_uses_sanitized_timeout_error():
+    captured = {}
+
     def runner(command, **kwargs):
+        captured.update(kwargs)
         raise subprocess.TimeoutExpired(command, kwargs["timeout"], stderr="private")
 
     remote = RemoteControl("codex", runner=runner)
@@ -976,6 +1032,98 @@ def test_remote_command_timeout_uses_sanitized_timeout_error():
         assert "private" not in str(error)
     else:
         raise AssertionError("expected remote-control timeout")
+
+    assert captured["timeout"] == 20
+    assert captured["shell"] is False
+
+
+def test_remote_command_default_capture_preserves_valid_json(tmp_path):
+    executable = tmp_path / "codex"
+    executable.write_text(
+        "#!/usr/bin/python3\n"
+        "import os\n"
+        "os.write(1, b'{\"status\":\"connected\"}')\n",
+        encoding="utf-8",
+    )
+    executable.chmod(0o700)
+
+    assert RemoteControl(str(executable)).start() == {"status": "connected"}
+
+
+def test_remote_command_default_capture_sanitizes_invalid_utf8(tmp_path):
+    executable = tmp_path / "codex"
+    executable.write_text(
+        "#!/usr/bin/python3\n"
+        "import os\n"
+        "os.write(1, b'\\xff')\n",
+        encoding="utf-8",
+    )
+    executable.chmod(0o700)
+
+    with pytest.raises(RuntimeError, match="response was invalid"):
+        RemoteControl(str(executable)).start()
+
+
+def test_remote_command_default_capture_stops_at_the_stdout_byte_limit(
+    tmp_path, monkeypatch
+):
+    executable = tmp_path / "codex"
+    marker = tmp_path / "continued-after-output"
+    executable.write_text(
+        "#!/usr/bin/python3\n"
+        "import os\n"
+        "import time\n"
+        f"os.write(1, b'x' * {1_000_000 + 65_536})\n"
+        "time.sleep(2)\n"
+        "open(os.environ['REMOTE_TEST_MARKER'], 'w').close()\n",
+        encoding="utf-8",
+    )
+    executable.chmod(0o700)
+
+    def unbounded_run_must_not_be_used(*_args, **_kwargs):
+        raise AssertionError("subprocess.run capture_output is unbounded")
+
+    monkeypatch.setattr(subprocess, "run", unbounded_run_must_not_be_used)
+    remote = RemoteControl(
+        str(executable),
+        environment={**os.environ, "REMOTE_TEST_MARKER": str(marker)},
+    )
+
+    with pytest.raises(RuntimeError, match="response was invalid"):
+        remote.start()
+
+    assert not marker.exists()
+
+
+def test_remote_command_default_capture_stops_at_the_stderr_byte_limit(
+    tmp_path, monkeypatch
+):
+    executable = tmp_path / "codex"
+    marker = tmp_path / "continued-after-output"
+    executable.write_text(
+        "#!/usr/bin/python3\n"
+        "import os\n"
+        "import time\n"
+        f"os.write(2, b'x' * {65_536 + 65_536})\n"
+        "time.sleep(2)\n"
+        "open(os.environ['REMOTE_TEST_MARKER'], 'w').close()\n",
+        encoding="utf-8",
+    )
+    executable.chmod(0o700)
+
+    def unbounded_run_must_not_be_used(*_args, **_kwargs):
+        raise AssertionError("subprocess.run capture_output is unbounded")
+
+    monkeypatch.setattr(subprocess, "run", unbounded_run_must_not_be_used)
+    remote = RemoteControl(
+        str(executable),
+        environment={**os.environ, "REMOTE_TEST_MARKER": str(marker)},
+    )
+
+    with pytest.raises(RuntimeError, match="command failed"):
+        remote.start()
+
+    assert not marker.exists()
 
 
 def test_remote_commands_receive_scoped_environment():

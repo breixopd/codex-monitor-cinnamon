@@ -5,7 +5,9 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import selectors
 import signal
+import shutil
 import subprocess
 import time
 
@@ -13,8 +15,19 @@ from .rpc import RpcError
 from .qr import encode_qr_svg
 
 
+MAX_REMOTE_STDOUT_BYTES = 1_000_000
+MAX_REMOTE_STDERR_BYTES = 65_536
+
+
 class _ControlChannelUnavailable(RuntimeError):
     pass
+
+
+class _CommandOutputTooLarge(RuntimeError):
+    def __init__(self, stream, captured):
+        super().__init__(stream)
+        self.stream = stream
+        self.captured = captured
 
 
 class RemoteDaemonStuckError(RuntimeError):
@@ -38,6 +51,7 @@ class RemoteControl:
         clock=None,
     ):
         self.executable = executable
+        self._uses_default_runner = runner is None or runner is subprocess.run
         self.runner = runner or subprocess.run
         self.client_factory = client_factory
         self.environment = environment
@@ -47,7 +61,6 @@ class RemoteControl:
         self.qr_encoder = qr_encoder or encode_qr_svg
         self._last_status = None
         self._status_channel_retry_at = 0.0
-        self._status_cli_retry_at = 0.0
         self.pidfd_open = getattr(os, "pidfd_open", None)
         self.pidfd_send_signal = getattr(signal, "pidfd_send_signal", None)
         self.fd_close = os.close
@@ -69,21 +82,18 @@ class RemoteControl:
             self._status_channel_retry_at = now + self.STATUS_RETRY_SECONDS
             return self._fallback_status()
         self._status_channel_retry_at = 0.0
-        self._status_cli_retry_at = 0.0
         self._last_status = self._normalize_status(value)
         return dict(self._last_status)
 
     def start(self):
         status = self._compact_status(self._normalize_status(self._run_json("start")))
         self._status_channel_retry_at = 0.0
-        self._status_cli_retry_at = 0.0
         self._last_status = status
         return dict(status)
 
     def stop(self):
         self._run_json("stop")
         self._status_channel_retry_at = 0.0
-        self._status_cli_retry_at = 0.0
         self._last_status = {"status": "disabled"}
         return dict(self._last_status)
 
@@ -237,17 +247,26 @@ class RemoteControl:
     def _run_json(self, action):
         command = [self.executable, "remote-control", action, "--json"]
         try:
-            completed = self.runner(
-                command,
-                shell=False,
-                check=False,
-                capture_output=True,
-                text=True,
-                timeout=20,
-                env=self.environment,
-            )
+            completed = self._run_remote_command(command, timeout=20)
+        except _CommandOutputTooLarge as error:
+            diagnostic = error.captured.decode("utf-8", errors="replace")
+            if (
+                action == "start"
+                and error.stream == "stderr"
+                and self._is_stuck_daemon_error(diagnostic)
+            ):
+                raise RemoteDaemonStuckError(
+                    "Codex Remote background service is stuck"
+                ) from None
+            if error.stream == "stdout":
+                raise RuntimeError(
+                    "Codex remote-control response was invalid"
+                ) from None
+            raise RuntimeError("Codex remote-control command failed") from None
         except subprocess.TimeoutExpired:
             raise TimeoutError("Codex remote-control command timed out") from None
+        except UnicodeDecodeError:
+            raise RuntimeError("Codex remote-control response was invalid") from None
         except OSError:
             raise RuntimeError("Codex remote-control command failed") from None
         if completed.returncode != 0:
@@ -258,11 +277,87 @@ class RemoteControl:
             raise RuntimeError("Codex remote-control command failed")
         try:
             value = json.loads(completed.stdout)
-        except (json.JSONDecodeError, TypeError):
+        except (json.JSONDecodeError, TypeError, UnicodeDecodeError):
             raise RuntimeError("Codex remote-control response was invalid") from None
         if not isinstance(value, dict):
             raise RuntimeError("Codex remote-control response was invalid")
         return value
+
+    def _run_remote_command(self, command, *, timeout):
+        if not self._uses_default_runner:
+            return self.runner(
+                command,
+                shell=False,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                env=self.environment,
+            )
+        return self._run_bounded_process(command, timeout=timeout)
+
+    def _run_bounded_process(self, command, *, timeout):
+        process = subprocess.Popen(
+            command,
+            shell=False,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=self.environment,
+        )
+        streams = {
+            process.stdout: ("stdout", MAX_REMOTE_STDOUT_BYTES, bytearray()),
+            process.stderr: ("stderr", MAX_REMOTE_STDERR_BYTES, bytearray()),
+        }
+        selector = selectors.DefaultSelector()
+        deadline = time.monotonic() + timeout
+        try:
+            for stream in streams:
+                if stream is not None:
+                    os.set_blocking(stream.fileno(), False)
+                    selector.register(stream, selectors.EVENT_READ)
+            while selector.get_map():
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise subprocess.TimeoutExpired(command, timeout)
+                events = selector.select(remaining)
+                if not events:
+                    raise subprocess.TimeoutExpired(command, timeout)
+                for key, _events in events:
+                    stream = key.fileobj
+                    try:
+                        chunk = os.read(stream.fileno(), 65_536)
+                    except BlockingIOError:
+                        continue
+                    if not chunk:
+                        selector.unregister(stream)
+                        stream.close()
+                        continue
+                    name, limit, captured = streams[stream]
+                    available = limit - len(captured)
+                    captured.extend(chunk[:available])
+                    if len(chunk) > available:
+                        raise _CommandOutputTooLarge(name, bytes(captured))
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise subprocess.TimeoutExpired(command, timeout)
+            returncode = process.wait(timeout=remaining)
+        except BaseException:
+            if process.poll() is None:
+                process.kill()
+            process.wait()
+            raise
+        finally:
+            for key in list(selector.get_map().values()):
+                try:
+                    selector.unregister(key.fileobj)
+                except KeyError:
+                    pass
+                key.fileobj.close()
+            selector.close()
+        stdout = bytes(streams[process.stdout][2]).decode("utf-8", errors="strict")
+        stderr = bytes(streams[process.stderr][2]).decode("utf-8", errors="replace")
+        return subprocess.CompletedProcess(command, returncode, stdout, stderr)
 
     def _run_daemon_bootstrap(self):
         command = [
@@ -428,24 +523,16 @@ class RemoteControl:
     def _fallback_status(self):
         if not self._daemon_is_running():
             self._last_status = None
-            self._status_cli_retry_at = 0.0
             return {"status": "disabled"}
         if self._last_status is not None and self._last_status.get("status") != "running":
             return dict(self._last_status)
-        now = self.clock()
-        if now < self._status_cli_retry_at:
-            return dict(self._last_status or {"status": "running"})
-        try:
-            status = self._compact_status(self._normalize_status(self._run_json("start")))
-        except (RuntimeError, TimeoutError):
-            status = {"status": "running"}
-            self._status_cli_retry_at = now + self.STATUS_RETRY_SECONDS
-        else:
-            self._status_cli_retry_at = 0.0
-        self._last_status = status
-        return dict(status)
+        self._last_status = {"status": "running"}
+        return dict(self._last_status)
 
     def _remote_process_running(self):
+        executable = self._configured_executable()
+        if executable is None:
+            return False
         try:
             entries = os.scandir(self.proc_root)
         except OSError:
@@ -458,12 +545,30 @@ class RemoteControl:
                     if entry.stat(follow_symlinks=False).st_uid != os.geteuid():
                         continue
                     with open(os.path.join(entry.path, "cmdline"), "rb") as handle:
-                        arguments = handle.read(4096).split(b"\0")
-                except OSError:
+                        raw_arguments = handle.read(4097)
+                    if len(raw_arguments) > 4096:
+                        continue
+                    arguments = [value for value in raw_arguments.split(b"\0") if value]
+                    running_executable = Path(entry.path, "exe").resolve(strict=True)
+                except (OSError, UnicodeError):
                     continue
-                if b"app-server" in arguments and b"--remote-control" in arguments:
+                if (
+                    running_executable == executable
+                    and len(arguments) >= 3
+                    and arguments[1:3] == [b"app-server", b"--remote-control"]
+                ):
                     return True
         return False
+
+    def _configured_executable(self):
+        search_path = (self.environment or os.environ).get("PATH")
+        candidate = shutil.which(str(self.executable), path=search_path)
+        if candidate is None:
+            return None
+        try:
+            return Path(candidate).resolve(strict=True)
+        except OSError:
+            return None
 
     @staticmethod
     def _compact_status(value):

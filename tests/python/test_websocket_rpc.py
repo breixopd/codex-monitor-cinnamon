@@ -323,3 +323,108 @@ def test_unix_socket_client_rejects_a_non_socket_endpoint(tmp_path):
 
     with pytest.raises(RuntimeError, match="control channel is unavailable"):
         client.initialize()
+
+
+class _RequestLoopSocket:
+    def __init__(self):
+        self.timeout = 10.0
+
+    def gettimeout(self):
+        return self.timeout
+
+    def settimeout(self, value):
+        self.timeout = value
+
+
+def _request_loop_client(tmp_path, responses, *, timeout_seconds=0.2):
+    client = UnixSocketAppServerClient(
+        socket_path=tmp_path / "control.sock",
+        timeout_seconds=timeout_seconds,
+    )
+    client._socket = _RequestLoopSocket()
+    client._send_json = lambda _message: None
+    response_iterator = iter(responses)
+    client._receive_json = lambda: next(response_iterator)
+    return client
+
+
+def test_request_rejects_the_original_5000_notification_flood_with_bounded_retention(
+    tmp_path,
+):
+    responses = [
+        {"method": f"untrusted/{index}", "params": {"index": index}}
+        for index in range(5_000)
+    ]
+    responses.append({"id": 1, "result": {"status": "connected"}})
+    client = _request_loop_client(tmp_path, responses)
+
+    with pytest.raises(RuntimeError, match="too many unexpected responses"):
+        client.request("remoteControl/status/read")
+
+    assert len(client._notifications) <= 128
+
+
+def test_request_retains_legitimate_notifications_before_its_response(tmp_path):
+    client = _request_loop_client(
+        tmp_path,
+        [
+            {"method": "remoteControl/connected", "params": {"ready": True}},
+            {"id": 1, "result": {"status": "connected"}},
+        ],
+    )
+
+    assert client.request("remoteControl/status/read") == {"status": "connected"}
+    assert client.wait_for_notification(
+        "remoteControl/connected", timeout_seconds=0
+    ) == {"ready": True}
+
+
+def test_request_timeout_is_a_request_wide_monotonic_deadline(tmp_path):
+    client = _request_loop_client(
+        tmp_path,
+        [{"id": 999, "result": None}] * 10,
+        timeout_seconds=0.03,
+    )
+    responses = iter([{"id": 999, "result": None}] * 10)
+
+    def slow_response():
+        time.sleep(0.012)
+        return next(responses)
+
+    client._receive_json = slow_response
+
+    with pytest.raises(TimeoutError, match="control channel timed out"):
+        client.request("remoteControl/status/read")
+
+
+def test_wait_timeout_is_a_wait_wide_monotonic_deadline(tmp_path):
+    client = _request_loop_client(tmp_path, [], timeout_seconds=1.0)
+    remaining = iter(range(10))
+
+    def slow_unrelated_notification():
+        try:
+            next(remaining)
+        except StopIteration:
+            raise TimeoutError("Codex control channel timed out") from None
+        time.sleep(0.012)
+        return {"method": "unrelated", "params": None}
+
+    client._receive_json = slow_unrelated_notification
+
+    started = time.monotonic()
+    assert client.wait_for_notification("wanted", timeout_seconds=0.03) is None
+    assert time.monotonic() - started < 0.08
+
+
+def test_wait_rejects_a_notification_flood_with_bounded_retention(tmp_path):
+    responses = [
+        {"method": f"untrusted/{index}", "params": {"index": index}}
+        for index in range(5_000)
+    ]
+    responses.append({"method": "wanted", "params": {"ready": True}})
+    client = _request_loop_client(tmp_path, responses, timeout_seconds=1.0)
+
+    with pytest.raises(RuntimeError, match="too many unexpected responses"):
+        client.wait_for_notification("wanted", timeout_seconds=1.0)
+
+    assert len(client._notifications) <= 128
