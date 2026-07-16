@@ -23,6 +23,7 @@ class RemoteDaemonStuckError(RuntimeError):
 
 class RemoteControl:
     STATUS_RETRY_SECONDS = 60
+    MAX_UNIX_SECONDS = 8_640_000_000_000
 
     def __init__(
         self,
@@ -143,12 +144,11 @@ class RemoteControl:
             value.get("manualPairingCode"), maximum=256, optional=True
         )
         environment_id = self._bounded_string(value.get("environmentId"))
-        expires_at = value.get("expiresAt")
+        expires_at = self._timestamp(value.get("expiresAt"))
         if (
             pairing_code is None
             or environment_id is None
-            or not isinstance(expires_at, int)
-            or isinstance(expires_at, bool)
+            or expires_at is None
         ):
             raise RuntimeError("Codex remote-control response was invalid")
         return {
@@ -487,6 +487,7 @@ class RemoteControl:
             "environmentId": cls._bounded_string(
                 value.get("environmentId"), optional=True
             ),
+            "environmentLabel": cls._display_string(value.get("environmentId")),
         }
 
     @classmethod
@@ -496,9 +497,7 @@ class RemoteControl:
         client_id = cls._bounded_string(value.get("clientId"))
         if client_id is None:
             return None
-        last_seen_at = value.get("lastSeenAt")
-        if not isinstance(last_seen_at, int) or isinstance(last_seen_at, bool):
-            last_seen_at = None
+        last_seen_at = cls._timestamp(value.get("lastSeenAt"), optional=True)
         return {
             "clientId": client_id,
             "displayName": cls._display_string(value.get("displayName")),
@@ -526,6 +525,18 @@ class RemoteControl:
         if not normalized or len(normalized) > maximum:
             return None
         return normalized
+
+    @classmethod
+    def _timestamp(cls, value, *, optional=False):
+        if value is None and optional:
+            return None
+        if (
+            not isinstance(value, int)
+            or isinstance(value, bool)
+            or not 0 <= value <= cls.MAX_UNIX_SECONDS
+        ):
+            return None
+        return value
 
     @classmethod
     def _require_identifier(cls, value, name):

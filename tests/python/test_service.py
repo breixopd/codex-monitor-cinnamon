@@ -125,6 +125,30 @@ def test_snapshot_discards_malformed_optional_usage_fields(tmp_path):
     assert "private" not in repr(snapshot)
 
 
+def test_snapshot_bounds_and_type_checks_daily_usage_buckets():
+    usage = CodexService._normalize_token_usage(
+        {
+            "dailyUsageBuckets": [
+                *(
+                    {"startDate": f"2025-01-{(index % 28) + 1:02d}", "tokens": index}
+                    for index in range(400)
+                ),
+                {"startDate": "2026-07-16", "tokens": 999},
+            ]
+        }
+    )
+
+    assert len(usage["dailyUsageBuckets"]) == 366
+    assert usage["dailyUsageBuckets"][-1]["tokens"] == 365
+    assert CodexService._normalize_token_usage(
+        {"dailyUsageBuckets": "not-a-list"}
+    ) == {"summary": {}, "dailyUsageBuckets": []}
+    huge = CodexService._normalize_token_usage(
+        {"dailyUsageBuckets": [{"startDate": "2026-07-16", "tokens": 10**30}]}
+    )
+    assert huge["dailyUsageBuckets"][0]["tokens"] == 9_007_199_254_740_991
+
+
 def test_snapshot_merges_the_latest_sparse_rate_limit_update(tmp_path):
     initial = _rate_limits()
     initial["rateLimits"]["secondary"]["usedPercent"] = 0

@@ -222,8 +222,12 @@
     dashboard.setRemoteStatus({
       status: "connected",
       serverName: "Test workstation",
-      environmentId: "environment-test",
+      environmentId: "environment" + String.fromCharCode(10) + "test",
+      environmentLabel: "environment test",
     });
+    results.remoteIdentitySafe =
+      dashboard._remoteIdentity.get_text().indexOf("environment test") >= 0 &&
+      dashboard._remoteIdentity.get_text().indexOf(String.fromCharCode(10)) < 0;
     dashboard._remoteClients = [];
     dashboard._remoteClientsSupported = true;
     dashboard._remoteClientsAvailable = true;

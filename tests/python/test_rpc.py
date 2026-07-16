@@ -2,13 +2,17 @@ import io
 import json
 import subprocess
 
-from codex_bridge.rpc import AppServerClient, RpcError
+import pytest
+
+from codex_bridge.rpc import MAX_RESPONSE_BYTES, AppServerClient, RpcError
 
 
 class FakeProcess:
     def __init__(self, responses):
         self.stdin = io.StringIO()
-        self.stdout = iter(json.dumps(item) + "\n" for item in responses)
+        self.stdout = io.StringIO(
+            "".join(json.dumps(item) + "\n" for item in responses)
+        )
         self.returncode = None
 
     def poll(self):
@@ -110,3 +114,21 @@ def test_close_kills_app_server_that_ignores_termination():
 
     assert process.terminated is True
     assert process.killed is True
+
+
+def test_client_discards_oversized_responses_and_keeps_stream_alignment():
+    process = FakeProcess([])
+    process.stdout = io.StringIO(
+        "x" * (MAX_RESPONSE_BYTES + 50) + '\n{"id":1,"result":{"ok":true}}\n'
+    )
+
+    client = AppServerClient(process=process, timeout_seconds=0.5)
+
+    assert client.request("health") == {"ok": True}
+
+
+def test_client_fails_fast_when_app_server_output_closes():
+    client = AppServerClient(process=FakeProcess([]), timeout_seconds=30)
+
+    with pytest.raises(RuntimeError, match="stopped"):
+        client.request("health")

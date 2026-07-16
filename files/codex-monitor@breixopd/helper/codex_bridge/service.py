@@ -10,6 +10,10 @@ from .models import normalize_snapshot
 from .sessions import normalize_session_list
 
 
+MAX_DAILY_USAGE_BUCKETS = 366
+MAX_SAFE_INTEGER = 9_007_199_254_740_991
+
+
 class CodexService:
     def __init__(
         self,
@@ -190,8 +194,11 @@ class CodexService:
     def _normalize_token_usage(value):
         if not isinstance(value, dict):
             return None
+        raw_buckets = value.get("dailyUsageBuckets")
+        if not isinstance(raw_buckets, list):
+            raw_buckets = []
         buckets = []
-        for raw in value.get("dailyUsageBuckets") or []:
+        for raw in raw_buckets[:MAX_DAILY_USAGE_BUCKETS]:
             if not isinstance(raw, dict):
                 continue
             start_date = raw.get("startDate")
@@ -204,7 +211,7 @@ class CodexService:
                 continue
             try:
                 normalized_date = date.fromisoformat(start_date).isoformat()
-                normalized_tokens = max(0, int(tokens))
+                normalized_tokens = min(MAX_SAFE_INTEGER, max(0, int(tokens)))
             except (OverflowError, TypeError, ValueError):
                 continue
             buckets.append(

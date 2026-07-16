@@ -412,3 +412,63 @@ def test_router_validates_remote_identifiers_codes_and_revoke_confirmation():
         }
     )
     assert unconfirmed["error"]["code"] == "CONFIRMATION_REQUIRED"
+
+
+def test_router_rejects_unknown_parameters_for_every_action_family():
+    router = CommandRouter(FakeService())
+    requests = [
+        {"id": "snapshot-extra", "action": "snapshot", "params": {"extra": 1}},
+        {
+            "id": "sessions-extra",
+            "action": "sessions",
+            "params": {"limit": 12, "extra": 1},
+        },
+        {
+            "id": "consume-extra",
+            "action": "consume_reset",
+            "params": {
+                "creditId": "credit-1",
+                "idempotencyKey": "123e4567-e89b-12d3-a456-426614174000",
+                "confirmed": True,
+                "extra": 1,
+            },
+        },
+        {
+            "id": "remote-status-extra",
+            "action": "remote_status",
+            "params": {"extra": 1},
+        },
+        {
+            "id": "remote-start-extra",
+            "action": "remote_start",
+            "params": {"confirmed": True, "extra": 1},
+        },
+        {
+            "id": "remote-stop-extra",
+            "action": "remote_stop",
+            "params": {"confirmed": True, "extra": 1},
+        },
+        {
+            "id": "pair-status-extra",
+            "action": "remote_pair_status",
+            "params": {"pairingCode": "opaque", "extra": 1},
+        },
+        {
+            "id": "clients-extra",
+            "action": "remote_clients",
+            "params": {"environmentId": "environment-1", "extra": 1},
+        },
+        {
+            "id": "revoke-extra",
+            "action": "remote_revoke",
+            "params": {
+                "environmentId": "environment-1",
+                "clientId": "client-1",
+                "confirmed": True,
+                "extra": 1,
+            },
+        },
+    ]
+
+    for request in requests:
+        assert router.handle(request)["error"]["code"] == "INVALID_PARAMS"

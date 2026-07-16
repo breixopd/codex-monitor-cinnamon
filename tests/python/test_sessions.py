@@ -127,3 +127,50 @@ def test_normalize_session_list_discards_malformed_active_flags():
     )
 
     assert result["active"][0]["attention"] == []
+
+
+def test_normalize_session_list_bounds_input_scanning_and_project_labels():
+    oversized_project = "private\n" + "x" * 300
+    valid_beyond_scan_limit = {
+        "id": IDLE_ID,
+        "preview": "Must not be scanned",
+        "status": {"type": "idle"},
+        "updatedAt": 10,
+    }
+    response = {
+        "data": [
+            {
+                "id": ACTIVE_ID,
+                "preview": "Active work",
+                "cwd": f"/tmp/{oversized_project}",
+                "status": {"type": "active"},
+                "updatedAt": 20,
+            },
+            *({"id": "invalid"} for _ in range(49)),
+            valid_beyond_scan_limit,
+        ]
+    }
+
+    result = normalize_session_list(response, limit=12)
+
+    assert len(result["active"][0]["project"]) <= 160
+    assert "\n" not in result["active"][0]["project"]
+    assert result["recent"] == []
+
+
+def test_normalize_session_list_rejects_ui_unsafe_timestamps():
+    result = normalize_session_list(
+        {
+            "data": [
+                {
+                    "id": ACTIVE_ID,
+                    "status": {"type": "active"},
+                    "createdAt": -1,
+                    "updatedAt": 10**20,
+                }
+            ]
+        }
+    )
+
+    assert result["active"][0]["createdAt"] is None
+    assert result["active"][0]["updatedAt"] is None

@@ -162,3 +162,84 @@ def test_normalize_snapshot_handles_non_object_payload():
 
     assert snapshot["windows"] == {"fiveHour": None, "weekly": None}
     assert snapshot["resetCredits"] == {"availableCount": 0, "credits": []}
+
+
+def test_normalize_snapshot_bounds_external_collections_but_keeps_canonical_bucket():
+    payload = {
+        "rateLimits": {"planType": "pro"},
+        "rateLimitsByLimitId": {
+            **{
+                f"decoy-{index}": {
+                    "limitId": f"decoy-{index}",
+                    "primary": {
+                        "usedPercent": index,
+                        "windowDurationMins": 1440,
+                    },
+                }
+                for index in range(100)
+            },
+            "codex": {
+                "limitId": "codex",
+                "primary": {
+                    "usedPercent": 42,
+                    "windowDurationMins": 300,
+                },
+            },
+        },
+        "rateLimitResetCredits": {
+            "availableCount": 1,
+            "credits": [
+                *({"invalid": index} for index in range(100)),
+                {"id": "too-late", "grantedAt": 10},
+            ],
+        },
+    }
+
+    snapshot = normalize_snapshot(payload, captured_at=10)
+
+    assert snapshot["windows"]["fiveHour"]["limitId"] == "codex"
+    assert len(snapshot["extraWindows"]) <= 100
+    assert snapshot["resetCredits"]["credits"] == []
+
+
+def test_normalize_snapshot_rejects_non_list_reset_credit_collections():
+    snapshot = normalize_snapshot(
+        {
+            "rateLimitResetCredits": {
+                "availableCount": 1,
+                "credits": "not-a-credit-list",
+            }
+        },
+        captured_at=10,
+    )
+
+    assert snapshot["resetCredits"] == {"availableCount": 1, "credits": []}
+
+
+def test_normalize_snapshot_bounds_counts_tokens_and_timestamps_for_js():
+    snapshot = normalize_snapshot(
+        {
+            "rateLimits": {
+                "primary": {
+                    "usedPercent": 20,
+                    "windowDurationMins": 300,
+                    "resetsAt": 10**20,
+                }
+            },
+            "rateLimitResetCredits": {
+                "availableCount": 10**20,
+                "credits": [
+                    {
+                        "id": "credit-1",
+                        "grantedAt": -1,
+                        "expiresAt": 10**20,
+                    }
+                ],
+            },
+        },
+        captured_at=10,
+    )
+
+    assert snapshot["windows"]["fiveHour"]["resetsAt"] is None
+    assert snapshot["resetCredits"]["availableCount"] == 50
+    assert snapshot["resetCredits"]["credits"] == []

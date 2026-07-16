@@ -3,7 +3,12 @@ import os
 from types import SimpleNamespace
 from urllib.error import URLError
 
-from codex_bridge.updates import UpdateManager, is_newer_version, parse_version
+from codex_bridge.updates import (
+    MAX_CACHE_BYTES,
+    UpdateManager,
+    is_newer_version,
+    parse_version,
+)
 
 
 NOW = 1_800_000_000
@@ -194,6 +199,42 @@ def test_malformed_applet_cache_is_ignored(tmp_path):
         '{"latestVersion":"' + "9" * 500 + '","checkedAt":"private"}',
         encoding="utf-8",
     )
+    updates = manager(
+        tmp_path,
+        data_dir=data_dir,
+        urlopen=lambda *_args, **_kwargs: (_ for _ in ()).throw(URLError("offline")),
+    )
+
+    assert updates.check(force=True)["latestVersion"] is None
+
+
+def test_oversized_update_caches_are_ignored_without_unbounded_reads(tmp_path):
+    codex_home = tmp_path / "codex-home"
+    data_dir = tmp_path / "monitor"
+    codex_home.mkdir()
+    data_dir.mkdir()
+    with (codex_home / "version.json").open("wb") as handle:
+        handle.truncate(MAX_CACHE_BYTES + 1)
+    with (data_dir / "update-state.json").open("wb") as handle:
+        handle.truncate(MAX_CACHE_BYTES + 1)
+
+    updates = manager(
+        tmp_path,
+        codex_home=codex_home,
+        data_dir=data_dir,
+        urlopen=lambda *_args, **_kwargs: (_ for _ in ()).throw(URLError("offline")),
+    )
+
+    assert updates.check(force=True)["latestVersion"] is None
+
+
+def test_nonfinite_update_cache_timestamp_is_ignored(tmp_path):
+    data_dir = tmp_path / "monitor"
+    data_dir.mkdir()
+    (data_dir / "update-state.json").write_text(
+        '{"latestVersion":"0.145.0","checkedAt":NaN}', encoding="utf-8"
+    )
+
     updates = manager(
         tmp_path,
         data_dir=data_dir,

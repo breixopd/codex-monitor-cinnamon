@@ -1,6 +1,6 @@
 import json
 
-from codex_bridge.history import QuotaHistory
+from codex_bridge.history import MAX_HISTORY_BYTES, QuotaHistory
 
 
 def _snapshot(captured_at, five_hour, weekly):
@@ -100,3 +100,49 @@ def test_history_coalesces_samples_inside_five_minute_bucket(tmp_path):
 
     assert [row["capturedAt"] for row in rows] == [250, 401]
     assert rows[0]["fiveHourUsedPercent"] == 11.0
+
+
+def test_history_rejects_oversized_files_without_reading_them(tmp_path):
+    path = tmp_path / "history.jsonl"
+    with path.open("wb") as handle:
+        handle.truncate(MAX_HISTORY_BYTES + 1)
+
+    assert QuotaHistory(path, retention_days=30).load(now=100) == []
+
+
+def test_history_rejects_future_nonfinite_and_out_of_range_samples(tmp_path):
+    path = tmp_path / "history.jsonl"
+    valid = {
+        "capturedAt": 100,
+        "fiveHourUsedPercent": 10,
+        "fiveHourResetsAt": 400,
+        "weeklyUsedPercent": 20,
+        "weeklyResetsAt": 700,
+    }
+    rows = [
+        {**valid, "capturedAt": 401},
+        {**valid, "capturedAt": 101, "fiveHourUsedPercent": float("nan")},
+        {**valid, "capturedAt": 102, "weeklyUsedPercent": 101},
+        {**valid, "capturedAt": 103, "weeklyResetsAt": 10**20},
+        valid,
+    ]
+    path.write_text("".join(json.dumps(row) + "\n" for row in rows))
+
+    assert QuotaHistory(path, retention_days=30).load(now=100) == [valid]
+
+
+def test_history_rejects_invalid_encoding_and_persistence_failures_are_nonfatal(
+    tmp_path, monkeypatch
+):
+    path = tmp_path / "history.jsonl"
+    path.write_bytes(b"\xff\xfe")
+    history = QuotaHistory(path, retention_days=30)
+
+    assert history.load(now=100) == []
+
+    monkeypatch.setattr(
+        history,
+        "_write",
+        lambda _rows: (_ for _ in ()).throw(OSError("disk full")),
+    )
+    history.append(_snapshot(100, 10, 20), now=100)

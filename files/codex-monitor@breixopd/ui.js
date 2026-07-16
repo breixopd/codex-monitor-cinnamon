@@ -902,9 +902,9 @@ var Dashboard = class Dashboard {
     const identityParts = [];
     if (identity.serverName)
       identityParts.push(identity.serverName);
-    if (identity.environmentId)
+    if (identity.environmentLabel)
       identityParts.push(_format(
-        this._('environment %s'), identity.environmentId
+        this._('environment %s'), identity.environmentLabel
       ));
     if (status === 'running' && identityParts.length === 0)
       identityParts.push(this._('Connection state unavailable; Remote is still running'));

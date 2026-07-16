@@ -3,6 +3,8 @@ import shutil
 import signal
 import subprocess
 
+import pytest
+
 from codex_bridge.remote import RemoteControl
 from codex_bridge.rpc import RpcError
 
@@ -132,6 +134,7 @@ def test_remote_status_probes_existing_daemon_when_control_channel_is_unavailabl
         "status": "connected",
         "serverName": "mint-workstation",
         "environmentId": "environment-1",
+        "environmentLabel": "environment-1",
     }
     assert calls == [["codex", "remote-control", "start", "--json"]]
 
@@ -277,6 +280,7 @@ def test_remote_status_discards_invalid_or_oversized_metadata():
         "serverName": None,
         "installationId": None,
         "environmentId": "environment-1",
+        "environmentLabel": "environment-1",
     }
     assert "secret" not in repr(result)
 
@@ -293,6 +297,21 @@ def test_remote_display_metadata_is_collapsed_to_single_line_text():
     remote = RemoteControl("codex", client_factory=lambda: client)
 
     assert remote.status()["serverName"] == "Mint workstation"
+
+
+def test_remote_status_keeps_opaque_environment_id_but_sanitizes_its_label():
+    client = FakeStatusClient(
+        {
+            "status": "connected",
+            "environmentId": " environment\n1 ",
+        }
+    )
+    remote = RemoteControl("codex", client_factory=lambda: client)
+
+    result = remote.status()
+
+    assert result["environmentId"] == " environment\n1 "
+    assert result["environmentLabel"] == "environment 1"
 
 
 def test_remote_pair_start_uses_control_channel_and_does_not_persist_code():
@@ -326,6 +345,27 @@ def test_remote_pair_start_uses_control_channel_and_does_not_persist_code():
         ("remoteControl/pairing/start", {"manualCode": True}),
     ]
     assert client.closed is True
+
+
+def test_remote_rejects_ui_unsafe_pairing_and_client_timestamps():
+    pairing_client = FakeStatusClient(
+        {
+            "pairingCode": "opaque-code",
+            "environmentId": "environment-1",
+            "expiresAt": 10**20,
+        }
+    )
+    remote = RemoteControl("codex", client_factory=lambda: pairing_client)
+
+    with pytest.raises(RuntimeError, match="response was invalid"):
+        remote.pair_start()
+
+    clients_client = FakeStatusClient(
+        {"data": [{"clientId": "client-1", "lastSeenAt": 10**20}]}
+    )
+    remote = RemoteControl("codex", client_factory=lambda: clients_client)
+
+    assert remote.clients("environment-1")["clients"][0]["lastSeenAt"] is None
 
 
 def test_remote_pair_start_falls_back_to_fixed_cli_when_channel_method_fails():
@@ -595,6 +635,7 @@ def test_remote_start_caches_status_when_control_channel_is_temporarily_unavaila
         "status": "connected",
         "serverName": "mint-workstation",
         "environmentId": "environment-1",
+        "environmentLabel": "environment-1",
     }
 
 

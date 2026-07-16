@@ -31,8 +31,16 @@ class CommandRouter:
 
         try:
             if action == "snapshot":
+                if params:
+                    return _error(
+                        request_id, "INVALID_PARAMS", "Invalid snapshot parameters"
+                    )
                 data = self.service.snapshot()
             elif action == "sessions":
+                if set(params) - {"limit"}:
+                    return _error(
+                        request_id, "INVALID_PARAMS", "Invalid session-list parameters"
+                    )
                 limit = params.get("limit", 12)
                 if (
                     not isinstance(limit, int)
@@ -50,6 +58,12 @@ class CommandRouter:
                     )
                 data = self.service.open_codex()
             elif action == "open_session":
+                if set(params) - {"threadId", "cwd"}:
+                    return _error(
+                        request_id,
+                        "INVALID_PARAMS",
+                        "Invalid session launch parameters",
+                    )
                 thread_id = params.get("threadId")
                 cwd = params.get("cwd")
                 if not self._valid_uuid(thread_id) or not self._valid_optional_path(cwd):
@@ -60,6 +74,12 @@ class CommandRouter:
                     )
                 data = self.service.open_session(thread_id, cwd)
             elif action == "consume_reset":
+                if set(params) - {"creditId", "idempotencyKey", "confirmed"}:
+                    return _error(
+                        request_id,
+                        "INVALID_PARAMS",
+                        "Invalid reset-credit parameters",
+                    )
                 credit_id = params.get("creditId")
                 idempotency_key = params.get("idempotencyKey")
                 if not self._valid_credit_id(credit_id) or not self._valid_uuid(
@@ -76,8 +96,20 @@ class CommandRouter:
                     )
                 data = self.service.consume_reset(credit_id, idempotency_key)
             elif action == "remote_status":
+                if params:
+                    return _error(
+                        request_id,
+                        "INVALID_PARAMS",
+                        "Invalid Remote Control status parameters",
+                    )
                 data = self.service.remote_status()
             elif action == "remote_start":
+                if set(params) != {"confirmed"} and params.get("confirmed") is True:
+                    return _error(
+                        request_id,
+                        "INVALID_PARAMS",
+                        "Invalid Remote Control start parameters",
+                    )
                 if params.get("confirmed") is not True:
                     return _error(
                         request_id,
@@ -86,6 +118,12 @@ class CommandRouter:
                     )
                 data = self.service.remote_start()
             elif action == "remote_stop":
+                if set(params) != {"confirmed"} and params.get("confirmed") is True:
+                    return _error(
+                        request_id,
+                        "INVALID_PARAMS",
+                        "Invalid Remote Control stop parameters",
+                    )
                 if params.get("confirmed") is not True:
                     return _error(
                         request_id,
@@ -120,6 +158,10 @@ class CommandRouter:
                     )
                 data = self.service.remote_pair_start()
             elif action == "remote_pair_status":
+                if set(params) - {"pairingCode", "manualPairingCode"}:
+                    return _error(
+                        request_id, "INVALID_PARAMS", "Invalid pairing parameters"
+                    )
                 pairing_code = params.get("pairingCode")
                 manual_code = params.get("manualPairingCode")
                 if (
@@ -133,6 +175,12 @@ class CommandRouter:
                     )
                 data = self.service.remote_pair_status(pairing_code, manual_code)
             elif action == "remote_clients":
+                if set(params) != {"environmentId"}:
+                    return _error(
+                        request_id,
+                        "INVALID_PARAMS",
+                        "Invalid Remote Control environment",
+                    )
                 environment_id = params.get("environmentId")
                 if not self._valid_bounded_string(environment_id, 256):
                     return _error(
@@ -142,6 +190,12 @@ class CommandRouter:
                     )
                 data = self.service.remote_clients(environment_id)
             elif action == "remote_revoke":
+                if set(params) - {"environmentId", "clientId", "confirmed"}:
+                    return _error(
+                        request_id,
+                        "INVALID_PARAMS",
+                        "Invalid Remote Control client",
+                    )
                 environment_id = params.get("environmentId")
                 client_id = params.get("clientId")
                 if not self._valid_bounded_string(
