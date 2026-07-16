@@ -263,7 +263,9 @@ def test_graph_marks_uncollected_history_and_explains_its_boundary():
 
     assert "function _drawUncollectedHistory" in graph
     assert "area._collectionStart" in graph
-    assert "No local history" in graph
+    assert "area._uncollectedText" in graph
+    assert "context.showText(label)" in graph
+    assert "uncollectedText: this._('No local history')" in ui
     assert "History starts" in ui
 
 
@@ -396,3 +398,74 @@ def test_applet_uses_cinnamons_reloadable_commonjs_module_loader():
     for module in ("bridgeClient", "graph", "model", "ui"):
         assert f"require('./{module}')" in source
     assert "imports.applets[UUID]" not in source
+
+
+def test_remote_polling_expires_stale_state_and_does_not_rebuild_unchanged_graphs():
+    applet = APPLET_SOURCE.read_text(encoding="utf-8")
+    dashboard = UI_SOURCE.read_text(encoding="utf-8")
+
+    assert "Model.nextRemotePollState" in applet
+    assert "this._remotePollState" in applet
+    assert "Model.staleThresholdSeconds(this.refreshInterval)" in applet
+    assert "const snapshotChanged = snapshot !== this._snapshot;" in dashboard
+    assert "const graphSettingsChanged" in dashboard
+    assert "if (snapshotChanged)" in dashboard
+
+
+def test_remote_device_results_are_correlated_with_the_requested_environment():
+    source = APPLET_SOURCE.read_text(encoding="utf-8")
+
+    assert "this._clientsRequestGeneration" in source
+    assert "const generation = ++this._clientsRequestGeneration;" in source
+    assert "generation !== this._clientsRequestGeneration" in source
+    assert "environmentId !== this._clientsEnvironmentId" in source
+
+
+def test_graph_resets_stale_hover_and_supports_keyboard_exact_values():
+    source = GRAPH_SOURCE.read_text(encoding="utf-8")
+
+    update = source[source.index("var updateQuotaGraph") :]
+    assert "view._area._hoverTimestamp = null;" in update
+    assert "can_focus: true" in source
+    assert "key-press-event" in source
+    assert "Clutter.KEY_Left" in source
+    assert "Clutter.KEY_Right" in source
+    assert "accessible_name" in source
+
+
+def test_dashboard_status_copy_wraps_and_quota_copy_uses_local_translator():
+    source = UI_SOURCE.read_text(encoding="utf-8")
+
+    assert "function _enableWrapping" in source
+    for actor in (
+        "this._remoteIdentity",
+        "this._pairingState",
+        "this._versionLabel",
+        "this._updated",
+    ):
+        assert f"_enableWrapping({actor});" in source
+    assert "_format(this._('%s%% used')" in source
+    assert "_format(this._('Resets in %s')" in source
+    assert "text: this._('Usage data current')" in source
+    assert "${indicatorGap}${indicator.text}`" in source
+
+
+def test_dashboard_styles_use_theme_neutral_surfaces_and_inherited_text():
+    source = STYLESHEET_SOURCE.read_text(encoding="utf-8")
+
+    assert "rgba(255, 255, 255" not in source
+    assert "color: #ffffff" not in source
+    assert "background-color: rgba(128, 128, 128" in source
+    assert "color: inherit" in source
+
+
+def test_unchanged_remote_polls_reuse_panel_and_dashboard_indicator_actors():
+    applet = APPLET_SOURCE.read_text(encoding="utf-8")
+    dashboard = UI_SOURCE.read_text(encoding="utf-8")
+
+    assert "this._panelIndicatorSignature" in applet
+    assert "this._renderedSnapshot" in applet
+    assert "if (indicatorSignature !== this._panelIndicatorSignature)" in applet
+    assert "if (snapshotChanged)" in applet
+    assert "this._indicatorSignature" in dashboard
+    assert "if (signature === this._indicatorSignature)" in dashboard

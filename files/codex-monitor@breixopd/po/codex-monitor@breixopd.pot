@@ -747,6 +747,35 @@ msgstr ""
 msgid "Revoke…"
 msgstr ""
 
+#. model.js:182
+msgid "Remote Control status delayed"
+msgstr ""
+
+#. model.js:382
+msgid "status delayed"
+msgstr ""
+
+#. ui.js:204
+msgid "Usage data current"
+msgstr ""
+
+#. ui.js:271 ui.js:762
+msgid "Usage trend graph"
+msgstr ""
+
+#. ui.js:756
+msgid "No local history"
+msgstr ""
+
+#. ui.js:924
+msgid "Status delayed"
+msgstr ""
+
+#. ui.js:936
+#, javascript-format
+msgid "Last confirmed %s ago"
+msgstr ""
+
 #. metadata.json->description
 msgid ""
 "Monitor Codex usage, sessions, reset windows, banked resets, and Remote "

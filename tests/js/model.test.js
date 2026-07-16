@@ -710,3 +710,100 @@ test('update state preserves known active and result states without raw fields',
     assert.equal(state.privateDiagnostics, undefined);
   }
 });
+
+test('usage staleness follows the configured refresh interval with a safe floor', () => {
+  assert.equal(model.staleThresholdSeconds(30), 300);
+  assert.equal(model.staleThresholdSeconds(60), 300);
+  assert.equal(model.staleThresholdSeconds(300), 600);
+  assert.equal(model.staleThresholdSeconds(900), 1800);
+  assert.equal(model.staleThresholdSeconds(Number.NaN), 300);
+});
+
+test('remote polling marks transient failures stale and expires them after a bound', () => {
+  const connected = model.nextRemotePollState(null, {
+    status: 'connected',
+    environmentId: 'environment-1',
+  }, false, 100);
+  assert.deepEqual(connected, {
+    value: {
+      status: 'connected',
+      environmentId: 'environment-1',
+      stale: false,
+      lastSuccessAt: 100,
+    },
+    failureCount: 0,
+    lastSuccessAt: 100,
+  });
+
+  const firstFailure = model.nextRemotePollState(
+    connected, null, true, 105
+  );
+  assert.equal(firstFailure.value.status, 'connected');
+  assert.equal(firstFailure.value.stale, true);
+  assert.equal(firstFailure.failureCount, 1);
+
+  const secondFailure = model.nextRemotePollState(
+    firstFailure, null, true, 110
+  );
+  assert.equal(secondFailure.value.status, 'connected');
+  assert.equal(secondFailure.value.stale, true);
+  assert.equal(secondFailure.failureCount, 2);
+
+  const expired = model.nextRemotePollState(secondFailure, null, true, 115);
+  assert.deepEqual(expired.value, {
+    status: 'errored',
+    stale: true,
+    lastSuccessAt: 100,
+  });
+  assert.equal(expired.failureCount, 3);
+});
+
+test('stale remote status uses an explicit warning indicator', () => {
+  const value = snapshot();
+  value.resetCredits = { availableCount: 0, credits: [] };
+  const state = model.panelState(value, {
+    warningThreshold: 70,
+    criticalThreshold: 90,
+    staleSeconds: 300,
+  }, value.capturedAt + 10, {
+    status: 'connected',
+    stale: true,
+    lastSuccessAt: value.capturedAt,
+  });
+
+  assert.deepEqual(state.indicators, [{
+    kind: 'remote',
+    severity: 'warning',
+    symbol: '◐',
+    text: 'Remote Control status delayed',
+  }]);
+  assert.match(model.tooltipText(value, value.capturedAt + 10, {
+    status: 'connected',
+    stale: true,
+  }), /Remote: status delayed/);
+});
+
+test('an exhausted remote status failure remains a critical error', () => {
+  const value = snapshot();
+  value.resetCredits = { availableCount: 0, credits: [] };
+  const state = model.panelState(value, {
+    warningThreshold: 70,
+    criticalThreshold: 90,
+    staleSeconds: 300,
+  }, value.capturedAt + 20, {
+    status: 'errored',
+    stale: true,
+    lastSuccessAt: value.capturedAt,
+  });
+
+  assert.deepEqual(state.indicators, [{
+    kind: 'remote',
+    severity: 'critical',
+    symbol: '!',
+    text: 'Remote Control error',
+  }]);
+  assert.match(model.tooltipText(value, value.capturedAt + 20, {
+    status: 'errored',
+    stale: true,
+  }), /Remote: errored/);
+});
