@@ -121,6 +121,9 @@ def test_scroll_viewport_owns_padding_and_clips_the_moving_dashboard():
     menu_item_rule = _css_rule(
         stylesheet, ".popup-menu-item.codex-monitor-menu-item"
     )
+    insensitive_menu_item_rule = _css_rule(
+        stylesheet, ".popup-menu-item.codex-monitor-menu-item:insensitive"
+    )
     header_status_rule = _css_rule(
         stylesheet, ".codex-monitor-header .codex-monitor-status"
     )
@@ -129,8 +132,11 @@ def test_scroll_viewport_owns_padding_and_clips_the_moving_dashboard():
     assert "style_class: 'codex-monitor-menu-item'" in applet
     assert "padding-left: 0" in menu_item_rule
     assert "padding-right: 0" in menu_item_rule
+    assert "padding-top: 0" in menu_item_rule
+    assert "padding-bottom: 0" in menu_item_rule
     assert "margin-left: 0" in menu_item_rule
     assert "margin-right: 0" in menu_item_rule
+    assert "color: inherit" in insensitive_menu_item_rule
     assert "padding: 8px 0" in scroll_rule
     assert "max-height: 752px" in scroll_rule
     assert "set_clip_to_allocation(true)" in applet

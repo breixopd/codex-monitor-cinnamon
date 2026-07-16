@@ -174,6 +174,10 @@ def test_live_smoke_preserves_remote_and_runs_full_visual_matrix():
     assert "imports.ui.main.loadTheme()" in script
     assert 'themeManager.emit("theme-set")' in script
     assert "get_padding(imports.gi.St.Side.TOP)===8" in script
+    assert "menuItemVerticalPadding" in script
+    assert "dashboardTextCurrent" in script
+    assert "outerTopInset" in script
+    assert "outerBottomInset" in script
     assert "hoverLeftReady" in script
     assert "sleep 0.2" not in script
     assert "footerCompactFits" in script

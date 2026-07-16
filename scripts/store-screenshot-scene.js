@@ -1,6 +1,7 @@
 (function () {
   var UUID = 'codex-monitor@breixopd';
   var Main = imports.ui.main;
+  var PopupMenu = imports.ui.popupMenu;
   var Clutter = imports.gi.Clutter;
   var St = imports.gi.St;
   var x = imports.ui.appletManager.getRunningInstancesForUuid(UUID)[0];
@@ -141,11 +142,16 @@
     scroll.add_actor(dashboard.actor);
     scroll.set_width(width);
     scroll.set_height(height);
+    var menuItem = new PopupMenu.PopupBaseMenuItem({
+      reactive: false,
+      style_class: 'codex-monitor-menu-item',
+    });
+    menuItem.addActor(scroll);
     var frame = new St.BoxLayout({
       vertical: true,
       style: 'background-color: #242424; border: 1px solid rgba(255,255,255,0.12); border-radius: 14px; padding: 0 12px;',
     });
-    frame.add_child(scroll);
+    frame.add_child(menuItem.actor);
     return frame;
   }
 

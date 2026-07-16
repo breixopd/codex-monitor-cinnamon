@@ -74,10 +74,16 @@
 }
 
 .popup-menu-item.codex-monitor-menu-item {
+  padding-top: 0;
+  padding-bottom: 0;
   padding-left: 0;
   padding-right: 0;
   margin-left: 0;
   margin-right: 0;
+}
+
+.popup-menu-item.codex-monitor-menu-item:insensitive {
+  color: inherit;
 }
 
 .codex-monitor-scroll {

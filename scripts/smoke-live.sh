@@ -64,7 +64,7 @@ esac
 # stylesheet at the same install path during iterative development.
 eval_cinnamon 'imports.ui.main.loadTheme(); imports.ui.main.themeManager.emit("theme-set"); "theme-reloaded";' >/dev/null
 
-geometry_js='var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; x.menu.open(); var a=x._fiveHourBar; var b=x._weeklyBar; var g1=a.x-(x._fiveHourLabel.x+x._fiveHourLabel.width); var g2=b.x-(x._weeklyLabel.x+x._weeklyLabel.width); var sn=x._dashboardScroll.get_theme_node(); var dn=x._dashboard.actor.get_theme_node(); var v=x._dashboardScroll.get_vscroll_bar(); var vn=v.get_theme_node(); var adjustment=x._dashboardScroll.vscroll.adjustment; var mp=x.menu.actor.get_transformed_position(); var ms=x.menu.actor.get_transformed_size(); var dp=x._dashboard.actor.get_transformed_position(); var vp=v.get_transformed_position(); var vs=v.get_transformed_size(); var leftInset=Math.round(dp[0]-mp[0]); var outerInset=Math.round(mp[0]+ms[0]-(vp[0]+vs[0])); JSON.stringify({instance:Boolean(x),snapshot:Boolean(x._snapshot),bridge:Boolean(x._bridge),dashboardMapped:Boolean(x.menu.isOpen&&x._dashboardScroll.mapped),centered:Math.abs((x._panelUsage.y+x._panelUsage.height/2)-x._panelBox.height/2)<=2,equalBars:a.width===b.width,equalGaps:Math.abs(g1-g2)<=1,viewportClipped:x._dashboardScroll.get_clip_to_allocation(),viewportBounded:x._dashboardScroll.height<=776,contentSizingValid:Number.isFinite(adjustment.upper)&&Number.isFinite(adjustment.page_size)&&adjustment.upper>=adjustment.page_size&&adjustment.page_size>0,viewportPadding:sn.get_padding(imports.gi.St.Side.LEFT)===0&&sn.get_padding(imports.gi.St.Side.RIGHT)===0,viewportVerticalPadding:sn.get_padding(imports.gi.St.Side.TOP)===8&&sn.get_padding(imports.gi.St.Side.BOTTOM)===8,scrollbarGutter:vn.get_margin(imports.gi.St.Side.LEFT)===12,balancedOuterInsets:leftInset>=8&&leftInset<=16&&outerInset>=8&&outerInset<=16&&Math.abs(leftInset-outerInset)<=1,contentUnpadded:dn.get_padding(imports.gi.St.Side.LEFT)===0&&dn.get_padding(imports.gi.St.Side.RIGHT)===0,reservedScrollbar:x._dashboardScroll.overlay_scrollbars===false});'
+geometry_js='var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; x.menu.open(); var a=x._fiveHourBar; var b=x._weeklyBar; var g1=a.x-(x._fiveHourLabel.x+x._fiveHourLabel.width); var g2=b.x-(x._weeklyLabel.x+x._weeklyLabel.width); var sn=x._dashboardScroll.get_theme_node(); var mn=x._menuItem.actor.get_theme_node(); var dn=x._dashboard.actor.get_theme_node(); var v=x._dashboardScroll.get_vscroll_bar(); var vn=v.get_theme_node(); var adjustment=x._dashboardScroll.vscroll.adjustment; adjustment.set_value(0); var mp=x.menu.actor.get_transformed_position(); var ms=x.menu.actor.get_transformed_size(); var ip=x._menuItem.actor.get_transformed_position(); var dp=x._dashboard.actor.get_transformed_position(); var vp=v.get_transformed_position(); var vs=v.get_transformed_size(); var tc=x._dashboard._header.get_children()[0].get_theme_node().get_foreground_color(); var mc=x.menu.actor.get_theme_node().get_foreground_color(); var leftInset=Math.round(dp[0]-mp[0]); var outerInset=Math.round(mp[0]+ms[0]-(vp[0]+vs[0])); var topInset=Math.round(dp[1]-ip[1]); JSON.stringify({instance:Boolean(x),snapshot:Boolean(x._snapshot),bridge:Boolean(x._bridge),dashboardMapped:Boolean(x.menu.isOpen&&x._dashboardScroll.mapped),centered:Math.abs((x._panelUsage.y+x._panelUsage.height/2)-x._panelBox.height/2)<=2,equalBars:a.width===b.width,equalGaps:Math.abs(g1-g2)<=1,viewportClipped:x._dashboardScroll.get_clip_to_allocation(),viewportBounded:x._dashboardScroll.height<=776,contentSizingValid:Number.isFinite(adjustment.upper)&&Number.isFinite(adjustment.page_size)&&adjustment.upper>=adjustment.page_size&&adjustment.page_size>0,viewportPadding:sn.get_padding(imports.gi.St.Side.LEFT)===0&&sn.get_padding(imports.gi.St.Side.RIGHT)===0,viewportVerticalPadding:sn.get_padding(imports.gi.St.Side.TOP)===8&&sn.get_padding(imports.gi.St.Side.BOTTOM)===8,menuItemVerticalPadding:mn.get_padding(imports.gi.St.Side.TOP)===0&&mn.get_padding(imports.gi.St.Side.BOTTOM)===0,dashboardTextCurrent:tc.red===mc.red&&tc.green===mc.green&&tc.blue===mc.blue&&tc.alpha===mc.alpha,outerTopInset:topInset===8,scrollbarGutter:vn.get_margin(imports.gi.St.Side.LEFT)===12,balancedOuterInsets:leftInset>=8&&leftInset<=16&&outerInset>=8&&outerInset<=16&&Math.abs(leftInset-outerInset)<=1,contentUnpadded:dn.get_padding(imports.gi.St.Side.LEFT)===0&&dn.get_padding(imports.gi.St.Side.RIGHT)===0,reservedScrollbar:x._dashboardScroll.overlay_scrollbars===false});'
 geometry=''
 attempt=0
 while [ "$attempt" -lt 20 ]; do
@@ -78,12 +78,32 @@ while [ "$attempt" -lt 20 ]; do
   attempt=$((attempt + 1))
   sleep 1
 done
-for assertion in instance snapshot bridge dashboardMapped centered equalBars equalGaps viewportClipped viewportBounded contentSizingValid viewportPadding viewportVerticalPadding scrollbarGutter balancedOuterInsets contentUnpadded reservedScrollbar; do
+for assertion in instance snapshot bridge dashboardMapped centered equalBars equalGaps viewportClipped viewportBounded contentSizingValid viewportPadding viewportVerticalPadding menuItemVerticalPadding dashboardTextCurrent outerTopInset scrollbarGutter balancedOuterInsets contentUnpadded reservedScrollbar; do
   if ! json_true "$geometry" "$assertion"; then
     printf '%s\n' "Panel geometry assertion failed: $geometry" >&2
     exit 1
   fi
 done
+eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; var a=x._dashboardScroll.vscroll.adjustment; a.set_value(Math.max(a.lower,a.upper-a.page_size)); "bottom-requested";' >/dev/null
+bottom_geometry_js='var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; var a=x._dashboardScroll.vscroll.adjustment; var ip=x._menuItem.actor.get_transformed_position(); var is=x._menuItem.actor.get_transformed_size(); var fp=x._dashboard._footer.get_transformed_position(); var fs=x._dashboard._footer.get_transformed_size(); var bottomInset=Math.round(ip[1]+is[1]-(fp[1]+fs[1])); JSON.stringify({bottomGeometryReady:Boolean(x.menu.isOpen&&x._dashboard._footer.mapped&&Math.abs(a.value-(a.upper-a.page_size))<=1),outerBottomInset:bottomInset===8});'
+bottom_geometry=''
+attempt=0
+while [ "$attempt" -lt 20 ]; do
+  bottom_geometry=$(eval_cinnamon "$bottom_geometry_js")
+  if json_true "$bottom_geometry" bottomGeometryReady && \
+      json_true "$bottom_geometry" outerBottomInset; then
+    break
+  fi
+  attempt=$((attempt + 1))
+  sleep 1
+done
+for assertion in bottomGeometryReady outerBottomInset; do
+  if ! json_true "$bottom_geometry" "$assertion"; then
+    printf '%s\n' "Dashboard bottom geometry assertion failed: $bottom_geometry" >&2
+    exit 1
+  fi
+done
+eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; x._dashboardScroll.vscroll.adjustment.set_value(0); "top-restored";' >/dev/null
 eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; x.menu.close(); "closed";' >/dev/null
 
 # Reload the newly installed code once more so this run exercises its own
