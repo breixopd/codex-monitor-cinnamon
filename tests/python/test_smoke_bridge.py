@@ -170,6 +170,10 @@ def test_live_smoke_preserves_remote_and_runs_full_visual_matrix():
     assert ".*true" not in script
     assert "_codexMonitorSmokeErrorIndex" in script
     assert "lookingGlassClean" in script
+    assert "_dashboardScroll.vscroll.adjustment.set_value(0)" in script
+    assert "hoverLeftReady" in script
+    assert "sleep 0.2" not in script
+    assert "footerCompactFits" in script
     for value in ('"quota"', '"activity"', '"both"', "24", "168", "720"):
         assert value in matrix
     for state in (
@@ -192,6 +196,8 @@ def test_live_smoke_preserves_remote_and_runs_full_visual_matrix():
         "qrFallback",
         "pairingClaimed",
         "updateCurrent",
+        "footerVersionCurrent",
+        "footerUsageCurrent",
         "updateAvailable",
         "updateUpdating",
         "updateFailed",

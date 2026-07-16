@@ -25,7 +25,7 @@ json_true() {
 }
 
 cleanup_smoke() {
-  eval_cinnamon 'var instances=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd"); var x=instances&&instances[0]; if(x&&global._codexMonitorHoverMode!==undefined){x.graphMode=global._codexMonitorHoverMode;x.graphRangeHours=global._codexMonitorHoverRange;x._render();} var old=global._codexMonitorHoverPointer; if(old) imports.gi.Clutter.get_default_backend().get_default_seat().warp_pointer(old[0],old[1]); delete global._codexMonitorSmokeErrorIndex; delete global._codexMonitorOldInstance; delete global._codexMonitorOldBridge; delete global._codexMonitorOldSnapshot; delete global._codexMonitorOldHelperPid; delete global._codexMonitorRestartHelperPid; delete global._codexMonitorHoverPointer; delete global._codexMonitorHoverLeft; delete global._codexMonitorHoverDetail; delete global._codexMonitorHoverMode; delete global._codexMonitorHoverRange; "cleared";' >/dev/null 2>&1 || true
+  eval_cinnamon 'var instances=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd"); var x=instances&&instances[0]; if(x&&global._codexMonitorHoverMode!==undefined){x.graphMode=global._codexMonitorHoverMode;x.graphRangeHours=global._codexMonitorHoverRange;x._render();} if(x)x._updateDashboardLayout(); var old=global._codexMonitorHoverPointer; if(old) imports.gi.Clutter.get_default_backend().get_default_seat().warp_pointer(old[0],old[1]); delete global._codexMonitorSmokeErrorIndex; delete global._codexMonitorOldInstance; delete global._codexMonitorOldBridge; delete global._codexMonitorOldSnapshot; delete global._codexMonitorOldHelperPid; delete global._codexMonitorRestartHelperPid; delete global._codexMonitorHoverPointer; delete global._codexMonitorHoverLeft; delete global._codexMonitorHoverDetail; delete global._codexMonitorHoverMode; delete global._codexMonitorHoverRange; "cleared";' >/dev/null 2>&1 || true
   eval_cinnamon 'delete global._codexMonitorDeviceProbe; "device-probe-cleared";' >/dev/null 2>&1 || true
 }
 trap cleanup_smoke EXIT HUP INT TERM
@@ -164,7 +164,7 @@ for assertion in done clientListSupported clientListAvailable remoteDeviceBridge
 done
 eval_cinnamon 'delete global._codexMonitorDeviceProbe; "device-probe-cleared";' >/dev/null
 
-dashboard_js='var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; x.menu.open(); var graph=x._dashboard._graphActor; var labels=graph._xAxis.get_children().map(function(v){return v.get_text();}); var legend=graph._legend.get_children().map(function(v){return v.get_text();}); var hoverStart=graph._hoverFormatter(graph._area._minimum); var hoverEnd=graph._hoverFormatter(graph._area._maximum); JSON.stringify({legendReady:legend.length>0,compactLegend:legend.length<=3&&legend.every(function(v){return v.indexOf(" min ")<0&&v.indexOf(" max ")<0&&v.indexOf("now —")<0;}),hoverDates:hoverStart!==hoverEnd,nativeQr:Boolean(x._dashboard._pairingQr),axisReady:labels.every(function(v){return Boolean(v)&&v!=="—";}),sessions:Boolean(x._dashboard._sessionList&&Object.keys(x._dashboard._sessionFilterButtons).length===4),remote:Boolean(x._dashboard._remoteClientList),requestGuards:Boolean("_remoteRefreshing" in x&&"_pairingPolling" in x&&"_clientsLoading" in x)});'
+dashboard_js='var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; x.menu.open(); x._dashboardScroll.vscroll.adjustment.set_value(0); var graph=x._dashboard._graphActor; var labels=graph._xAxis.get_children().map(function(v){return v.get_text();}); var legend=graph._legend.get_children().map(function(v){return v.get_text();}); var hoverStart=graph._hoverFormatter(graph._area._minimum); var hoverEnd=graph._hoverFormatter(graph._area._maximum); JSON.stringify({legendReady:legend.length>0,compactLegend:legend.length<=3&&legend.every(function(v){return v.indexOf(" min ")<0&&v.indexOf(" max ")<0&&v.indexOf("now —")<0;}),hoverDates:hoverStart!==hoverEnd,nativeQr:Boolean(x._dashboard._pairingQr),axisReady:labels.every(function(v){return Boolean(v)&&v!=="—";}),sessions:Boolean(x._dashboard._sessionList&&Object.keys(x._dashboard._sessionFilterButtons).length===4),remote:Boolean(x._dashboard._remoteClientList),requestGuards:Boolean("_remoteRefreshing" in x&&"_pairingPolling" in x&&"_clientsLoading" in x)});'
 dashboard=$(eval_cinnamon "$dashboard_js")
 for assertion in legendReady compactLegend hoverDates nativeQr axisReady sessions remote requestGuards; do
   if ! json_true "$dashboard" "$assertion"; then
@@ -179,10 +179,32 @@ eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-
 for hover_mode in quota activity both; do
   for hover_range in 24 168 720; do
     eval_cinnamon "var x=imports.ui.appletManager.getRunningInstancesForUuid(\"codex-monitor@breixopd\")[0]; x.graphMode=\"$hover_mode\"; x.graphRangeHours=$hover_range; x._render(); x.menu.open(); var a=x._dashboard._graphActor._area; var p=a.get_transformed_position(); imports.gi.Clutter.get_default_backend().get_default_seat().warp_pointer(Math.round(p[0]+12),Math.round(p[1]+a.height/2)); \"hover-left\";" >/dev/null
-    sleep 0.2
-    eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; var g=x._dashboard._graphActor; var a=g._area; var p=a.get_transformed_position(); global._codexMonitorHoverLeft=a._hoverTimestamp; global._codexMonitorHoverDetail=g._hover.get_text(); imports.gi.Clutter.get_default_backend().get_default_seat().warp_pointer(Math.round(p[0]+a.width-12),Math.round(p[1]+a.height/2)); "hover-right";' >/dev/null
-    sleep 0.2
-    hover_result=$(eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; var g=x._dashboard._graphActor; var a=g._area; var left=Number(global._codexMonitorHoverLeft); var right=Number(a._hoverTimestamp); var span=a._maximum-a._minimum; JSON.stringify({hoverTracksPointer:Number.isFinite(left)&&Number.isFinite(right)&&right-left>span*0.75,hoverDetailChanges:g._hover.get_text()!==global._codexMonitorHoverDetail});')
+    hover_left=''
+    attempt=0
+    while [ "$attempt" -lt 20 ]; do
+      hover_left=$(eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; var g=x._dashboard._graphActor; var a=g._area; var value=a._hoverTimestamp; var span=a._maximum-a._minimum; var ready=value!=null&&Number.isFinite(Number(value))&&Number(value)-a._minimum<span*0.25; if(ready){global._codexMonitorHoverLeft=Number(value);global._codexMonitorHoverDetail=g._hover.get_text();} JSON.stringify({hoverLeftReady:ready});')
+      if json_true "$hover_left" hoverLeftReady; then
+        break
+      fi
+      attempt=$((attempt + 1))
+      sleep 0.1
+    done
+    if ! json_true "$hover_left" hoverLeftReady; then
+      printf '%s\n' "Graph left-pointer assertion failed ($hover_mode/$hover_range): $hover_left" >&2
+      exit 1
+    fi
+    eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; var a=x._dashboard._graphActor._area; var p=a.get_transformed_position(); imports.gi.Clutter.get_default_backend().get_default_seat().warp_pointer(Math.round(p[0]+a.width-12),Math.round(p[1]+a.height/2)); "hover-right";' >/dev/null
+    hover_result=''
+    attempt=0
+    while [ "$attempt" -lt 20 ]; do
+      hover_result=$(eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; var g=x._dashboard._graphActor; var a=g._area; var left=global._codexMonitorHoverLeft; var right=a._hoverTimestamp; var span=a._maximum-a._minimum; JSON.stringify({hoverTracksPointer:left!=null&&right!=null&&Number.isFinite(Number(left))&&Number.isFinite(Number(right))&&Number(right)-Number(left)>span*0.75,hoverDetailChanges:g._hover.get_text()!==global._codexMonitorHoverDetail});')
+      if json_true "$hover_result" hoverTracksPointer && \
+          json_true "$hover_result" hoverDetailChanges; then
+        break
+      fi
+      attempt=$((attempt + 1))
+      sleep 0.1
+    done
     for assertion in hoverTracksPointer hoverDetailChanges; do
       if ! json_true "$hover_result" "$assertion"; then
         printf '%s\n' "Graph pointer assertion failed ($hover_mode/$hover_range): $hover_result" >&2
@@ -205,7 +227,7 @@ eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-
 remote_before=$(eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; String(x._remoteStatus&&x._remoteStatus.status||"unknown");')
 matrix_js=$(tr '\n' ' ' < "$ROOT/scripts/live-matrix.js")
 matrix=$(eval_cinnamon "$matrix_js")
-for assertion in instance graphMatrix emptyGraph singleGraph gapGraph foreignQuotaFiltered sparseQuotaFullRange denseGraph peakGraph quotaUnavailable quotaNormal quotaWarning quotaCritical staleCritical resetNormal resetWarning resetCritical indicatorRowsWrap indicatorTextComplete remoteDisabled remoteConnecting remoteRunning remoteConnected remoteError remoteRepair remoteIdentitySafe remoteDevicesLoading remoteDevicesUnavailable remoteDevicesUnsupported remoteDevicesEmpty remoteDevicesListed qrAvailable qrScrollOverflow qrFallback pairingClaimed pairingExpired updateCurrent updateAvailable updateChecking updateUpdating updateUpdated updateFailed sessionsEmpty sessionsActiveRecent sessionElapsed sessionsAttentionFilter sessionsUnavailable responsiveWide responsiveCompact responsiveShort; do
+for assertion in instance graphMatrix emptyGraph singleGraph gapGraph foreignQuotaFiltered sparseQuotaFullRange denseGraph peakGraph quotaUnavailable quotaNormal quotaWarning quotaCritical staleCritical resetNormal resetWarning resetCritical indicatorRowsWrap indicatorTextComplete remoteDisabled remoteConnecting remoteRunning remoteConnected remoteError remoteRepair remoteIdentitySafe remoteDevicesLoading remoteDevicesUnavailable remoteDevicesUnsupported remoteDevicesEmpty remoteDevicesListed qrAvailable qrScrollOverflow qrFallback pairingClaimed pairingExpired updateCurrent footerVersionCurrent footerUsageCurrent updateAvailable updateChecking updateUpdating updateUpdated updateFailed sessionsEmpty sessionsActiveRecent sessionElapsed sessionsAttentionFilter sessionsUnavailable responsiveWide responsiveCompact responsiveShort; do
   if ! json_true "$matrix" "$assertion"; then
     printf '%s\n' "Dynamic visual matrix assertion failed ($assertion): $matrix" >&2
     exit 1
@@ -215,6 +237,24 @@ if json_true "$matrix" matrixException; then
   printf '%s\n' "Dynamic visual matrix raised an exception: $matrix" >&2
   exit 1
 fi
+
+eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; x._updateDashboardLayout({width:360,height:400}); "footer-compact";' >/dev/null
+footer_layout=''
+attempt=0
+while [ "$attempt" -lt 20 ]; do
+  footer_layout=$(eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; var d=x._dashboard; JSON.stringify({footerCompactFits:d.actor.width===308&&d._footer.width<=d.actor.width&&d._footerSummary.width<=d._footer.width&&d._footerActions.width<=d._footer.width});')
+  if json_true "$footer_layout" footerCompactFits; then
+    break
+  fi
+  attempt=$((attempt + 1))
+  sleep 0.1
+done
+eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; x._updateDashboardLayout(); "footer-restored";' >/dev/null
+if ! json_true "$footer_layout" footerCompactFits; then
+  printf '%s\n' "Compact footer layout assertion failed: $footer_layout" >&2
+  exit 1
+fi
+
 remote_after=$(eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; String(x._remoteStatus&&x._remoteStatus.status||"unknown");')
 remoteStatePreserved=false
 if [ "$remote_before" = "$remote_after" ]; then
