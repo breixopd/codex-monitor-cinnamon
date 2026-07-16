@@ -1,4 +1,5 @@
 from codex_bridge.history import QuotaHistory
+from codex_bridge.rpc import RpcError
 from codex_bridge.service import CodexService
 
 
@@ -264,6 +265,106 @@ def test_sessions_request_recent_threads_and_normalize_response():
             {"limit": 12, "sortKey": "updated_at", "sortDirection": "desc"},
         )
     ]
+
+
+def test_sessions_add_exact_start_time_for_each_current_active_turn():
+    thread_id = "019c0000-0000-7000-8000-000000000001"
+    client = FakeClient(
+        {
+            "thread/list": {
+                "data": [
+                    {
+                        "id": thread_id,
+                        "preview": "Active work",
+                        "status": {"type": "active"},
+                        "createdAt": 100,
+                        "updatedAt": 490,
+                    }
+                ]
+            },
+            "thread/turns/list": {
+                "data": [
+                    {
+                        "id": "019c0000-0000-7000-8000-000000000010",
+                        "status": "inProgress",
+                        "startedAt": 320,
+                        "items": [],
+                    }
+                ]
+            },
+        }
+    )
+    service = CodexService(client, history=None, clock=lambda: 500)
+
+    result = service.sessions(12)
+
+    assert result["active"][0]["activeSince"] == 320
+    assert client.calls[-1] == (
+        "thread/turns/list",
+        {
+            "threadId": thread_id,
+            "limit": 1,
+            "sortDirection": "desc",
+            "itemsView": "notLoaded",
+        },
+    )
+
+
+def test_sessions_keep_working_and_cache_an_unsupported_turn_timing_method():
+    thread_id = "019c0000-0000-7000-8000-000000000001"
+    client = FakeClient(
+        {
+            "thread/list": {
+                "data": [
+                    {
+                        "id": thread_id,
+                        "preview": "Active work",
+                        "status": {"type": "active"},
+                        "updatedAt": 490,
+                    }
+                ]
+            },
+            "thread/turns/list": RpcError(-32601),
+        }
+    )
+    service = CodexService(client, history=None, clock=lambda: 500)
+
+    first = service.sessions(12)
+    second = service.sessions(12)
+
+    assert first["active"][0]["activeSince"] is None
+    assert second["active"][0]["activeSince"] is None
+    assert [call[0] for call in client.calls].count("thread/turns/list") == 1
+
+
+def test_sessions_stop_timing_enrichment_after_a_transient_turn_error():
+    first_id = "019c0000-0000-7000-8000-000000000001"
+    second_id = "019c0000-0000-7000-8000-000000000002"
+    client = FakeClient(
+        {
+            "thread/list": {
+                "data": [
+                    {
+                        "id": first_id,
+                        "status": {"type": "active"},
+                        "updatedAt": 500,
+                    },
+                    {
+                        "id": second_id,
+                        "status": {"type": "active"},
+                        "updatedAt": 490,
+                    },
+                ]
+            },
+            "thread/turns/list": RpcError(-32000),
+        }
+    )
+    service = CodexService(client, history=None, clock=lambda: 500)
+
+    result = service.sessions(12)
+
+    assert all(row["activeSince"] is None for row in result["active"])
+    assert [call[0] for call in client.calls].count("thread/turns/list") == 1
 
 
 def test_launch_operations_are_delegated_to_terminal_launcher():

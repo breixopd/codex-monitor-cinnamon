@@ -1,4 +1,4 @@
-from codex_bridge.sessions import normalize_session_list
+from codex_bridge.sessions import normalize_active_turn_start, normalize_session_list
 
 
 ACTIVE_ID = "019c0000-0000-7000-8000-000000000001"
@@ -174,3 +174,28 @@ def test_normalize_session_list_rejects_ui_unsafe_timestamps():
 
     assert result["active"][0]["createdAt"] is None
     assert result["active"][0]["updatedAt"] is None
+
+
+def test_normalize_active_turn_start_accepts_only_a_current_in_progress_turn():
+    assert normalize_active_turn_start(
+        {
+            "data": [
+                {
+                    "id": "019c0000-0000-7000-8000-000000000010",
+                    "status": "inProgress",
+                    "startedAt": 400,
+                    "items": [{"private": "discard"}],
+                }
+            ]
+        },
+        now=500,
+    ) == 400
+    assert normalize_active_turn_start(
+        {"data": [{"status": "completed", "startedAt": 400}]}, now=500
+    ) is None
+    assert normalize_active_turn_start(
+        {"data": [{"status": "inProgress", "startedAt": 801}]}, now=500
+    ) is None
+    assert normalize_active_turn_start(
+        {"data": "invalid"}, now=500
+    ) is None

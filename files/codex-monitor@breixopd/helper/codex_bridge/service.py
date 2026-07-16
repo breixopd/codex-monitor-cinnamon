@@ -7,7 +7,8 @@ from datetime import date
 import time
 
 from .models import normalize_snapshot
-from .sessions import normalize_session_list
+from .rpc import RpcError
+from .sessions import normalize_active_turn_start, normalize_session_list
 
 
 MAX_DAILY_USAGE_BUCKETS = 366
@@ -32,6 +33,7 @@ class CodexService:
         self.updates = updates
         self.clock = clock
         self._notification_probe_complete = False
+        self._turn_timing_supported = None
 
     def snapshot(self):
         captured_at = int(self.clock())
@@ -75,7 +77,30 @@ class CodexService:
             "thread/list",
             {"limit": limit, "sortKey": "updated_at", "sortDirection": "desc"},
         )
-        return normalize_session_list(response, limit=limit)
+        sessions = normalize_session_list(response, limit=limit)
+        if self._turn_timing_supported is False:
+            return sessions
+        now = int(self.clock())
+        for row in sessions["active"]:
+            try:
+                turns = self.client.request(
+                    "thread/turns/list",
+                    {
+                        "threadId": row["id"],
+                        "limit": 1,
+                        "sortDirection": "desc",
+                        "itemsView": "notLoaded",
+                    },
+                )
+            except RpcError as error:
+                if error.code == -32601:
+                    self._turn_timing_supported = False
+                break
+            except (OSError, RuntimeError, TimeoutError):
+                break
+            self._turn_timing_supported = True
+            row["activeSince"] = normalize_active_turn_start(turns, now=now)
+        return sessions
 
     def open_codex(self):
         return self._require_launcher().open_codex()

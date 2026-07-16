@@ -63,6 +63,19 @@ def _source_label(value):
     return "Unknown"
 
 
+def normalize_active_turn_start(response, *, now):
+    """Return a safe start timestamp only for the latest in-progress turn."""
+
+    data = response.get("data") if isinstance(response, dict) else None
+    if not isinstance(data, list) or not data or not isinstance(data[0], dict):
+        return None
+    turn = data[0]
+    started_at = _timestamp(turn.get("startedAt"))
+    if turn.get("status") != "inProgress" or started_at is None:
+        return None
+    return started_at if started_at <= int(now) + 300 else None
+
+
 def _normalize_row(raw):
     if not isinstance(raw, dict):
         return None
@@ -101,6 +114,7 @@ def _normalize_row(raw):
         "status": status,
         "statusLabel": _STATUS_LABELS.get(status, "Unavailable"),
         "attention": attention,
+        "activeSince": None,
         "createdAt": _timestamp(raw.get("createdAt")),
         "updatedAt": _timestamp(raw.get("updatedAt")),
     }
