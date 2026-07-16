@@ -95,6 +95,27 @@ def test_control_socket_path_falls_back_to_codex_home_without_exposing_errors():
     assert path == "/home/user/.codex-work/app-server-control/app-server-control.sock"
 
 
+def test_control_socket_probe_stops_at_a_bounded_stdout_limit(tmp_path, monkeypatch):
+    executable = tmp_path / "codex"
+    marker = tmp_path / "continued-after-output"
+    executable.write_text(
+        "#!/usr/bin/python3\n"
+        "import os\n"
+        "import time\n"
+        "os.write(1, b'x' * 131072)\n"
+        "time.sleep(2)\n"
+        "open(os.environ['CONTROL_PROBE_MARKER'], 'w').close()\n",
+        encoding="utf-8",
+    )
+    executable.chmod(0o700)
+    monkeypatch.setenv("CONTROL_PROBE_MARKER", str(marker))
+
+    path = control_socket_path(str(executable), codex_home=str(tmp_path / "home"))
+
+    assert path == str(tmp_path / "home" / "app-server-control" / "app-server-control.sock")
+    assert not marker.exists()
+
+
 def test_serve_keeps_protocol_jsonl_and_survives_malformed_input():
     class FakeRouter:
         def handle(self, request):

@@ -25,6 +25,7 @@ RUNTIME_FILES = (
     "helper/bridge.py",
     "helper/codex_bridge/__init__.py",
     "helper/codex_bridge/active_processes.py",
+    "helper/codex_bridge/bounded_process.py",
     "helper/codex_bridge/history.py",
     "helper/codex_bridge/launcher.py",
     "helper/codex_bridge/models.py",

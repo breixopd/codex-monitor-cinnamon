@@ -757,6 +757,27 @@ def test_invalid_utf8_from_codex_version_is_treated_as_unavailable(tmp_path):
     assert updates.status()["installedVersion"] is None
 
 
+def test_default_version_probe_stops_at_a_bounded_stdout_limit(tmp_path, monkeypatch):
+    executable = tmp_path / "codex"
+    marker = tmp_path / "continued-after-output"
+    executable.write_text(
+        "#!/usr/bin/python3\n"
+        "import os\n"
+        "import time\n"
+        "os.write(1, b'x' * 131072)\n"
+        "time.sleep(2)\n"
+        "open(os.environ['VERSION_PROBE_MARKER'], 'w').close()\n",
+        encoding="utf-8",
+    )
+    executable.chmod(0o700)
+    monkeypatch.setenv("VERSION_PROBE_MARKER", str(marker))
+
+    updates = UpdateManager(executable, tmp_path / "home", tmp_path / "monitor")
+
+    assert updates.status()["installedVersion"] is None
+    assert not marker.exists()
+
+
 def test_update_requires_availability_and_rejects_concurrent_work(tmp_path):
     current = manager(tmp_path)
     try:

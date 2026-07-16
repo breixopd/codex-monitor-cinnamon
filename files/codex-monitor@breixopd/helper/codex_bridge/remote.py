@@ -5,12 +5,12 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-import selectors
 import signal
 import shutil
 import subprocess
 import time
 
+from .bounded_process import CommandOutputTooLarge, run_bounded
 from .rpc import RpcError
 from .qr import encode_qr_svg
 
@@ -21,13 +21,6 @@ MAX_REMOTE_STDERR_BYTES = 65_536
 
 class _ControlChannelUnavailable(RuntimeError):
     pass
-
-
-class _CommandOutputTooLarge(RuntimeError):
-    def __init__(self, stream, captured):
-        super().__init__(stream)
-        self.stream = stream
-        self.captured = captured
 
 
 class RemoteDaemonStuckError(RuntimeError):
@@ -248,7 +241,7 @@ class RemoteControl:
         command = [self.executable, "remote-control", action, "--json"]
         try:
             completed = self._run_remote_command(command, timeout=20)
-        except _CommandOutputTooLarge as error:
+        except CommandOutputTooLarge as error:
             diagnostic = error.captured.decode("utf-8", errors="replace")
             if (
                 action == "start"
@@ -297,67 +290,19 @@ class RemoteControl:
         return self._run_bounded_process(command, timeout=timeout)
 
     def _run_bounded_process(self, command, *, timeout):
-        process = subprocess.Popen(
+        completed = run_bounded(
             command,
-            shell=False,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            timeout=timeout,
+            stdout_limit=MAX_REMOTE_STDOUT_BYTES,
+            stderr_limit=MAX_REMOTE_STDERR_BYTES,
             env=self.environment,
         )
-        streams = {
-            process.stdout: ("stdout", MAX_REMOTE_STDOUT_BYTES, bytearray()),
-            process.stderr: ("stderr", MAX_REMOTE_STDERR_BYTES, bytearray()),
-        }
-        selector = selectors.DefaultSelector()
-        deadline = time.monotonic() + timeout
-        try:
-            for stream in streams:
-                if stream is not None:
-                    os.set_blocking(stream.fileno(), False)
-                    selector.register(stream, selectors.EVENT_READ)
-            while selector.get_map():
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    raise subprocess.TimeoutExpired(command, timeout)
-                events = selector.select(remaining)
-                if not events:
-                    raise subprocess.TimeoutExpired(command, timeout)
-                for key, _events in events:
-                    stream = key.fileobj
-                    try:
-                        chunk = os.read(stream.fileno(), 65_536)
-                    except BlockingIOError:
-                        continue
-                    if not chunk:
-                        selector.unregister(stream)
-                        stream.close()
-                        continue
-                    name, limit, captured = streams[stream]
-                    available = limit - len(captured)
-                    captured.extend(chunk[:available])
-                    if len(chunk) > available:
-                        raise _CommandOutputTooLarge(name, bytes(captured))
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                raise subprocess.TimeoutExpired(command, timeout)
-            returncode = process.wait(timeout=remaining)
-        except BaseException:
-            if process.poll() is None:
-                process.kill()
-            process.wait()
-            raise
-        finally:
-            for key in list(selector.get_map().values()):
-                try:
-                    selector.unregister(key.fileobj)
-                except KeyError:
-                    pass
-                key.fileobj.close()
-            selector.close()
-        stdout = bytes(streams[process.stdout][2]).decode("utf-8", errors="strict")
-        stderr = bytes(streams[process.stderr][2]).decode("utf-8", errors="replace")
-        return subprocess.CompletedProcess(command, returncode, stdout, stderr)
+        return subprocess.CompletedProcess(
+            command,
+            completed.returncode,
+            completed.stdout.decode("utf-8", errors="strict"),
+            completed.stderr.decode("utf-8", errors="replace"),
+        )
 
     def _run_daemon_bootstrap(self):
         command = [

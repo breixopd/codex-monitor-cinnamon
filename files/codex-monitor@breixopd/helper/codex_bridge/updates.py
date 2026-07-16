@@ -17,11 +17,13 @@ import time
 from urllib import request as urllib_request
 
 from . import __version__
+from .bounded_process import CommandOutputTooLarge, run_bounded
 
 
 _CHECK_INTERVAL_SECONDS = 12 * 3600
 _MAX_RESPONSE_BYTES = 1_000_000
 MAX_CACHE_BYTES = 64 * 1024
+MAX_VERSION_STDOUT_BYTES = 4096
 _RELEASE_URL = "https://api.github.com/repos/openai/codex/releases/latest"
 _USER_AGENT = f"Codex-Monitor-Cinnamon/{__version__}"
 _VERSION_RE = re.compile(
@@ -85,6 +87,7 @@ class UpdateManager:
         self.data_dir = Path(data_dir)
         self.clock = clock
         self.urlopen = urlopen or urllib_request.urlopen
+        self._uses_default_runner = runner is None or runner is subprocess.run
         self.runner = runner or subprocess.run
         self.thread_factory = thread_factory or threading.Thread
         self._lock = threading.RLock()
@@ -435,15 +438,34 @@ class UpdateManager:
 
     def _installed_version(self):
         try:
-            completed = self.runner(
-                [self.executable, "--version"],
-                shell=False,
-                check=False,
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
-        except (OSError, subprocess.TimeoutExpired, UnicodeError):
+            command = [self.executable, "--version"]
+            if self._uses_default_runner:
+                captured = run_bounded(
+                    command,
+                    timeout=10,
+                    stdout_limit=MAX_VERSION_STDOUT_BYTES,
+                )
+                completed = subprocess.CompletedProcess(
+                    command,
+                    captured.returncode,
+                    captured.stdout.decode("utf-8", errors="strict"),
+                    "",
+                )
+            else:
+                completed = self.runner(
+                    command,
+                    shell=False,
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+        except (
+            CommandOutputTooLarge,
+            OSError,
+            subprocess.TimeoutExpired,
+            UnicodeError,
+        ):
             return None
         if completed.returncode != 0:
             return None

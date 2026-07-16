@@ -7,8 +7,11 @@ import os
 from pathlib import Path
 import subprocess
 
+from .bounded_process import CommandOutputTooLarge, run_bounded
+
 
 MAX_REQUEST_BYTES = 1_000_000
+MAX_CONTROL_PROBE_STDOUT_BYTES = 65_536
 
 
 def spawn_app_server(executable, *, codex_home=None, popen=None, base_env=None):
@@ -47,6 +50,7 @@ def control_socket_path(
 ):
     """Return the daemon-advertised control socket or the documented default."""
 
+    uses_default_runner = runner is None or runner is subprocess.run
     runner = runner or subprocess.run
     environment = dict(os.environ if base_env is None else base_env)
     if codex_home:
@@ -55,16 +59,31 @@ def control_socket_path(
     home = Path(configured_home).expanduser() if configured_home else Path.home() / ".codex"
     fallback = home / "app-server-control" / "app-server-control.sock"
     try:
-        completed = runner(
-            [executable, "app-server", "daemon", "version"],
-            shell=False,
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=5,
-            env=environment,
-        )
-    except (OSError, subprocess.TimeoutExpired):
+        command = [executable, "app-server", "daemon", "version"]
+        if uses_default_runner:
+            captured = run_bounded(
+                command,
+                timeout=5,
+                stdout_limit=MAX_CONTROL_PROBE_STDOUT_BYTES,
+                env=environment,
+            )
+            completed = subprocess.CompletedProcess(
+                command,
+                captured.returncode,
+                captured.stdout.decode("utf-8", errors="strict"),
+                "",
+            )
+        else:
+            completed = runner(
+                command,
+                shell=False,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=5,
+                env=environment,
+            )
+    except (CommandOutputTooLarge, OSError, subprocess.TimeoutExpired, UnicodeError):
         return str(fallback)
     if completed.returncode != 0:
         return str(fallback)
