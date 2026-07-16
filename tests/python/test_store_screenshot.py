@@ -33,6 +33,8 @@ def test_capture_uses_an_isolated_scene_and_never_captures_the_desktop():
     assert '"instance-ready"' in capture
     assert '?"instance-ready":"loading"' in capture
     assert '[ "$attempt" -lt 60 ]' in capture
+    assert "imports.ui.main.loadTheme()" in capture
+    assert 'themeManager.emit("theme-set")' in capture
 
 
 def test_capture_script_checks_the_isolated_scene_geometry():

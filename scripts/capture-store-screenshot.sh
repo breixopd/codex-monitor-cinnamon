@@ -51,6 +51,10 @@ case "$instance_state" in
     ;;
 esac
 
+# Reload after the new xlet is registered so Cinnamon cannot retain an older
+# stylesheet at the same install path during iterative development.
+eval_cinnamon 'imports.ui.main.loadTheme(); imports.ui.main.themeManager.emit("theme-set"); "theme-reloaded";' >/dev/null
+
 scene_js=$(tr '\n' ' ' < "$ROOT/scripts/store-screenshot-scene.js")
 scene_wrapper="(function(){try{return $scene_js;}catch(error){return JSON.stringify({ready:false,error:String(error),line:error.lineNumber||null});}})()"
 scene_state=$(eval_cinnamon "$scene_wrapper" "Scene")
