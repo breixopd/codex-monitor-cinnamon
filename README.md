@@ -9,7 +9,7 @@ Keep an eye on Codex without keeping a terminal open. Codex Monitor adds a small
 - **5-hour and weekly quota** in the panel, with exact percentages and reset countdowns in the dashboard
 - **Clear status alerts** for quota warnings, expiring banked resets, stale data, and Remote Control
 - **24-hour, 7-day, and 30-day history** for quota and token activity, including exact values under the pointer
-- **Codex sessions** grouped by project, with Active, Attention, and Recent filters
+- **Codex sessions** grouped by project, with current-turn elapsed time and Active, Attention, and Recent filters
 - **Banked resets**, including expiry details and a confirmation before one is used
 - **Remote Control** connection status, pairing, a live connected-device list, confirmed device removal, and safe recovery from a stuck Codex background service
 - **Codex updates**, checked automatically and offered only when a newer stable version is available

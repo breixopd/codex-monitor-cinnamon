@@ -621,6 +621,37 @@ test('session view normalizes invalid filters and missing project names', () => 
   assert.equal(view.groups[0].project, 'Unknown project');
 });
 
+test('session status reports elapsed time for active and attention states', () => {
+  assert.equal(model.sessionStatusText({
+    status: 'active',
+    attention: [],
+    activeSince: 320,
+  }, 500), 'Active for 3m');
+  assert.equal(model.sessionStatusText({
+    status: 'active',
+    attention: ['waitingOnApproval'],
+    activeSince: 440,
+  }, 500), 'Waiting for approval for 1m');
+  assert.equal(model.sessionStatusText({
+    status: 'active',
+    attention: ['waitingOnUserInput'],
+    activeSince: 499,
+  }, 500), 'Waiting for you for <1m');
+});
+
+test('session status omits elapsed time when timing is absent or unsafe', () => {
+  assert.equal(model.sessionStatusText({
+    status: 'active',
+    attention: [],
+    activeSince: 900,
+  }, 500), 'Active');
+  assert.equal(model.sessionStatusText({
+    status: 'notLoaded',
+    attention: [],
+    activeSince: 320,
+  }, 500), 'Ready to resume');
+});
+
 test('graph summary reports empty and insufficient history states', () => {
   assert.equal(model.graphSummary({ label: '5h', points: [] }).state, 'empty');
   assert.equal(model.graphSummary({

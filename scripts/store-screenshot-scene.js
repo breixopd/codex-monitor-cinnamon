@@ -83,6 +83,7 @@
       sourceLabel: 'CLI',
       status: 'active',
       statusLabel: 'Active',
+      activeSince: now - 18 * 60,
       updatedAt: now - 120,
       attention: [],
     }],

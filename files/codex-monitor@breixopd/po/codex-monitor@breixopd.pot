@@ -563,6 +563,11 @@ msgstr ""
 msgid "Waiting for you"
 msgstr ""
 
+#. model.js:564
+#, javascript-format
+msgid "%s for %s"
+msgstr ""
+
 #. ui.js:849
 #, javascript-format
 msgid "updated %s ago"

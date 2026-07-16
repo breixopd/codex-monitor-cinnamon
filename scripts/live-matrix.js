@@ -331,7 +331,8 @@
       active: [{
         id: "019c0000-0000-7000-8000-000000000001",
         title: "Active", project: "Widgets", sourceLabel: "CLI",
-        statusLabel: "Active", updatedAt: now,
+        status: "active", statusLabel: "Active", activeSince: now - 3660,
+        updatedAt: now,
         attention: ["waitingOnUserInput"],
       }],
       recent: [{
@@ -342,6 +343,10 @@
       }],
     });
     results.sessionsActiveRecent = dashboard._sessionList.get_children().length === 2;
+    var activeGroup = dashboard._sessionList.get_children()[0];
+    var activeRow = activeGroup.get_children()[1];
+    var activeMeta = activeRow.get_child().get_children()[1].get_text();
+    results.sessionElapsed = activeMeta.indexOf("Waiting for you for 1h 1m") >= 0;
     dashboard._sessionFilter = "attention";
     dashboard._renderSessions();
     results.sessionsAttentionFilter = dashboard._sessionList.get_children().length === 1 &&

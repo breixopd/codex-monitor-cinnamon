@@ -287,6 +287,13 @@ def test_session_dashboard_has_keyboard_filters_and_project_groups():
     assert "add_style_pseudo_class('checked')" in source
 
 
+def test_session_rows_use_the_shared_elapsed_status_formatter():
+    source = UI_SOURCE.read_text(encoding="utf-8")
+
+    assert "this._model.sessionStatusText(session, now, this._)" in source
+    assert "accessible_name" in source
+
+
 def test_pairing_qr_uses_only_bounded_native_svg_rendering():
     applet = APPLET_SOURCE.read_text(encoding="utf-8")
     ui = UI_SOURCE.read_text(encoding="utf-8")

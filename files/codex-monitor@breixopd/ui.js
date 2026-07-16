@@ -837,21 +837,11 @@ var Dashboard = class Dashboard {
     title.clutter_text.set_ellipsize(Pango.EllipsizeMode.END);
     title.clutter_text.set_single_line_mode(true);
     const attention = session.attention || [];
-    const statusLabels = {
-      active: this._('Active'),
-      idle: this._('Idle'),
-      notLoaded: this._('Ready to resume'),
-      systemError: this._('System error'),
-      unavailable: this._('Unavailable'),
-    };
-    let status = statusLabels[session.status] || this._('Unavailable');
-    if (attention.includes('waitingOnApproval'))
-      status = this._('Waiting for approval');
-    else if (attention.includes('waitingOnUserInput'))
-      status = this._('Waiting for you');
+    const now = Math.floor(Date.now() / 1000);
+    const status = this._model.sessionStatusText(session, now, this._);
     const updated = session.updatedAt
       ? _format(this._('updated %s ago'), this._model.formatDuration(
-        Math.floor(Date.now() / 1000) - Number(session.updatedAt), this._))
+        now - Number(session.updatedAt), this._))
       : this._('update time unavailable');
     const sourceLabels = {
       'CLI': this._('CLI'),

@@ -7,6 +7,7 @@
 ### Added
 
 - Added a confirmed **Repair Remote** action for the Codex daemon zombie/updater failure, shown only after Codex reports the specific stuck background-service condition
+- Added elapsed current-turn time to active, approval-waiting, and user-input-waiting session rows
 
 ### Changed
 

@@ -538,6 +538,33 @@ function sessionView(sessions, selectedFilter = 'all', limit = 12) {
   };
 }
 
+function sessionStatusText(session, now, translate = text => text) {
+  const _ = translate;
+  const value = session && typeof session === 'object' ? session : {};
+  const statusLabels = {
+    active: _('Active'),
+    idle: _('Idle'),
+    notLoaded: _('Ready to resume'),
+    systemError: _('System error'),
+    unavailable: _('Unavailable'),
+  };
+  const attention = Array.isArray(value.attention) ? value.attention : [];
+  let status = statusLabels[value.status] || _('Unavailable');
+  if (attention.includes('waitingOnApproval'))
+    status = _('Waiting for approval');
+  else if (attention.includes('waitingOnUserInput'))
+    status = _('Waiting for you');
+
+  const current = Number(now);
+  const activeSince = Number(value.activeSince);
+  if (value.status !== 'active' || value.activeSince == null ||
+      !Number.isFinite(current) || !Number.isFinite(activeSince) ||
+      activeSince < 0 || activeSince > current)
+    return status;
+  return _format(_('%s for %s'), status,
+    formatDuration(current - activeSince, translate));
+}
+
 function isUsableRemoteStatus(remoteStatus) {
   const status = remoteStatus && remoteStatus.status;
   return status === 'connecting' || status === 'connected' || status === 'running';
@@ -601,6 +628,7 @@ const CodexModel = {
   graphAxes,
   nearestGraphValues,
   sessionView,
+  sessionStatusText,
   isUsableRemoteStatus,
   normalizeUpdateState,
 };
