@@ -313,15 +313,23 @@ class RemoteControl:
             "--remote-control",
         ]
         try:
-            completed = self.runner(
-                command,
-                shell=False,
-                check=False,
-                capture_output=True,
-                text=True,
-                timeout=90,
-                env=self.environment,
-            )
+            if self._uses_default_runner:
+                completed = run_bounded(
+                    command,
+                    timeout=90,
+                    stdout_limit=0,
+                    env=self.environment,
+                )
+            else:
+                completed = self.runner(
+                    command,
+                    shell=False,
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=90,
+                    env=self.environment,
+                )
         except subprocess.TimeoutExpired:
             raise TimeoutError("Codex Remote repair timed out") from None
         except OSError:

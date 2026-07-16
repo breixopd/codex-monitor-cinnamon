@@ -132,3 +132,21 @@ def test_client_fails_fast_when_app_server_output_closes():
 
     with pytest.raises(RuntimeError, match="stopped"):
         client.request("health")
+
+
+def test_client_bounds_unsolicited_responses_and_notification_methods():
+    responses = [
+        {"id": 10_000 + index, "result": {"index": index}}
+        for index in range(5_000)
+    ]
+    responses.extend(
+        {"method": f"untrusted/{index}", "params": {"index": index}}
+        for index in range(5_000)
+    )
+    process = FakeProcess(responses)
+
+    client = AppServerClient(process=process, timeout_seconds=0.1)
+    client._reader.join(timeout=1)
+
+    assert len(client._responses) <= 128
+    assert len(client._notifications) <= 128
