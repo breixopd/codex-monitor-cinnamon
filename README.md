@@ -11,7 +11,7 @@ Keep an eye on Codex without keeping a terminal open. Codex Monitor adds a small
 - **24-hour, 7-day, and 30-day history** for quota and token activity, including exact values under the pointer
 - **Codex sessions** grouped by project, with Active, Attention, and Recent filters
 - **Banked resets**, including expiry details and a confirmation before one is used
-- **Remote Control** connection status, pairing, a live connected-device list, and confirmed device removal
+- **Remote Control** connection status, pairing, a live connected-device list, confirmed device removal, and safe recovery from a stuck Codex background service
 - **Codex updates**, checked automatically and offered only when a newer stable version is available
 - **Responsive dashboard layout** that keeps its full 640 px view on wide displays and stacks controls on narrow work areas
 
@@ -69,7 +69,7 @@ The dashboard follows the work area of the display containing the applet. On nar
 
 Right-click the applet and choose **Configure** to change refresh frequency, history retention, graph defaults, warning thresholds, panel indicators, the Codex executable, or `CODEX_HOME`.
 
-Remote Control is never started silently. Starting it, stopping it, using a banked reset, installing an update, and removing a paired device all require confirmation.
+Remote Control is never started or repaired silently. Starting it, repairing a verified stale background service, stopping it, using a banked reset, installing an update, and removing a paired device all require confirmation.
 
 The device section labels its own health as **Checking**, **Live**, **Unavailable**, or **Unsupported**. A temporary local connection failure keeps the last successful list visible and retries automatically; it is not treated as an empty list or blamed on an outdated Codex version.
 
@@ -106,6 +106,10 @@ The Codex Remote daemon is running, but its local device-management channel did 
 **Paired devices says “Unsupported”**
 
 The installed Codex build does not expose the local device-management methods. Update Codex when the applet offers an update, then refresh the section.
+
+**Starting Remote says the background service is stuck**
+
+Choose **Repair Remote…** and confirm the repair. The applet proceeds only when it can prove that the recorded app-server is already dead and its parent is the matching user-owned Codex updater. It stops that stale updater with `SIGTERM`, bootstraps the official managed Remote service, and reconnects. Active terminal Codex sessions are not stopped. If any process detail is ambiguous or changes during validation, the repair refuses to run.
 
 **Remove the applet completely**
 

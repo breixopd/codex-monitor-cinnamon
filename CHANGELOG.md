@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-07-16
+
+### Added
+
+- Added a confirmed **Repair Remote** action for the Codex daemon zombie/updater failure, shown only after Codex reports the specific stuck background-service condition
+
+### Changed
+
+- Recheck Remote Control after an applet-managed Codex update finishes
+- Clarified that terminal sessions continue during an update while Remote Control may reconnect
+
+### Fixed
+
+- Preserved a bounded stuck-daemon error code across the helper bridge instead of reducing every Remote startup failure to the same message
+- Made Remote repair fail closed by validating user ownership, managed executable location, executable permissions, zombie state, parent relationship, process identity, and pidfd stability before sending `SIGTERM`
+
 ## [1.1.1] - 2026-07-15
 
 ### Added
