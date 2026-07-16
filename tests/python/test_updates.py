@@ -144,7 +144,7 @@ def test_stale_cache_fetches_bounded_official_release_with_fixed_headers(tmp_pat
 
     request, timeout = calls[0]
     assert request.full_url == "https://api.github.com/repos/openai/codex/releases/latest"
-    assert request.get_header("User-agent") == "Codex-Monitor-Cinnamon/1.2.1"
+    assert request.get_header("User-agent") == "Codex-Monitor-Cinnamon/1.2.2"
     assert timeout == 10
     assert result["latestVersion"] == "0.145.0"
     assert result["updateAvailable"] is True

@@ -8,7 +8,7 @@ Keep an eye on Codex without keeping a terminal open. Codex Monitor adds a small
 
 - **5-hour and weekly quota** in the panel, with exact percentages and reset countdowns in the dashboard
 - **Clear status alerts** for quota warnings, expiring banked resets, stale data, and Remote Control
-- **24-hour, 7-day, and 30-day history** for quota and token activity, including exact values under the pointer
+- **24-hour, 7-day, and 30-day history** for quota and token activity, including exact values under the pointer or with keyboard navigation
 - **Codex sessions** grouped by project, with current-turn elapsed time and Active, Attention, and Recent filters
 - **Banked resets**, including expiry details and a confirmation before one is used
 - **Remote Control** connection status, pairing, a live connected-device list, confirmed device removal, and safe recovery from a stuck Codex background service
@@ -84,6 +84,8 @@ Quota history is stored locally in:
 ```text
 ~/.local/share/codex-monitor@breixopd/history.jsonl
 ```
+
+The history log is private to the current user, capped at 8 MiB, compacted automatically, and read through a bounded cache so longer retention does not slow normal refreshes. The dashboard sends only the latest 30 days to Cinnamon even when 90-day retention is enabled.
 
 Pairing codes, account identity, session previews, device details, and updater output are kept only in memory while needed.
 

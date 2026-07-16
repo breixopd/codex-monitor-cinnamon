@@ -2,6 +2,34 @@
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-07-16
+
+### Added
+
+- Added keyboard navigation for exact graph timestamps and values, with accessible graph status text
+- Added automatic translation-template coverage so new dashboard copy cannot be omitted from the Cinnamon catalog
+
+### Changed
+
+- Keep the last confirmed Remote Control state briefly when a poll fails, showing a clear amber delayed-status warning before falling back to a red error
+- Cache normalized quota history and send only the latest 30 days to Cinnamon while retaining up to the configured 90 days on disk
+- Reuse unchanged graph and status actors during Remote polling, and inherit theme text colors for readable light and dark Cinnamon themes
+- Build deterministic release archives from explicit runtime and store manifests, and pin CI actions and Python tools to immutable versions
+
+### Fixed
+
+- Prevent passive Remote status checks from starting Remote Control, and keep polling after a temporary status failure so the dashboard can recover automatically
+- Correlate connected-device responses with the current Remote environment so an older request cannot replace a newer device list
+- Persist update ownership across helper restarts, reconcile completion in observing helpers, serialize installs, and protect every state transition from cross-process races
+- Reset stale graph hover state when the mode or range changes, wrap long Remote and update labels, and distinguish delayed Remote state from a critical error
+- Replace per-refresh quota-history rewrites and reparsing with append-only writes, periodic compaction, and external-change-aware caching
+
+### Security
+
+- Bound all short-lived Codex subprocess output, WebSocket response floods, and retained app-server response and notification queues
+- Require same-user, exact-executable, exact-argument matching for passive Remote process detection
+- Reject hidden files, backup artifacts, symlinks, and unknown paths from release archives
+
 ## [1.2.1] - 2026-07-16
 
 ### Fixed
