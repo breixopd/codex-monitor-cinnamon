@@ -13,7 +13,7 @@ from scripts import package_spice
 
 ROOT = Path(__file__).resolve().parents[2]
 UUID = "codex-monitor@breixopd"
-VERSION = "1.2.2"
+VERSION = "1.2.3"
 
 
 def _po_msgids(content):

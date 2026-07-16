@@ -2,10 +2,15 @@
 
 ## [Unreleased]
 
+## [1.2.3] - 2026-07-16
+
 ### Changed
 
 - Combined the Codex version, update-check freshness, usage-refresh freshness, and footer actions into one responsive dashboard footer
 - Tightened normal and compact dashboard spacing, with the compact status grouped beneath the title
+
+### Fixed
+
 - Removed duplicate popup padding so the dashboard keeps one balanced top and bottom inset
 - Restored normal theme contrast for dashboard content inside the non-clickable popup wrapper
 
