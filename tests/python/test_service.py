@@ -310,6 +310,96 @@ def test_sessions_add_exact_start_time_for_each_current_active_turn():
     )
 
 
+def test_sessions_promote_live_process_and_fall_back_to_its_start_time():
+    thread_id = "019c0000-0000-7000-8000-000000000001"
+    client = FakeClient(
+        {
+            "thread/list": {
+                "data": [
+                    {
+                        "id": thread_id,
+                        "preview": "Live work",
+                        "status": {"type": "notLoaded"},
+                        "updatedAt": 490,
+                    }
+                ]
+            },
+            "thread/turns/list": {
+                "data": [{"status": "interrupted", "startedAt": 450}]
+            },
+        }
+    )
+    service = CodexService(
+        client,
+        history=None,
+        clock=lambda: 500,
+        live_threads=lambda: {thread_id: 320},
+    )
+
+    result = service.sessions(12)
+
+    assert result["recent"] == []
+    assert result["active"][0]["status"] == "active"
+    assert result["active"][0]["activeSince"] == 320
+
+
+def test_sessions_prefer_exact_turn_start_over_live_process_start_time():
+    thread_id = "019c0000-0000-7000-8000-000000000001"
+    client = FakeClient(
+        {
+            "thread/list": {
+                "data": [
+                    {
+                        "id": thread_id,
+                        "status": {"type": "notLoaded"},
+                        "updatedAt": 490,
+                    }
+                ]
+            },
+            "thread/turns/list": {
+                "data": [{"status": "inProgress", "startedAt": 450}]
+            },
+        }
+    )
+    service = CodexService(
+        client,
+        history=None,
+        clock=lambda: 500,
+        live_threads=lambda: {thread_id: 320},
+    )
+
+    result = service.sessions(12)
+
+    assert result["active"][0]["activeSince"] == 450
+
+
+def test_sessions_ignore_live_process_discovery_failures():
+    thread_id = "019c0000-0000-7000-8000-000000000001"
+    client = FakeClient(
+        {
+            "thread/list": {
+                "data": [
+                    {
+                        "id": thread_id,
+                        "status": {"type": "notLoaded"},
+                        "updatedAt": 490,
+                    }
+                ]
+            }
+        }
+    )
+
+    def unavailable():
+        raise OSError("private process detail")
+
+    service = CodexService(client, history=None, live_threads=unavailable)
+
+    result = service.sessions(12)
+
+    assert result["active"] == []
+    assert result["recent"][0]["id"] == thread_id
+
+
 def test_sessions_keep_working_and_cache_an_unsupported_turn_timing_method():
     thread_id = "019c0000-0000-7000-8000-000000000001"
     client = FakeClient(

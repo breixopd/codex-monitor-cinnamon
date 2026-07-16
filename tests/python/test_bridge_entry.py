@@ -108,3 +108,32 @@ def test_create_runtime_wires_one_update_manager_without_starting_a_check(tmp_pa
     ]
     assert runtime.updates is update_manager
     assert runtime.service.updates is update_manager
+
+
+def test_create_runtime_scopes_live_thread_discovery_to_codex_configuration(tmp_path):
+    options = SimpleNamespace(
+        codex="/opt/codex/bin/codex",
+        codex_home="/home/user/.codex-work",
+        data_dir=str(tmp_path),
+        history_days=30,
+    )
+    calls = []
+
+    def live_thread_discovery(executable, **kwargs):
+        calls.append((executable, kwargs))
+        return {}
+
+    runtime = create_runtime(
+        options,
+        spawn=lambda *_args, **_kwargs: object(),
+        client_factory=FakeClient,
+        live_thread_discovery=live_thread_discovery,
+    )
+
+    assert runtime.service._live_threads() == {}
+    assert calls == [
+        (
+            "/opt/codex/bin/codex",
+            {"codex_home": "/home/user/.codex-work"},
+        )
+    ]

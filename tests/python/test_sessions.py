@@ -1,4 +1,8 @@
-from codex_bridge.sessions import normalize_active_turn_start, normalize_session_list
+from codex_bridge.sessions import (
+    normalize_active_turn_start,
+    normalize_session_list,
+    promote_live_sessions,
+)
 
 
 ACTIVE_ID = "019c0000-0000-7000-8000-000000000001"
@@ -199,3 +203,44 @@ def test_normalize_active_turn_start_accepts_only_a_current_in_progress_turn():
     assert normalize_active_turn_start(
         {"data": "invalid"}, now=500
     ) is None
+
+
+def test_promote_live_sessions_reclassifies_process_backed_threads_safely():
+    sessions = normalize_session_list(
+        {
+            "data": [
+                {
+                    "id": ACTIVE_ID,
+                    "status": {"type": "active"},
+                    "updatedAt": 210,
+                },
+                {
+                    "id": RECENT_ID,
+                    "status": {"type": "notLoaded"},
+                    "updatedAt": 220,
+                },
+                {
+                    "id": IDLE_ID,
+                    "status": {"type": "idle"},
+                    "updatedAt": 230,
+                },
+            ]
+        }
+    )
+
+    result = promote_live_sessions(
+        sessions,
+        {
+            RECENT_ID: 320,
+            IDLE_ID: 801,
+            "not-a-uuid": 400,
+        },
+        now=500,
+    )
+
+    assert [row["id"] for row in result["active"]] == [IDLE_ID, RECENT_ID, ACTIVE_ID]
+    assert result["active"][0]["activeSince"] is None
+    assert result["active"][1]["activeSince"] == 320
+    assert result["active"][1]["status"] == "active"
+    assert result["active"][1]["statusLabel"] == "Active"
+    assert result["recent"] == []
