@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-07-16
+
+### Fixed
+
+- Recognize sessions running in other local Codex processes even when the monitor's separate read-only app-server reports those threads as not loaded
+- Fall back to the verified Codex process start time for elapsed session status when the live process has not yet persisted an in-progress turn state
+
+### Security
+
+- Limit live-session discovery to same-user processes running the exact configured Codex executable, bounded process metadata, canonical thread UUIDs, and open session filenames under the configured `CODEX_HOME`; session files and command lines are never read
+
 ## [1.2.0] - 2026-07-16
 
 ### Added

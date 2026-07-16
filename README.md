@@ -77,6 +77,8 @@ The device section labels its own health as **Checking**, **Live**, **Unavailabl
 
 Codex Monitor talks to the official local `codex app-server`. Quota and session requests use its standard input/output protocol; Remote device management uses Codex's user-owned Unix control socket. It does not read authentication files, copy API keys, scrape terminal output, or open a TCP network port.
 
+To recognize sessions running in another local Codex process, the applet checks bounded `/proc` metadata for same-user processes whose resolved executable exactly matches the configured Codex executable. It extracts only a canonical `CODEX_THREAD_ID`, an open session filename under the configured `CODEX_HOME`, and the process start time. Other environment entries are discarded immediately. Session-file contents and process command lines are never read.
+
 Quota history is stored locally in:
 
 ```text

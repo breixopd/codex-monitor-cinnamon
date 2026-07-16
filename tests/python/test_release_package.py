@@ -7,7 +7,7 @@ from scripts.package_spice import build_spice
 
 ROOT = Path(__file__).resolve().parents[2]
 UUID = "codex-monitor@breixopd"
-VERSION = "1.2.0"
+VERSION = "1.2.1"
 
 
 def _png_size(path):
