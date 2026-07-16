@@ -294,6 +294,11 @@
       updateAvailable: false, status: "idle", checkedAt: now,
     });
     results.updateCurrent = !dashboard._updateButton.visible;
+    var currentFooterText = dashboard._footerSummary.get_text();
+    results.footerVersionCurrent = currentFooterText.indexOf(
+      "Codex 0.145.0 · Updates checked"
+    ) >= 0;
+    results.footerUsageCurrent = currentFooterText.indexOf("Usage refreshed") >= 0;
     dashboard.setUpdateState({
       installedVersion: "0.144.3", latestVersion: "0.145.0",
       updateAvailable: true, status: "idle", checkedAt: now,
@@ -308,7 +313,7 @@
       installedVersion: "0.144.3", latestVersion: "0.145.0",
       updateAvailable: true, status: "updating", checkedAt: now,
     });
-    results.updateUpdating = dashboard._versionLabel.get_text().indexOf("Updating") >= 0;
+    results.updateUpdating = dashboard._footerSummary.get_text().indexOf("Updating") >= 0;
     dashboard.setUpdateState({
       installedVersion: "0.145.0", latestVersion: "0.145.0",
       updateAvailable: false, status: "updated", checkedAt: now,
@@ -322,7 +327,7 @@
     });
     results.updateFailed = dashboard._updateButton.visible &&
       dashboard._updateButton.label === "Retry" &&
-      dashboard._versionLabel.get_text().indexOf("official Codex installation instructions") >= 0;
+      dashboard._footerSummary.get_text().indexOf("official Codex installation instructions") >= 0;
 
     dashboard.setSessions({ active: [], recent: [] });
     results.sessionsEmpty = dashboard._sessionList.get_children().length === 1 &&
@@ -360,6 +365,8 @@
     x._updateDashboardLayout({ width: 1920, height: 1040 });
     results.responsiveWide = dashboard.actor.width === 640 &&
       !dashboard._compact && !dashboard._quotaRow.vertical &&
+      !dashboard._footer.vertical && !dashboard._updateButton.x_expand &&
+      !dashboard._refreshButton.x_expand &&
       dashboard._sessionFilters.get_children().length === 1 &&
       x._dashboardScroll.get_style().indexOf("752px") >= 0;
 
@@ -372,6 +379,8 @@
       dashboard._quotaRow.vertical && dashboard._graphHeading.vertical &&
       dashboard._sessionHeadingRow.vertical && dashboard._remoteHeading.vertical &&
       dashboard._remoteButtons.vertical && dashboard._footer.vertical &&
+      !dashboard._footerActions.vertical && dashboard._updateButton.x_expand &&
+      dashboard._refreshButton.x_expand &&
       compactFilterRows.length === 2 && compactFilterRows.every(function (row) {
         return row.get_children().length === 2;
       }) && compactIndicatorRows.length === 4 &&

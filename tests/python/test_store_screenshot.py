@@ -6,6 +6,9 @@ def test_capture_uses_an_isolated_scene_and_never_captures_the_desktop():
     capture = Path("scripts/capture-store-screenshot.sh").read_text(encoding="utf-8")
 
     assert "new Dashboard" in scene
+    assert "createFooterPreview" in scene
+    assert "label('FOOTER')" in scene
+    assert "dashboard._footer" in scene
     assert "Demo project" in scene
     assert "Example active session" in scene
     assert "Example phone" in scene

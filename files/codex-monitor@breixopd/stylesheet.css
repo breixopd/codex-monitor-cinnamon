@@ -91,10 +91,28 @@
 
 .codex-monitor-header,
 .codex-monitor-section-heading,
-.codex-monitor-footer,
-.codex-monitor-version-row,
 .codex-monitor-action-row,
 .codex-monitor-range-row {
+  spacing: 8px;
+}
+
+.codex-monitor-footer {
+  spacing: 12px;
+  padding: 10px 2px 0;
+  border-top: 1px solid rgba(128, 128, 128, 0.24);
+}
+
+.codex-monitor-footer-summary {
+  color: inherit;
+  opacity: 184;
+  font-size: 0.86em;
+}
+
+.codex-monitor-footer-actions {
+  spacing: 8px;
+}
+
+.codex-monitor-compact .codex-monitor-footer {
   spacing: 8px;
 }
 

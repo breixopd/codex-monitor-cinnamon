@@ -692,6 +692,11 @@ test('update state accepts only bounded consistent bridge fields', () => {
     status: 'idle',
     message: null,
   });
+
+  assert.equal(model.normalizeUpdateState({
+    installedVersion: '0.145.0',
+    checkedAt: null,
+  }).checkedAt, null);
 });
 
 test('update state preserves known active and result states without raw fields', () => {
@@ -709,6 +714,40 @@ test('update state preserves known active and result states without raw fields',
     assert.equal(state.message, null);
     assert.equal(state.privateDiagnostics, undefined);
   }
+});
+
+test('dashboard footer combines Codex and usage freshness in one concise line', () => {
+  assert.equal(model.dashboardFooterText({
+    installedVersion: '0.144.3',
+    latestVersion: '0.144.3',
+    updateAvailable: false,
+    checkedAt: 9_280,
+    status: 'idle',
+  }, 9_940, null, 10_000),
+  'Codex 0.144.3 · Updates checked 12m ago · Usage refreshed 1m ago');
+
+  assert.equal(model.dashboardFooterText({
+    installedVersion: '0.144.3',
+    latestVersion: '0.145.0',
+    updateAvailable: true,
+    checkedAt: 9_000,
+    status: 'idle',
+  }, 10_000, null, 10_000),
+  'Codex 0.144.3 → 0.145.0 · Usage refreshed now');
+});
+
+test('dashboard footer preserves transient status and usage messages', () => {
+  assert.equal(model.dashboardFooterText({
+    installedVersion: '0.144.3',
+    latestVersion: '0.145.0',
+    updateAvailable: true,
+    checkedAt: 9_000,
+    status: 'checking',
+  }, 9_900, 'Refresh delayed', 10_000),
+  'Codex 0.144.3 · Checking for updates… · Refresh delayed');
+
+  assert.equal(model.dashboardFooterText(null, null, null, 10_000),
+    'No data yet');
 });
 
 test('usage staleness follows the configured refresh interval with a safe floor', () => {

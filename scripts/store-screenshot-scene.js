@@ -204,6 +204,33 @@
     return frame;
   }
 
+  function createFooterPreview() {
+    var dashboard = new Dashboard({
+      translate: translate,
+      model: Model,
+      graph: Graph,
+      callbacks: callbacks,
+    });
+    dashboard.actor.set_width(524);
+    dashboard.setUpdateState({
+      installedVersion: '1.1.1',
+      latestVersion: '1.1.1',
+      updateAvailable: false,
+      status: 'idle',
+      checkedAt: now - 12 * 60,
+    });
+    dashboard.update(snapshot, remoteStatus, panelState);
+    var footer = dashboard._footer;
+    dashboard.actor.remove_child(footer);
+    dashboard.actor.destroy();
+    var frame = new St.BoxLayout({
+      vertical: true,
+      style: 'width: 524px; background-color: #242424; border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; padding: 12px;',
+    });
+    frame.add_child(footer);
+    return frame;
+  }
+
   function label(text) {
     return new St.Label({
       text: text,
@@ -226,6 +253,10 @@
   panelGroup.add_child(label('PANEL'));
   panelGroup.add_child(createPanel());
   right.add_child(panelGroup);
+  var footerGroup = new St.BoxLayout({ vertical: true });
+  footerGroup.add_child(label('FOOTER'));
+  footerGroup.add_child(createFooterPreview());
+  right.add_child(footerGroup);
   var root = new St.BoxLayout({
     style: 'background-color: #14171a; padding: 20px; spacing: 18px;',
     reactive: true,

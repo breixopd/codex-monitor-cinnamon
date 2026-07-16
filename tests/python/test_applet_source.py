@@ -9,6 +9,7 @@ APPLET_SOURCE = (
     / "applet.js"
 )
 UI_SOURCE = APPLET_SOURCE.with_name("ui.js")
+MODEL_SOURCE = APPLET_SOURCE.with_name("model.js")
 STYLESHEET_SOURCE = APPLET_SOURCE.with_name("stylesheet.css")
 GRAPH_SOURCE = APPLET_SOURCE.with_name("graph.js")
 BRIDGE_CLIENT_SOURCE = APPLET_SOURCE.with_name("bridgeClient.js")
@@ -63,7 +64,6 @@ def test_dashboard_compact_layout_stacks_dense_rows_and_reflows_filters():
         "this._remoteHeading",
         "this._remoteClientsHeadingRow",
         "this._remoteButtons",
-        "this._versionRow",
         "this._footer",
     ):
         assert f"{actor}.set_vertical(this._compact);" in source
@@ -334,10 +334,11 @@ def test_update_check_starts_only_after_snapshot_and_repeats_every_twelve_hours(
 def test_update_ui_is_conditional_confirmed_and_has_no_panel_badge():
     applet = APPLET_SOURCE.read_text(encoding="utf-8")
     ui = UI_SOURCE.read_text(encoding="utf-8")
+    model = MODEL_SOURCE.read_text(encoding="utf-8")
 
     assert "Update Codex…" in ui
-    assert "Updating Codex…" in ui
-    assert "New Codex launches use this version" in ui
+    assert "Updating Codex…" in model
+    assert "New Codex launches use this version" in model
     assert "Active terminal sessions keep running. Remote Control may reconnect after the update." in applet
     assert "previousStatus === 'updating' && status === 'updated'" in applet
     assert "this._readRemoteStatus();" in applet
@@ -449,14 +450,39 @@ def test_dashboard_status_copy_wraps_and_quota_copy_uses_local_translator():
     for actor in (
         "this._remoteIdentity",
         "this._pairingState",
-        "this._versionLabel",
-        "this._updated",
+        "this._footerSummary",
     ):
         assert f"_enableWrapping({actor});" in source
     assert "_format(this._('%s%% used')" in source
     assert "_format(this._('Resets in %s')" in source
     assert "text: this._('Usage data current')" in source
     assert "${indicatorGap}${indicator.text}`" in source
+
+
+def test_dashboard_footer_unifies_version_freshness_and_actions_responsively():
+    source = UI_SOURCE.read_text(encoding="utf-8")
+    model = MODEL_SOURCE.read_text(encoding="utf-8")
+    stylesheet = STYLESHEET_SOURCE.read_text(encoding="utf-8")
+
+    assert "this._footerSummary" in source
+    assert "this._footerActions" in source
+    assert "this._refreshButton" in source
+    assert "this._footerActions.add_child(this._updateButton)" in source
+    assert "this._footerActions.add_child(this._refreshButton)" in source
+    assert "this._footer.set_vertical(this._compact)" in source
+    assert "this._footerActions.set_vertical(false)" in source
+    assert "this._updateButton.x_expand = this._compact" in source
+    assert "this._refreshButton.x_expand = this._compact" in source
+    assert "dashboardFooterText" in source
+    assert "Updates checked %s ago" in model
+    assert "Usage refreshed %s ago" in model
+    assert "this._renderFooter();" in source
+    assert "this._versionRow" not in source
+    assert "this._versionLabel" not in source
+    assert "this._updated" not in source
+    assert ".codex-monitor-footer-summary" in stylesheet
+    assert ".codex-monitor-footer-actions" in stylesheet
+    assert "border-top:" in stylesheet
 
 
 def test_dashboard_styles_use_theme_neutral_surfaces_and_inherited_text():
