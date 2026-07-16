@@ -92,6 +92,7 @@ class RemoteControl:
             updater_pid,
             updater_start_ticks,
             updater_arguments,
+            updater_executable,
         ) = self._validated_stuck_daemon()
         if self.pidfd_open is None or self.pidfd_send_signal is None:
             raise RuntimeError("Codex Remote repair is unavailable")
@@ -101,7 +102,11 @@ class RemoteControl:
             raise RuntimeError("Codex Remote repair could not validate the updater") from None
         try:
             self._revalidate_stuck_daemon(
-                app_pid, updater_pid, updater_start_ticks, updater_arguments
+                app_pid,
+                updater_pid,
+                updater_start_ticks,
+                updater_arguments,
+                updater_executable,
             )
             self.pidfd_send_signal(pidfd, signal.SIGTERM, None, 0)
         except OSError:
@@ -313,10 +318,23 @@ class RemoteControl:
             raise RuntimeError("Codex Remote repair found no safe repair target") from None
         if not executable.is_file() or not os.access(executable, os.X_OK):
             raise RuntimeError("Codex Remote repair found no safe repair target")
-        return app_pid, updater_pid, updater["start_ticks"], updater["arguments"]
+        if updater["executable"] != executable:
+            raise RuntimeError("Codex Remote repair found no safe repair target")
+        return (
+            app_pid,
+            updater_pid,
+            updater["start_ticks"],
+            updater["arguments"],
+            executable,
+        )
 
     def _revalidate_stuck_daemon(
-        self, app_pid, updater_pid, updater_start_ticks, updater_arguments
+        self,
+        app_pid,
+        updater_pid,
+        updater_start_ticks,
+        updater_arguments,
+        updater_executable,
     ):
         app = self._read_process(app_pid)
         updater = self._read_process(updater_pid)
@@ -326,6 +344,7 @@ class RemoteControl:
             or updater["state"] == "Z"
             or updater["start_ticks"] != updater_start_ticks
             or updater["arguments"] != updater_arguments
+            or updater["executable"] != updater_executable
         ):
             raise RuntimeError("Codex Remote repair target changed")
 
@@ -370,11 +389,17 @@ class RemoteControl:
                 for argument in raw_arguments.split(b"\0")
                 if argument
             ]
+            executable = (
+                process_dir.joinpath("exe").resolve(strict=True)
+                if arguments
+                else None
+            )
             return {
                 "state": fields[0],
                 "ppid": int(fields[1]),
                 "start_ticks": int(fields[19]),
                 "arguments": arguments,
+                "executable": executable,
             }
         except (OSError, UnicodeError, ValueError):
             raise RuntimeError("Codex Remote repair target is unavailable") from None

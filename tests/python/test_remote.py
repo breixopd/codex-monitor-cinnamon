@@ -64,6 +64,8 @@ def _write_proc_process(proc_root, pid, *, state, ppid, arguments, start_ticks):
     process.joinpath("stat").write_text(
         f"{pid} (codex) {' '.join(stat_fields)}\n", encoding="utf-8"
     )
+    if arguments:
+        process.joinpath("exe").symlink_to(str(arguments[0]))
     return process
 
 
@@ -851,6 +853,65 @@ def test_remote_repair_refuses_a_non_executable_updater_binary(tmp_path):
     )
     remote.pidfd_open = lambda pid, _flags=0: pid
     remote.pidfd_send_signal = pidfd_send_signal
+    remote.fd_close = lambda _fd: None
+
+    try:
+        remote.repair()
+    except RuntimeError:
+        pass
+
+    assert signals == []
+
+
+def test_remote_repair_refuses_when_the_running_executable_does_not_match_argv(tmp_path):
+    codex_home = tmp_path / "codex-home"
+    daemon_dir = codex_home / "app-server-daemon"
+    release_dir = codex_home / "packages" / "standalone" / "releases" / "0.144.4"
+    daemon_dir.mkdir(parents=True)
+    release_dir.mkdir(parents=True)
+    managed_codex = release_dir / "codex"
+    managed_codex.write_text("managed codex", encoding="utf-8")
+    managed_codex.chmod(0o700)
+    impostor = tmp_path / "impostor"
+    impostor.write_text("not codex", encoding="utf-8")
+    impostor.chmod(0o700)
+    daemon_dir.joinpath("app-server.pid").write_text(
+        json.dumps({"pid": 200, "processStartTime": "earlier"}), encoding="utf-8"
+    )
+    daemon_dir.joinpath("app-server-updater.pid").write_text(
+        json.dumps({"pid": 100, "processStartTime": "earlier"}), encoding="utf-8"
+    )
+    proc_root = tmp_path / "proc"
+    _write_proc_process(
+        proc_root,
+        200,
+        state="Z",
+        ppid=100,
+        arguments=[],
+        start_ticks=2_000,
+    )
+    updater_process = _write_proc_process(
+        proc_root,
+        100,
+        state="S",
+        ppid=1,
+        arguments=[managed_codex, "app-server", "daemon", "pid-update-loop"],
+        start_ticks=1_000,
+    )
+    updater_process.joinpath("exe").unlink()
+    updater_process.joinpath("exe").symlink_to(impostor)
+    signals = []
+
+    remote = RemoteControl(
+        "/usr/bin/codex",
+        runner=lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            [], 0, stdout='{"status":"connected"}', stderr=""
+        ),
+        environment={"CODEX_HOME": str(codex_home)},
+        proc_root=str(proc_root),
+    )
+    remote.pidfd_open = lambda pid, _flags=0: pid
+    remote.pidfd_send_signal = lambda *_args: signals.append(True)
     remote.fd_close = lambda _fd: None
 
     try:
