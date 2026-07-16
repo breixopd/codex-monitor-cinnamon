@@ -191,6 +191,15 @@ for hover_mode in quota activity both; do
     done
   done
 done
+
+keyboard_result=$(eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; var g=x._dashboard._graphActor; var a=g._area; a.grab_key_focus(); var homeEvent=imports.gi.Clutter.Event.new(imports.gi.Clutter.EventType.KEY_PRESS); homeEvent.set_key_symbol(imports.gi.Clutter.KEY_Home); a.emit("key-press-event",homeEvent); var home=a._hoverTimestamp; var homeDetail=g._hover.get_text(); var endEvent=imports.gi.Clutter.Event.new(imports.gi.Clutter.EventType.KEY_PRESS); endEvent.set_key_symbol(imports.gi.Clutter.KEY_End); a.emit("key-press-event",endEvent); var end=a._hoverTimestamp; var endDetail=g._hover.get_text(); var escapeEvent=imports.gi.Clutter.Event.new(imports.gi.Clutter.EventType.KEY_PRESS); escapeEvent.set_key_symbol(imports.gi.Clutter.KEY_Escape); a.emit("key-press-event",escapeEvent); JSON.stringify({keyboardFocused:global.stage.get_key_focus()===a,keyboardHome:home===a._minimum,keyboardEnd:end===a._maximum,keyboardDetailChanges:homeDetail!==endDetail,keyboardEscape:a._hoverTimestamp===null});')
+for assertion in keyboardFocused keyboardHome keyboardEnd keyboardDetailChanges keyboardEscape; do
+  if ! json_true "$keyboard_result" "$assertion"; then
+    printf '%s\n' "Graph keyboard assertion failed: $keyboard_result" >&2
+    exit 1
+  fi
+done
+
 eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; x.graphMode=global._codexMonitorHoverMode; x.graphRangeHours=global._codexMonitorHoverRange; x._render(); var old=global._codexMonitorHoverPointer; if(old) imports.gi.Clutter.get_default_backend().get_default_seat().warp_pointer(old[0],old[1]); delete global._codexMonitorHoverPointer; delete global._codexMonitorHoverLeft; delete global._codexMonitorHoverDetail; delete global._codexMonitorHoverMode; delete global._codexMonitorHoverRange; "hover-restored";' >/dev/null
 
 remote_before=$(eval_cinnamon 'var x=imports.ui.appletManager.getRunningInstancesForUuid("codex-monitor@breixopd")[0]; String(x._remoteStatus&&x._remoteStatus.status||"unknown");')
