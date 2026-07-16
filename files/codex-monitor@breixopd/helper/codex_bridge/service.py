@@ -88,6 +88,9 @@ class CodexService:
     def remote_stop(self):
         return self._require_remote().stop()
 
+    def remote_repair(self):
+        return self._require_remote().repair()
+
     def remote_pair_start(self):
         return self._require_remote().pair_start()
 

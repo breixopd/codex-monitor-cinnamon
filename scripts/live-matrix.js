@@ -213,6 +213,11 @@
       .severity === "success";
     results.remoteError = indicatorState(normal, { status: "errored" })[0]
       .severity === "critical";
+    dashboard.setRemoteStatus({ status: "errored" });
+    dashboard.showRemoteError("Codex Remote background service is stuck", true);
+    results.remoteRepair = dashboard._remoteButtons.get_children().length === 2 &&
+      dashboard._remoteButtons.get_children()[0].label === "Repair Remote…" &&
+      dashboard._remoteButtons.get_children()[1].label === "Refresh";
 
     dashboard.setRemoteStatus({
       status: "connected",

@@ -329,12 +329,32 @@ def test_update_ui_is_conditional_confirmed_and_has_no_panel_badge():
     assert "Update Codex…" in ui
     assert "Updating Codex…" in ui
     assert "New Codex launches use this version" in ui
+    assert "Active terminal sessions keep running. Remote Control may reconnect after the update." in applet
+    assert "previousStatus === 'updating' && status === 'updated'" in applet
+    assert "this._readRemoteStatus();" in applet
     assert "this._updateButton.visible = state.updateAvailable" in ui
     assert "onUpdate: this._confirmUpdate.bind(this)" in applet
     assert "update_start" in applet
     assert "confirmed: true" in applet
     assert "ModalDialog.ConfirmDialog" in applet
     assert "updateBadge" not in applet + ui
+
+
+def test_stuck_remote_error_exposes_only_a_confirmed_repair_action():
+    applet = APPLET_SOURCE.read_text(encoding="utf-8")
+    ui = UI_SOURCE.read_text(encoding="utf-8")
+    bridge = BRIDGE_CLIENT_SOURCE.read_text(encoding="utf-8")
+
+    assert "error.code = response.error.code" in bridge
+    assert "action === 'remote_repair' ? 120 : 30" in bridge
+    assert "REMOTE_DAEMON_STUCK" in applet
+    assert "onRemoteRepair: this._confirmRemoteRepair.bind(this)" in applet
+    assert "_confirmRemoteRepair()" in applet
+    assert "this._remoteAction('remote_repair', { confirmed: true })" in applet
+    assert "Repair Codex Remote?" in applet
+    assert "showRemoteError(message, repairable = false)" in ui
+    assert "this._('Repair Remote…')" in ui
+    assert "this._callbacks.onRemoteRepair" in ui
 
 
 def test_bridge_queues_async_writes_and_closes_without_sync_io():

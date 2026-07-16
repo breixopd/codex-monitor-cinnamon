@@ -102,6 +102,7 @@ def validate_sources():
         "remote_pair_status",
         "remote_clients",
         "remote_revoke",
+        "remote_repair",
     ):
         if action not in applet_source:
             raise ValueError(f"applet is missing Remote Control action {action}")

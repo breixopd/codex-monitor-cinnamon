@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import uuid
 
+from .remote import RemoteDaemonStuckError
+
 
 def _error(request_id, code, message, *, retryable=False):
     return {
@@ -91,6 +93,26 @@ class CommandRouter:
                         "Explicit confirmation is required",
                     )
                 data = self.service.remote_stop()
+            elif action == "remote_repair":
+                if set(params) != {"confirmed"}:
+                    if params.get("confirmed") is not True:
+                        return _error(
+                            request_id,
+                            "CONFIRMATION_REQUIRED",
+                            "Explicit confirmation is required",
+                        )
+                    return _error(
+                        request_id,
+                        "INVALID_PARAMS",
+                        "Invalid Remote Control repair parameters",
+                    )
+                if params.get("confirmed") is not True:
+                    return _error(
+                        request_id,
+                        "CONFIRMATION_REQUIRED",
+                        "Explicit confirmation is required",
+                    )
+                data = self.service.remote_repair()
             elif action == "remote_pair_start":
                 if params:
                     return _error(
@@ -175,6 +197,12 @@ class CommandRouter:
                     "INVALID_ACTION",
                     "Unsupported Codex Monitor action",
                 )
+        except RemoteDaemonStuckError:
+            return _error(
+                request_id,
+                "REMOTE_DAEMON_STUCK",
+                "Codex Remote background service is stuck",
+            )
         except TimeoutError:
             return _error(
                 request_id, "CODEX_TIMEOUT", "Codex did not respond", retryable=True

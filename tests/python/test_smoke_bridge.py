@@ -155,6 +155,7 @@ def test_live_smoke_preserves_remote_and_runs_full_visual_matrix():
         "remote_pair_start",
         "remote_pair_status",
         "remote_revoke",
+        "remote_repair",
     ):
         assert mutable_action not in remote_probe
     assert "remoteStatePreserved" in script
@@ -181,6 +182,7 @@ def test_live_smoke_preserves_remote_and_runs_full_visual_matrix():
         "resetCritical",
         "remoteConnecting",
         "remoteError",
+        "remoteRepair",
         "remoteDevicesLoading",
         "remoteDevicesUnavailable",
         "remoteDevicesUnsupported",

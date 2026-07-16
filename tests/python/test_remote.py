@@ -1,4 +1,6 @@
 import json
+import shutil
+import signal
 import subprocess
 
 from codex_bridge.remote import RemoteControl
@@ -50,6 +52,19 @@ class FakeClock:
 
     def advance(self, seconds):
         self.value += seconds
+
+
+def _write_proc_process(proc_root, pid, *, state, ppid, arguments, start_ticks):
+    process = proc_root / str(pid)
+    process.mkdir(parents=True)
+    process.joinpath("cmdline").write_bytes(
+        b"\0".join(str(argument).encode() for argument in arguments) + b"\0"
+    )
+    stat_fields = [state, str(ppid), *("0" for _ in range(17)), str(start_ticks)]
+    process.joinpath("stat").write_text(
+        f"{pid} (codex) {' '.join(stat_fields)}\n", encoding="utf-8"
+    )
+    return process
 
 
 def test_remote_status_reads_running_daemon_through_control_channel():
@@ -624,6 +639,226 @@ def test_remote_command_errors_do_not_expose_stderr():
         assert str(error) == "Codex remote-control command failed"
     else:
         raise AssertionError("expected remote-control failure")
+
+
+def test_remote_start_classifies_the_known_stuck_daemon_failure():
+    def runner(command, **kwargs):
+        return subprocess.CompletedProcess(
+            command,
+            1,
+            stdout="",
+            stderr=(
+                "app server did not become ready on "
+                "/home/user/.codex/app-server-control/app-server-control.sock\n"
+                "private diagnostic details"
+            ),
+        )
+
+    remote = RemoteControl("codex", runner=runner)
+
+    try:
+        remote.start()
+    except RuntimeError as error:
+        assert getattr(error, "code", None) == "REMOTE_DAEMON_STUCK"
+        assert str(error) == "Codex Remote background service is stuck"
+        assert "private" not in str(error)
+    else:
+        raise AssertionError("expected stuck daemon failure")
+
+
+def test_remote_repair_terminates_only_the_validated_updater_then_bootstraps(tmp_path):
+    codex_home = tmp_path / "codex-home"
+    daemon_dir = codex_home / "app-server-daemon"
+    release_dir = codex_home / "packages" / "standalone" / "releases" / "0.144.4"
+    daemon_dir.mkdir(parents=True)
+    release_dir.mkdir(parents=True)
+    managed_codex = release_dir / "codex"
+    managed_codex.write_text("managed codex", encoding="utf-8")
+    managed_codex.chmod(0o700)
+    daemon_dir.joinpath("app-server.pid").write_text(
+        json.dumps({"pid": 200, "processStartTime": "earlier"}), encoding="utf-8"
+    )
+    daemon_dir.joinpath("app-server-updater.pid").write_text(
+        json.dumps({"pid": 100, "processStartTime": "earlier"}), encoding="utf-8"
+    )
+    proc_root = tmp_path / "proc"
+    app_process = _write_proc_process(
+        proc_root,
+        200,
+        state="Z",
+        ppid=100,
+        arguments=[],
+        start_ticks=2_000,
+    )
+    updater_process = _write_proc_process(
+        proc_root,
+        100,
+        state="S",
+        ppid=1,
+        arguments=[managed_codex, "app-server", "daemon", "pid-update-loop"],
+        start_ticks=1_000,
+    )
+    signals = []
+
+    def pidfd_send_signal(pidfd, signum, _siginfo=None, _flags=0):
+        signals.append((pidfd, signum))
+        shutil.rmtree(app_process)
+        shutil.rmtree(updater_process)
+
+    calls = []
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        if command[1:4] == ["app-server", "daemon", "bootstrap"]:
+            return subprocess.CompletedProcess(
+                command, 0, stdout='{"status":"bootstrapped"}', stderr=""
+            )
+        return subprocess.CompletedProcess(
+            command, 0, stdout='{"status":"connected"}', stderr=""
+        )
+
+    remote = RemoteControl(
+        "/usr/bin/codex",
+        runner=runner,
+        environment={"CODEX_HOME": str(codex_home)},
+        proc_root=str(proc_root),
+    )
+
+    assert hasattr(remote, "repair")
+    remote.pidfd_open = lambda pid, _flags=0: pid
+    remote.pidfd_send_signal = pidfd_send_signal
+    remote.fd_close = lambda _fd: None
+
+    assert remote.repair() == {"status": "connected"}
+    assert signals == [(100, signal.SIGTERM)]
+    assert calls == [
+        [
+            "/usr/bin/codex",
+            "app-server",
+            "daemon",
+            "bootstrap",
+            "--remote-control",
+        ],
+        ["/usr/bin/codex", "remote-control", "start", "--json"],
+    ]
+
+
+def test_remote_repair_refuses_if_the_updater_changes_after_pidfd_open(tmp_path):
+    codex_home = tmp_path / "codex-home"
+    daemon_dir = codex_home / "app-server-daemon"
+    release_dir = codex_home / "packages" / "standalone" / "releases" / "0.144.4"
+    daemon_dir.mkdir(parents=True)
+    release_dir.mkdir(parents=True)
+    managed_codex = release_dir / "codex"
+    managed_codex.write_text("managed codex", encoding="utf-8")
+    managed_codex.chmod(0o700)
+    daemon_dir.joinpath("app-server.pid").write_text(
+        json.dumps({"pid": 200, "processStartTime": "earlier"}), encoding="utf-8"
+    )
+    daemon_dir.joinpath("app-server-updater.pid").write_text(
+        json.dumps({"pid": 100, "processStartTime": "earlier"}), encoding="utf-8"
+    )
+    proc_root = tmp_path / "proc"
+    _write_proc_process(
+        proc_root,
+        200,
+        state="Z",
+        ppid=100,
+        arguments=[],
+        start_ticks=2_000,
+    )
+    updater_process = _write_proc_process(
+        proc_root,
+        100,
+        state="S",
+        ppid=1,
+        arguments=[managed_codex, "app-server", "daemon", "pid-update-loop"],
+        start_ticks=1_000,
+    )
+    signals = []
+
+    def pidfd_open(pid, _flags=0):
+        updater_process.joinpath("cmdline").write_bytes(
+            b"/tmp/not-codex\0app-server\0daemon\0pid-update-loop\0"
+        )
+        return pid
+
+    remote = RemoteControl(
+        "/usr/bin/codex",
+        runner=lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            [], 0, stdout='{"status":"connected"}', stderr=""
+        ),
+        environment={"CODEX_HOME": str(codex_home)},
+        proc_root=str(proc_root),
+    )
+    remote.pidfd_open = pidfd_open
+    remote.pidfd_send_signal = lambda *_args: signals.append(True)
+    remote.fd_close = lambda _fd: None
+
+    try:
+        remote.repair()
+    except RuntimeError:
+        pass
+
+    assert signals == []
+
+
+def test_remote_repair_refuses_a_non_executable_updater_binary(tmp_path):
+    codex_home = tmp_path / "codex-home"
+    daemon_dir = codex_home / "app-server-daemon"
+    release_dir = codex_home / "packages" / "standalone" / "releases" / "0.144.4"
+    daemon_dir.mkdir(parents=True)
+    release_dir.mkdir(parents=True)
+    managed_codex = release_dir / "codex"
+    managed_codex.write_text("not executable", encoding="utf-8")
+    daemon_dir.joinpath("app-server.pid").write_text(
+        json.dumps({"pid": 200, "processStartTime": "earlier"}), encoding="utf-8"
+    )
+    daemon_dir.joinpath("app-server-updater.pid").write_text(
+        json.dumps({"pid": 100, "processStartTime": "earlier"}), encoding="utf-8"
+    )
+    proc_root = tmp_path / "proc"
+    app_process = _write_proc_process(
+        proc_root,
+        200,
+        state="Z",
+        ppid=100,
+        arguments=[],
+        start_ticks=2_000,
+    )
+    updater_process = _write_proc_process(
+        proc_root,
+        100,
+        state="S",
+        ppid=1,
+        arguments=[managed_codex, "app-server", "daemon", "pid-update-loop"],
+        start_ticks=1_000,
+    )
+    signals = []
+
+    def pidfd_send_signal(*_args):
+        signals.append(True)
+        shutil.rmtree(app_process)
+        shutil.rmtree(updater_process)
+
+    remote = RemoteControl(
+        "/usr/bin/codex",
+        runner=lambda *_args, **_kwargs: subprocess.CompletedProcess(
+            [], 0, stdout='{"status":"connected"}', stderr=""
+        ),
+        environment={"CODEX_HOME": str(codex_home)},
+        proc_root=str(proc_root),
+    )
+    remote.pidfd_open = lambda pid, _flags=0: pid
+    remote.pidfd_send_signal = pidfd_send_signal
+    remote.fd_close = lambda _fd: None
+
+    try:
+        remote.repair()
+    except RuntimeError:
+        pass
+
+    assert signals == []
 
 
 def test_remote_command_timeout_uses_sanitized_timeout_error():

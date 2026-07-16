@@ -121,6 +121,7 @@ var Dashboard = class Dashboard {
     this._remoteClientsLoaded = false;
     this._remoteClientsLoading = false;
     this._remoteError = '';
+    this._remoteRepairAvailable = false;
     this._sessions = { active: [], recent: [] };
     this._sessionsError = false;
     this._sessionFilter = 'all';
@@ -555,6 +556,7 @@ var Dashboard = class Dashboard {
   setRemoteStatus(status) {
     this._remoteStatus = status;
     this._remoteError = '';
+    this._remoteRepairAvailable = false;
     this._renderRemote();
   }
 
@@ -588,6 +590,7 @@ var Dashboard = class Dashboard {
       this._remoteClientsLoaded = true;
     }
     this._remoteError = '';
+    this._remoteRepairAvailable = false;
     this._renderRemote();
   }
 
@@ -596,8 +599,9 @@ var Dashboard = class Dashboard {
     this._renderRemote();
   }
 
-  showRemoteError(message) {
+  showRemoteError(message, repairable = false) {
     this._remoteError = message || this._('Remote Control is unavailable');
+    this._remoteRepairAvailable = Boolean(repairable);
     this._renderRemote();
   }
 
@@ -915,6 +919,13 @@ var Dashboard = class Dashboard {
       ));
     } else if (status === 'connecting' || status === 'running') {
       this._remoteButtons.add_child(_button(this._('Stop'), this._callbacks.onRemoteStop));
+      this._remoteButtons.add_child(_button(
+        this._('Refresh'), this._callbacks.onRemoteRefresh
+      ));
+    } else if (this._remoteRepairAvailable) {
+      this._remoteButtons.add_child(_button(
+        this._('Repair Remote…'), this._callbacks.onRemoteRepair
+      ));
       this._remoteButtons.add_child(_button(
         this._('Refresh'), this._callbacks.onRemoteRefresh
       ));

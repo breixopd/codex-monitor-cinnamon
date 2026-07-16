@@ -1,4 +1,5 @@
 from codex_bridge.protocol import CommandRouter
+from codex_bridge.remote import RemoteDaemonStuckError
 
 
 class FakeService:
@@ -19,6 +20,10 @@ class FakeService:
 
     def remote_stop(self):
         return {"status": "disabled"}
+
+    def remote_repair(self):
+        self.calls.append(("remote_repair", None))
+        return {"status": "connected"}
 
     def remote_pair_start(self):
         self.calls.append(("remote_pair_start", None))
@@ -177,6 +182,47 @@ def test_router_requires_confirmation_before_stopping_remote_control():
 
     assert denied["error"]["code"] == "CONFIRMATION_REQUIRED"
     assert allowed["data"] == {"status": "disabled"}
+
+
+def test_router_requires_confirmation_before_repairing_remote_control():
+    service = FakeService()
+    router = CommandRouter(service)
+
+    denied = router.handle(
+        {"id": "request-repair-1", "action": "remote_repair", "params": {}}
+    )
+    allowed = router.handle(
+        {
+            "id": "request-repair-2",
+            "action": "remote_repair",
+            "params": {"confirmed": True},
+        }
+    )
+
+    assert denied["error"]["code"] == "CONFIRMATION_REQUIRED"
+    assert allowed["data"] == {"status": "connected"}
+    assert service.calls == [("remote_repair", None)]
+
+
+def test_router_exposes_only_the_safe_stuck_daemon_error_code():
+    class StuckService(FakeService):
+        def remote_start(self):
+            raise RemoteDaemonStuckError("private daemon path")
+
+    response = CommandRouter(StuckService()).handle(
+        {
+            "id": "request-stuck",
+            "action": "remote_start",
+            "params": {"confirmed": True},
+        }
+    )
+
+    assert response["error"] == {
+        "code": "REMOTE_DAEMON_STUCK",
+        "message": "Codex Remote background service is stuck",
+        "retryable": False,
+    }
+    assert "private" not in repr(response)
 
 
 def test_router_exposes_bounded_sessions_and_launch_actions():
