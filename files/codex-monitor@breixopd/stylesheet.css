@@ -70,7 +70,7 @@
 }
 
 .codex-monitor-dashboard {
-  spacing: 16px;
+  spacing: 12px;
 }
 
 .popup-menu-item.codex-monitor-menu-item {
@@ -82,7 +82,7 @@
 
 .codex-monitor-scroll {
   max-height: 752px;
-  padding: 16px 0 8px;
+  padding: 8px 0;
 }
 
 .codex-monitor-scroll StScrollBar {
@@ -146,6 +146,15 @@
   width: 160px;
   margin-right: 8px;
   text-align: right;
+}
+
+.codex-monitor-compact .codex-monitor-header {
+  spacing: 4px;
+}
+
+.codex-monitor-compact .codex-monitor-header .codex-monitor-status {
+  margin-right: 0;
+  text-align: left;
 }
 
 .codex-monitor-card-row {

@@ -5,6 +5,7 @@
 ### Changed
 
 - Combined the Codex version, update-check freshness, usage-refresh freshness, and footer actions into one responsive dashboard footer
+- Tightened normal and compact dashboard spacing, with the compact status grouped beneath the title
 
 ## [1.2.2] - 2026-07-16
 

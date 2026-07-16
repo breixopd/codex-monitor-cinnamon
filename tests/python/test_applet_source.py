@@ -131,7 +131,7 @@ def test_scroll_viewport_owns_padding_and_clips_the_moving_dashboard():
     assert "padding-right: 0" in menu_item_rule
     assert "margin-left: 0" in menu_item_rule
     assert "margin-right: 0" in menu_item_rule
-    assert "padding: 16px 0 8px" in scroll_rule
+    assert "padding: 8px 0" in scroll_rule
     assert "max-height: 752px" in scroll_rule
     assert "set_clip_to_allocation(true)" in applet
     assert "overlay_scrollbars: false" in applet
@@ -492,6 +492,26 @@ def test_dashboard_styles_use_theme_neutral_surfaces_and_inherited_text():
     assert "color: #ffffff" not in source
     assert "background-color: rgba(128, 128, 128" in source
     assert "color: inherit" in source
+
+
+def test_dashboard_uses_tighter_balanced_spacing_in_both_layouts():
+    source = STYLESHEET_SOURCE.read_text(encoding="utf-8")
+
+    dashboard = _css_rule(source, ".codex-monitor-dashboard")
+    scroll = _css_rule(source, ".codex-monitor-scroll")
+    compact_header = _css_rule(
+        source, ".codex-monitor-compact .codex-monitor-header"
+    )
+    compact_status = _css_rule(
+        source,
+        ".codex-monitor-compact .codex-monitor-header .codex-monitor-status",
+    )
+
+    assert "spacing: 12px" in dashboard
+    assert "padding: 8px 0" in scroll
+    assert "spacing: 4px" in compact_header
+    assert "margin-right: 0" in compact_status
+    assert "text-align: left" in compact_status
 
 
 def test_unchanged_remote_polls_reuse_panel_and_dashboard_indicator_actors():
